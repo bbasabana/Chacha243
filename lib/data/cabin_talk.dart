@@ -14,6 +14,7 @@ class TalkLine {
 
 enum TalkMoment {
   war,
+  serving,
   storm,
   volcano,
   hit,
@@ -157,6 +158,17 @@ const cabinTalks = <TalkMoment, List<List<TalkLine>>>{
     [
       TalkLine('Passager, rang 20', 'Bobeta maboko !', 'Tapez dans vos mains !'),
       TalkLine('Passagers', 'Cha cha cha !', 'Cha cha cha !'),
+    ],
+  ],
+  // Pendant que le chariot passe : chacun a son avis sur le plat du jour. Une réplique à la fois.
+  // Quand une réplique est déjà en français, la ligne du dessous reste vide.
+  TalkMoment.serving: [
+    [
+      TalkLine('Passager, rang 9', 'Moi, je ne prends pas la bière. Je veux du vin, avec le fufu !', ''),
+      TalkLine('Passager, rang 15', 'Nga na liaka kaka Badive na Mbolongo na likofi ya malili', ''),
+      TalkLine('Maman, rang 11', 'Biloko ya ngo pilipili eza te !', 'Cette nourriture n\'a pas de piment !'),
+      TalkLine('Passager, rang 4', 'Oh, nous sommes en avion, les Congolais !', ''),
+      TalkLine('Hôtesse', 'Tokosalisa yo, mama.', 'Nous allons vous aider, maman.'),
     ],
   ],
   TalkMoment.meal: [

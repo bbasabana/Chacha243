@@ -601,6 +601,7 @@ class ChachaGame extends FlameGame {
       case 'ceintures':
         _askBelts('Zone de turbulences droit devant');
       case 'service':
+        _clearStage();
         serveMeal('Fufu', 'Poisson grillé', ['Primus', 'Fanta', 'Jameson']);
     }
     _pushHud();
@@ -1319,7 +1320,14 @@ class ChachaGame extends FlameGame {
     final bag = _talkBags[m] ??= [];
     if (bag.isEmpty) bag.addAll(List.generate(options.length, (i) => i)..shuffle(_rng));
     final lines = options[bag.removeLast()];
-    _cue(() => talk.value = CabinTalk(lines), seconds ?? 2.5 + lines.length * 1.8, hide: () => talk.value = null);
+    if (lines.length > 3) {
+      // Une longue conversation : chacun parle à son tour, avec un temps entre deux répliques.
+      for (final l in lines) {
+        _cue(() => talk.value = CabinTalk([l]), 3.4, hide: () => talk.value = null);
+      }
+    } else {
+      _cue(() => talk.value = CabinTalk(lines), seconds ?? 2.5 + lines.length * 1.8, hide: () => talk.value = null);
+    }
     _nextTalk = t + 20;
   }
 
@@ -2031,7 +2039,7 @@ class ChachaGame extends FlameGame {
       },
       0,
       hold: true,
-      done: () => meal.value == null && cabin.value == null,
+      done: () => meal.value == null,
     );
   }
 
@@ -2055,6 +2063,7 @@ class ChachaGame extends FlameGame {
       (d) => !mealSpirits.contains(d) && !mealBeers.contains(d),
       orElse: () => 'Eau',
     );
+    _talk(TalkMoment.serving, force: true);
     _menu =
         '${base.toLowerCase()} et ${dish.toLowerCase()}, avec un verre de $pilotDrink (pas d\'alcool aux commandes)';
     _cabinT = 0;

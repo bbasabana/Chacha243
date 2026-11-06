@@ -121,6 +121,7 @@ class _BubbleState extends State<_Bubble> with SingleTickerProviderStateMixin {
     if (s.contains('hôtesse')) return Icons.support_agent_rounded;
     if (s.contains('commandant') || s.contains('copilote') || s.contains(' vers ')) return Icons.flight_rounded;
     if (s.contains('enfant')) return Icons.child_care_rounded;
+    if (s.contains('maman') || s.contains('passagère')) return Icons.face_3_rounded;
     if (s == 'passagers') return Icons.groups_rounded;
     return Icons.person_rounded;
   }
@@ -185,15 +186,16 @@ class _BubbleState extends State<_Bubble> with SingleTickerProviderStateMixin {
                         height: 1.2,
                       ),
                     ),
-                    Text(
-                      l.french,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        fontSize: 11.5,
-                        fontStyle: FontStyle.italic,
-                        height: 1.25,
+                    if (l.french.isNotEmpty)
+                      Text(
+                        l.french,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 11.5,
+                          fontStyle: FontStyle.italic,
+                          height: 1.25,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
