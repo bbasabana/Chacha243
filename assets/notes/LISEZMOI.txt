@@ -1,0 +1,2 @@
+Billets en vignettes (220 px de large, JPEG). Gardés en local par l auteur.
+Les noms de fichiers attendus sont dans lib/data/archive.dart (banknotes).

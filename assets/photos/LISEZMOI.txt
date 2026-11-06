@@ -1,0 +1,2 @@
+Photos d archives (vignettes 240 x 300, JPEG). Gardées en local par l auteur tant que leurs droits ne sont pas confirmés.
+Les noms de fichiers attendus sont dans lib/data/archive.dart.
