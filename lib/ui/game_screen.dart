@@ -51,6 +51,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       ..startMoney = from?.money
       ..startSeconds = from?.seconds ?? 0
       ..onBuzz = Sfx.instance.buzz
+      ..onStill = Sfx.instance.still
       ..resumed = from != null || q['reprise'] == '1'
       ..onSound = Sfx.instance.play
       ..quizNow = q['quiz'] == '1'
@@ -58,7 +59,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       // « Indépendance Cha Cha » pour l'arrivée du 30 juin 2027, en boucle pendant la fête ;
       // les chansons des moments quand leur fichier est là.
       ..onFinale = (() => Music.instance.play('chacha', loop: true, level: 0.95))
-      ..onSong = ((key) => Music.instance.play(key))
+      ..onSong = ((key, {level, loop = false}) => Music.instance.play(key, level: level, loop: loop))
       ..onSwell = Music.instance.swell
       ..onHush = Music.instance.stop;
   }
@@ -105,6 +106,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   void _pause(bool on) {
     _game.paused = on;
     on ? Music.instance.pause() : Music.instance.resume();
+    if (on) Sfx.instance.still();
     setState(() => _paused = on);
   }
 
@@ -149,7 +151,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
               onPanUpdate: (d) => _game.touchTarget = d.localPosition,
               onPanEnd: (_) => _game.touchTarget = null,
               onPanCancel: () => _game.touchTarget = null,
-              child: GameWidget(key: ObjectKey(_game), game: _game),
+              // Le jeu se redessine à chaque image ; les panneaux par-dessus, seulement quand ils changent.
+              child: RepaintBoundary(
+                child: GameWidget(key: ObjectKey(_game), game: _game),
+              ),
             ),
             ValueListenableBuilder(
               valueListenable: _game.hud,
@@ -200,7 +205,10 @@ class _Scaled extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
-    final k = (mq.size.shortestSide / 430).clamp(0.85, 1.45);
+    // Petit téléphone, grand téléphone ou tablette : le même tableau de bord, à la taille de l'écran.
+    // Le tableau de bord est dessiné pour 844 × 390 : on garde au moins cette place, quelle que soit la forme de l'écran.
+    final w = math.max(mq.size.width, mq.size.height), h = math.min(mq.size.width, mq.size.height);
+    final k = math.min(w / 844, h / 390).clamp(0.6, 3.0);
     final size = mq.size / k;
     return FittedBox(
       fit: BoxFit.fill,
@@ -251,53 +259,67 @@ class _Hud extends StatelessWidget {
           children: [
             Align(
               alignment: Alignment.topLeft,
-              child: Row(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GlassButton(
-                    onTap: () => Navigator.of(context).pop(),
-                    padding: const EdgeInsets.all(10),
-                    radius: 16,
-                    child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      GlassButton(
+                        onTap: () => Navigator.of(context).pop(),
+                        padding: const EdgeInsets.all(10),
+                        radius: 16,
+                        child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 8),
+                      GlassButton(
+                        onTap: onPause,
+                        padding: const EdgeInsets.all(10),
+                        radius: 16,
+                        child: const Icon(Icons.pause_rounded, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 8),
+                      GlassButton(
+                        onTap: onGuide,
+                        padding: const EdgeInsets.all(10),
+                        radius: 16,
+                        child: const Icon(Icons.help_outline_rounded, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      _Reveal(
+                        visible: showYear,
+                        dim: hud.planeHigh,
+                        from: const Offset(-0.3, 0),
+                        child: _YearPanel(hud: hud),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  GlassButton(
-                    onTap: onPause,
-                    padding: const EdgeInsets.all(10),
-                    radius: 16,
-                    child: const Icon(Icons.pause_rounded, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 8),
-                  GlassButton(
-                    onTap: onGuide,
-                    padding: const EdgeInsets.all(10),
-                    radius: 16,
-                    child: const Icon(Icons.help_outline_rounded, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  _Reveal(
-                    visible: showYear,
-                    dim: hud.planeHigh,
-                    from: const Offset(-0.3, 0),
-                    child: _YearPanel(hud: hud),
-                  ),
+                  // La zone de guerre se lit sous l'année, à gauche : elle ne cache jamais un autre panneau.
+                  if (flying)
+                    ValueListenableBuilder(
+                      valueListenable: game.zoneHud,
+                      builder: (_, z, _) => AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 350),
+                        transitionBuilder: _slide,
+                        layoutBuilder: (current, _) => current ?? const SizedBox.shrink(),
+                        child: z == null
+                            ? const SizedBox.shrink()
+                            : Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: _Reveal(
+                                  visible: true,
+                                  dim: hud.planeHigh,
+                                  from: const Offset(-0.3, 0),
+                                  child: _ZonePanel(key: ValueKey(z.zone), zone: z, next: hud.nextStage),
+                                ),
+                              ),
+                      ),
+                    ),
                 ],
               ),
             ),
-            if (flying)
-              Align(
-                alignment: Alignment.topCenter,
-                child: ValueListenableBuilder(
-                  valueListenable: game.zoneHud,
-                  builder: (_, z, _) => AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 350),
-                    transitionBuilder: _slide,
-                    layoutBuilder: (current, _) => current ?? const SizedBox.shrink(),
-                    child: z == null ? const SizedBox.shrink() : _ZonePanel(key: ValueKey(z.zone), zone: z),
-                  ),
-                ),
-              ),
             if (hud.finale)
               Align(
                 alignment: const Alignment(0, -0.58),
@@ -481,7 +503,7 @@ class _YearPanel extends StatelessWidget {
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
-                if (hud.nextStage.isNotEmpty)
+                if (hud.nextStage.isNotEmpty && !hud.inZone)
                   Text(
                     hud.nextStage,
                     style: const TextStyle(
@@ -1310,26 +1332,40 @@ class _Controls extends StatelessWidget {
                 onTap: game.useMagnet,
                 radius: 34,
                 padding: const EdgeInsets.all(18),
-                child: const Icon(Icons.photo_camera_rounded, color: Colors.white, size: 26),
+                // L'aimant : pendant 3 secondes, il attire vers l'avion les médaillons, les bidons et les étoiles.
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
+                    Text('AIMANT', style: TextStyle(fontSize: 9, letterSpacing: 0.8)),
+                  ],
+                ),
               ),
             ],
           ),
         const SizedBox(width: 14),
         // TURBO est un bouton rond, à portée du pouce droit. Il s'allume en jaune quand la tour demande la ligne droite.
+        // Gros, et il suffit de garder le pouce dessus : l'avion accélère tant qu'on appuie.
         GlassButton(
           onPressChanged: (down) => game.boost = down,
-          radius: 45,
-          tint: game.turboCall ? const Color(0xCCF7D618) : const Color(0x66CE1021),
+          radius: 56,
+          tint: game.turboCall
+              ? const Color(0xCCF7D618)
+              : (hud.boost ? const Color(0xCCFF5A3C) : const Color(0x88CE1021)),
           padding: EdgeInsets.zero,
-          child: const SizedBox(
-            width: 90,
-            height: 90,
+          child: SizedBox(
+            width: 112,
+            height: 112,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 24),
-                SizedBox(height: 2),
-                Text('TURBO', style: TextStyle(fontSize: 12, letterSpacing: 1.4)),
+                const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 32),
+                const SizedBox(height: 3),
+                const Text('TURBO', style: TextStyle(fontSize: 15, letterSpacing: 1.4, fontWeight: FontWeight.w900)),
+                Text(
+                  hud.boost ? 'ça accélère !' : 'maintiens',
+                  style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.8)),
+                ),
               ],
             ),
           ),
@@ -1341,9 +1377,10 @@ class _Controls extends StatelessWidget {
 
 /// Pendant une guerre : le nom de la zone, la vague en cours et la traversée des années.
 class _ZonePanel extends StatelessWidget {
-  const _ZonePanel({super.key, required this.zone});
+  const _ZonePanel({super.key, required this.zone, required this.next});
 
   final ZoneHud zone;
+  final String next;
 
   @override
   Widget build(BuildContext context) {
@@ -1351,9 +1388,10 @@ class _ZonePanel extends StatelessWidget {
     final z = zone.zone;
     return Glass(
       tint: const Color(0x55400008),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -1361,8 +1399,8 @@ class _ZonePanel extends StatelessWidget {
               const Icon(Icons.warning_amber_rounded, color: red, size: 16),
               const SizedBox(width: 6),
               Text(
-                'ZONE DE TURBULENCE · ${z.name.toUpperCase()}',
-                style: const TextStyle(color: red, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.1),
+                z.name.toUpperCase(),
+                style: const TextStyle(color: red, fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: 1),
               ),
             ],
           ),
@@ -1370,11 +1408,11 @@ class _ZonePanel extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (var i = 1; i <= z.waves; i++)
+              for (var i = 1; i <= zone.waves; i++)
                 Container(
-                  width: 22,
+                  width: 9,
                   height: 6,
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  margin: const EdgeInsets.symmetric(horizontal: 1.5),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(3),
                     color: i < zone.wave || (i == zone.wave && !zone.active && zone.progress >= 1)
@@ -1387,12 +1425,20 @@ class _ZonePanel extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 zone.active
-                    ? 'Vague ${zone.wave} / ${z.waves} · ${zone.wave} avion${zone.wave > 1 ? 's' : ''}'
+                    ? 'Vague ${zone.wave} / ${zone.waves} · ${zone.jets} avion${zone.jets > 1 ? 's' : ''}'
                     : 'Makasi ! Vague suivante…',
-                style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800),
+                style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800),
               ),
             ],
           ),
+          if (next.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                next,
+                style: const TextStyle(color: ChachaColors.yellow, fontSize: 10.5, fontWeight: FontWeight.w800),
+              ),
+            ),
         ],
       ),
     );
@@ -1426,7 +1472,7 @@ Widget _gift(IconData icon, String title, String subtitle) => Container(
   ),
 );
 
-class _EndPanel extends StatelessWidget {
+class _EndPanel extends StatefulWidget {
   const _EndPanel({required this.hud, required this.game, required this.checkpoint, required this.onRestart});
 
   final HudState hud;
@@ -1435,110 +1481,99 @@ class _EndPanel extends StatelessWidget {
   final void Function(Checkpoint? from) onRestart;
 
   @override
+  State<_EndPanel> createState() => _EndPanelState();
+}
+
+/// Le bilan tient en quelques lignes ; le reste (tes vols, les dates, le détail) s'ouvre avec « Détails ».
+class _EndPanelState extends State<_EndPanel> {
+  bool _more = false;
+
+  @override
   Widget build(BuildContext context) {
+    final hud = widget.hud, game = widget.game, checkpoint = widget.checkpoint, onRestart = widget.onRestart;
     final win = hud.phase == FlightPhase.finished;
     final past = flights.value.take(5).toList();
+    final earned = game.moneyEarned;
+    final muted = TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12.5);
     return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 40, maxWidth: 640),
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 24, maxWidth: 560),
       child: SingleChildScrollView(
         child: Glass(
           tint: const Color(0x55001433),
-          padding: const EdgeInsets.all(26),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Le pilote en photo, avec son nom : c'est son vol.
+              // Le pilote en photo, avec son nom, et ce qui s'est passé.
               ValueListenableBuilder(
                 valueListenable: pilotPhoto,
                 builder: (_, photo, _) => Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(2.5),
+                      padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: win ? ChachaColors.yellow : Colors.white54,
                       ),
                       child: CircleAvatar(
-                        radius: 26,
+                        radius: 20,
                         backgroundColor: ChachaColors.night,
                         backgroundImage: photo == null ? null : MemoryImage(photo),
-                        child: photo == null ? const Icon(Icons.person_rounded, color: Colors.white70, size: 28) : null,
+                        child: photo == null ? const Icon(Icons.person_rounded, color: Colors.white70, size: 22) : null,
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Text(
-                      'Commandant ${pilotName.value ?? ''}',
-                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            win ? 'Moment de gloire !' : 'CRASH !',
+                            style: TextStyle(
+                              color: win ? ChachaColors.yellow : const Color(0xFFFF6B6B),
+                              fontSize: 24,
+                              height: 1.1,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: win ? 0 : 1.5,
+                            ),
+                          ),
+                          Text(
+                            win
+                                ? 'Commandant ${pilotName.value ?? ''} · du 30 juin 1960 au 30 juin 2027'
+                                : 'Commandant ${pilotName.value ?? ''}${game.failWhy.isEmpty ? '' : ' · ${game.failWhy}'}',
+                            style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w800),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 10),
               Text(
-                win ? 'Moment de gloire !' : 'CRASH !',
-                style: TextStyle(
-                  color: win ? ChachaColors.yellow : const Color(0xFFFF6B6B),
-                  fontSize: win ? 28 : 34,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: win ? 0 : 2,
-                ),
-              ),
-              if (!win) ...[
-                const SizedBox(height: 4),
-                Text(
-                  "L'avion s'est écrasé${game.failWhy.isEmpty ? '' : ' · ${game.failWhy}'}",
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
-                ),
-              ],
-              const SizedBox(height: 4),
-              Text(
-                'Temps de vol : ${_clock(game.flightSeconds)} · enregistré dans le classement des pilotes',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12.5),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                win
-                    ? 'Tu as piloté du 30 juin 1960 au 30 juin 2027.'
-                    : checkpoint == null
-                    ? 'Ton vol s\'arrête en ${hud.year.floor()}.'
-                    : 'Ton vol s\'arrête en ${hud.year.floor()}. Tu peux reprendre là où tu étais.',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 15),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                '${hud.medals} médaillons · ${hud.score} points · ${hud.money} ${hud.currency}',
+                '${hud.year.floor()} · ⏱ ${_clock(game.flightSeconds)} · ${_points(hud.score)} points',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
               ),
-              Builder(
-                builder: (_) {
-                  final earned = game.moneyEarned;
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      earned >= 0
-                          ? 'Pendant ce vol, tu as gagné ${_points(earned)} ${hud.currency}'
-                          : 'Pendant ce vol, tu as dépensé ${_points(-earned)} ${hud.currency}',
-                      style: TextStyle(
-                        color: earned >= 0 ? const Color(0xFF7CF0A6) : const Color(0xFFFF9A9A),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  );
-                },
+              Text(
+                earned >= 0
+                    ? 'Tu as gagné ${_points(earned)} ${hud.currency}'
+                    : 'Tu as dépensé ${_points(-earned)} ${hud.currency}',
+                style: TextStyle(
+                  color: earned >= 0 ? const Color(0xFF7CF0A6) : const Color(0xFFFF9A9A),
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               if (hud.score > 0 && hud.score >= bestScore)
-                const Padding(
-                  padding: EdgeInsets.only(top: 4),
-                  child: Text(
-                    'Nouveau record !',
-                    style: TextStyle(color: ChachaColors.yellow, fontSize: 13, fontWeight: FontWeight.w900),
-                  ),
+                const Text(
+                  'Nouveau record !',
+                  style: TextStyle(color: ChachaColors.yellow, fontSize: 13, fontWeight: FontWeight.w900),
                 ),
               if (win) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -1564,45 +1599,65 @@ class _EndPanel extends StatelessWidget {
                       ch == null ? const SizedBox.shrink() : _MomoBox(ch, seconds: game.flightSeconds),
                 ),
               ],
-              if (past.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Text(
-                  'TES VOLS · MEILLEUR SCORE ${_points(bestScore)}',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
+              if (_more) ...[
+                const SizedBox(height: 12),
+                Text('${hud.medals} médaillons · ${_points(hud.money)} ${hud.currency} en caisse', style: muted),
+                Text('Temps de vol enregistré dans le classement des pilotes', style: muted),
+                if (!win && checkpoint != null)
+                  Text('Tu peux reprendre en ${checkpoint.year.floor()}, là où tu étais.', style: muted),
+                if (past.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'TES VOLS · MEILLEUR SCORE ${_points(bestScore)}',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                    ),
                   ),
+                  const SizedBox(height: 4),
+                  for (final f in past) _FlightRow(flight: f),
+                ],
+                const SizedBox(height: 8),
+                GlassButton(
+                  onTap: () => Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute<void>(builder: (_) => TimelineScreen(caught: {...game.caught}))),
+                  tint: const Color(0x557CF0A6),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  child: const Text('Les dates à retenir'),
                 ),
-                const SizedBox(height: 6),
-                for (final f in past) _FlightRow(flight: f),
               ],
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
               Wrap(
-                spacing: 12,
-                runSpacing: 10,
+                spacing: 10,
+                runSpacing: 8,
                 alignment: WrapAlignment.center,
                 children: [
-                  GlassButton(
-                    onTap: () => Navigator.of(
-                      context,
-                    ).push(MaterialPageRoute<void>(builder: (_) => TimelineScreen(caught: {...game.caught}))),
-                    tint: const Color(0x557CF0A6),
-                    child: const Text('Les dates à retenir'),
-                  ),
                   if (!win && checkpoint != null)
                     GlassButton(
                       onTap: () => onRestart(checkpoint),
-                      tint: const Color(0x55CE1021),
-                      child: Text('Reprendre en ${checkpoint!.year.floor()}'),
+                      tint: const Color(0x88CE1021),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+                      child: Text('Reprendre en ${checkpoint.year.floor()}'),
                     ),
                   GlassButton(
                     onTap: () => onRestart(null),
-                    tint: !win && checkpoint != null ? ChachaColors.glassFill : const Color(0x55CE1021),
+                    tint: !win && checkpoint != null ? ChachaColors.glassFill : const Color(0x88CE1021),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
                     child: const Text('Recommencer en 1960'),
                   ),
-                  GlassButton(onTap: () => Navigator.of(context).pop(), child: const Text('Accueil')),
+                  GlassButton(
+                    onTap: () => Navigator.of(context).pop(),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+                    child: const Text('Accueil'),
+                  ),
+                  GlassButton(
+                    onTap: () => setState(() => _more = !_more),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                    child: Text(_more ? 'Moins ▴' : 'Détails ▾'),
+                  ),
                 ],
               ),
             ],
@@ -2204,6 +2259,28 @@ class _CabinView extends StatelessWidget {
                 if (c.mode == CabinMode.beltsAsk) _PulseButton(onTap: game.fastenBelts),
               ],
             ),
+            if (c.mode == CabinMode.beltsPay) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _PayButton(
+                      label: 'Payer ${_money(ChachaGame.beltsMoney)} ${game.hud.value?.currency ?? ''}',
+                      enabled: game.money >= ChachaGame.beltsMoney,
+                      onTap: () => game.payBelts(true),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _PayButton(
+                      label: 'Payer ${ChachaGame.beltsPoints} points',
+                      enabled: game.score >= ChachaGame.beltsPoints,
+                      onTap: () => game.payBelts(false),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             SizedBox(
               height: 46,
@@ -2211,6 +2288,37 @@ class _CabinView extends StatelessWidget {
               child: CustomPaint(painter: _CabinPainter(c.mode, c.progress, c.seats)),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PayButton extends StatelessWidget {
+  const _PayButton({required this.label, required this.enabled, required this.onTap});
+
+  final String label;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: enabled ? const Color(0xFFFFB86B) : const Color(0x33FFFFFF),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          enabled ? label : '$label · pas assez',
+          style: TextStyle(
+            color: enabled ? const Color(0xFF2A1600) : Colors.white54,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w900,
+          ),
         ),
       ),
     );
@@ -2308,6 +2416,7 @@ class _CabinPainter extends CustomPainter {
         var scale = 1.0;
         switch (mode) {
           case CabinMode.beltsAsk:
+          case CabinMode.beltsPay:
             color = const Color(0xFFFFB86B);
           case CabinMode.beltsFastening:
           case CabinMode.beltsDone:

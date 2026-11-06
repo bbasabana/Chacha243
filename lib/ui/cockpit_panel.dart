@@ -56,7 +56,7 @@ class CockpitPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-              _small('VITESSE', '${hud.speedKmh.round()} km/h'),
+              _small('VITESSE', '${hud.speedKmh.round()} km/h${hud.boost ? ' · TURBO' : ''}'),
               const SizedBox(height: 5),
               _small('PASSAGERS', '${hud.passengers} / ${hud.seats}'),
               const SizedBox(height: 5),

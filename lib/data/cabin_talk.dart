@@ -13,6 +13,7 @@ class TalkLine {
 }
 
 enum TalkMoment {
+  takeoff,
   war,
   serving,
   storm,
@@ -32,6 +33,32 @@ enum TalkMoment {
 }
 
 const cabinTalks = <TalkMoment, List<List<TalkLine>>>{
+  // Au décollage : l'enfant a peur, la maman le rassure, l'équipage parle aux passagers.
+  TalkMoment.takeoff: [
+    [
+      TalkLine('Un enfant', 'Mama ! Mpepo ezali komata !', 'Maman ! L\'avion monte !'),
+      TalkLine('Sa maman', 'Nazali awa, mwana na ngai. Kobanga te.', 'Je suis là, mon enfant. N\'aie pas peur.'),
+      TalkLine(
+        'Hôtesse',
+        'Bapasaze, bofanda malamu mpe bokanga mikaba.',
+        'Chers passagers, restez assis et attachez vos ceintures.',
+      ),
+      TalkLine(
+        'Commandant',
+        'Bomitungisa te, tozali elongo. Mobembo malamu !',
+        'Ne vous inquiétez pas, nous sommes ensemble. Bon voyage !',
+      ),
+    ],
+    [
+      TalkLine('Une petite fille', 'Mama, maboko na ngai ezali kolenga.', 'Maman, mes mains tremblent.'),
+      TalkLine('Sa maman', 'Simba loboko na ngai. Nazali awa.', 'Tiens ma main. Je suis là.'),
+      TalkLine(
+        'Commandant',
+        'Bapasaze na biso, bofanda kimia : likambo te.',
+        'Chers passagers, restez calmes : tout va bien.',
+      ),
+    ],
+  ],
   TalkMoment.war: [
     [
       TalkLine('Passagère, rang 12', 'Eh ! Bitumba lisusu…', 'Eh ! Encore la guerre…'),

@@ -247,8 +247,7 @@ class Scenery {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = r * 0.07
-          ..color = Color.fromRGBO(255, 245, 180, flash)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+          ..color = Color.fromRGBO(255, 245, 180, flash),
       );
       c.drawCircle(at, r * 1.6, Paint()..color = Color.fromRGBO(255, 240, 200, 0.18 * flash));
     }

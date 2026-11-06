@@ -14,7 +14,12 @@ class WarZone {
     required this.waves,
     required this.peaceTitle,
     required this.peaceText,
+    this.part,
   });
+
+  /// Une crise dans la crise (le Sud-Kasaï dans la sécession du Katanga) : ses avions ont leurs couleurs,
+  /// et elle s'arrête quand toutes ses vagues sont passées.
+  final ZonePart? part;
 
   /// L'année d'entrée et l'année de sortie (années décimales).
   final double from, to;
@@ -31,6 +36,16 @@ class WarZone {
   bool contains(double year) => year >= from && year < to;
 }
 
+class ZonePart {
+  const ZonePart({required this.name, required this.place, required this.from, required this.to, required this.end});
+
+  final String name, place;
+
+  /// Ses vagues, de [from] à [to] (comptées depuis 1).
+  final int from, to;
+  final String end;
+}
+
 const warZones = <WarZone>[
   WarZone(
     from: 1960.53,
@@ -38,6 +53,13 @@ const warZones = <WarZone>[
     name: 'Sécession du Katanga',
     place: 'Katanga, Sud-Kasaï',
     waves: 3,
+    part: ZonePart(
+      name: 'Sécession du Sud-Kasaï',
+      place: 'Bakwanga (Mbuji-Mayi)',
+      from: 2,
+      to: 6,
+      end: 'Octobre 1962 : le Sud-Kasaï revient dans le pays.',
+    ),
     peaceTitle: 'Le pays se réunit',
     peaceText: 'Janvier 1963 : la sécession du Katanga prend fin.',
   ),

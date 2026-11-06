@@ -117,23 +117,27 @@ class _GlassButtonState extends State<GlassButton> {
     final enabled = widget.onTap != null || widget.onPressChanged != null;
     return Opacity(
       opacity: enabled ? 1 : 0.45,
-      child: GestureDetector(
+      // Le doigt posé suffit : un bouton maintenu (TURBO, ▲ ▼) ne lâche pas si le pouce glisse un peu.
+      child: Listener(
         behavior: HitTestBehavior.opaque,
-        onTapDown: enabled ? (_) => _set(true) : null,
-        onTapUp: enabled ? (_) => _set(false) : null,
-        onTapCancel: enabled ? () => _set(false) : null,
-        onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _down ? 0.93 : 1,
-          duration: const Duration(milliseconds: 140),
-          curve: Curves.easeOutBack,
-          child: Glass(
-            radius: widget.radius,
-            padding: widget.padding,
-            tint: _down ? Color.lerp(widget.tint, Colors.white, 0.3)! : widget.tint,
-            child: DefaultTextStyle.merge(
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 17),
-              child: widget.child,
+        onPointerDown: enabled ? (_) => _set(true) : null,
+        onPointerUp: enabled ? (_) => _set(false) : null,
+        onPointerCancel: enabled ? (_) => _set(false) : null,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          child: AnimatedScale(
+            scale: _down ? 0.93 : 1,
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOutBack,
+            child: Glass(
+              radius: widget.radius,
+              padding: widget.padding,
+              tint: _down ? Color.lerp(widget.tint, Colors.white, 0.3)! : widget.tint,
+              child: DefaultTextStyle.merge(
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 17),
+                child: widget.child,
+              ),
             ),
           ),
         ),

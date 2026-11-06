@@ -41,6 +41,13 @@ class Sfx {
 
   bool? _vibrator;
 
+  /// Le crash est fini, le vol en pause : le téléphone arrête de vibrer tout de suite.
+  Future<void> still() async {
+    try {
+      await Vibration.cancel();
+    } catch (_) {}
+  }
+
   /// Une vraie vibration du téléphone : [ms] millisecondes, force de 1 à 255.
   Future<void> buzz(int ms, int amplitude) async {
     if (!vibrationsOn.value) return;
