@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
 import android.telephony.TelephonyManager
 import io.flutter.embedding.android.FlutterActivity
@@ -18,9 +19,32 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    // 60 images par seconde suffisent au jeu : sur un écran à 90 ou 120 Hz, le téléphone travaillerait
+    // deux fois plus, chaufferait, et certains systèmes gèlent alors l'app (« trop de processeur »).
+    private fun cap60() {
+        val d = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else @Suppress("DEPRECATION") windowManager.defaultDisplay
+        d ?: return
+        val cur = d.mode
+        val best = d.supportedModes
+            .filter { it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight }
+            .minByOrNull { Math.abs(it.refreshRate - 60f) } ?: return
+        val lp = window.attributes
+        if (lp.preferredDisplayModeId != best.modeId) {
+            lp.preferredDisplayModeId = best.modeId
+            lp.preferredRefreshRate = best.refreshRate
+            window.attributes = lp
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        cap60()
+    }
+
     override fun onResume() {
         super.onResume()
         lockLandscape()
+        cap60()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

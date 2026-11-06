@@ -69,6 +69,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    Glass.cheap = true;
     // Au décollage, plus de musique : seulement le vol.
     Music.instance.stop();
   }
@@ -76,6 +77,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    Glass.cheap = false;
     _focus.dispose();
     Music.instance.stop();
     super.dispose();
@@ -87,6 +89,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   /// Le guide met le vol en pause le temps de le lire.
   void _showGuide(bool open) {
     _game.paused = open || _paused;
+    if (!_paused) open ? Music.instance.pause() : Music.instance.resume();
     setState(() => _guide = open);
   }
 
@@ -101,6 +104,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   /// La pause : le vol s'arrête, on règle le son, puis on reprend là où on était.
   void _pause(bool on) {
     _game.paused = on;
+    on ? Music.instance.pause() : Music.instance.resume();
     setState(() => _paused = on);
   }
 
@@ -477,6 +481,16 @@ class _YearPanel extends StatelessWidget {
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
+                if (hud.nextStage.isNotEmpty)
+                  Text(
+                    hud.nextStage,
+                    style: const TextStyle(
+                      color: ChachaColors.yellow,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
               ],
             ],
           ),
@@ -574,14 +588,25 @@ class _StatusPanel extends StatelessWidget {
               child: Icon(Icons.favorite_rounded, size: 14, color: ChachaColors.yellow),
             ),
           const SizedBox(width: 10),
-          Text(
-            '${hud.score}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${hud.score}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  height: 1.1,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+              Text(
+                'points',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 9, fontWeight: FontWeight.w700),
+              ),
+            ],
           ),
           Container(
             width: 1,
@@ -607,7 +632,7 @@ class _StatusPanel extends StatelessWidget {
               ),
               // La monnaie en toutes lettres : on comprend que Z veut dire zaïres.
               Text(
-                currencyName(hud.currency),
+                'argent · ${currencyName(hud.currency)}',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 9, fontWeight: FontWeight.w700),
               ),
             ],

@@ -21,9 +21,32 @@ class Glass extends StatelessWidget {
   final Color tint;
   final double blur;
 
+  /// En vol, le flou derrière chaque panneau se recalcule à chaque image et coûte cher au téléphone :
+  /// on le remplace par un verre teinté, presque pareil à l'œil.
+  static bool cheap = false;
+
   @override
   Widget build(BuildContext context) {
     final shape = BorderRadius.circular(radius);
+    if (cheap) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: shape,
+          color: const Color(0x8C0B2250),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color.alphaBlend(Color.lerp(tint, Colors.white, 0.25)!, const Color(0x990B2250)),
+              Color.alphaBlend(tint, const Color(0x8C0B2250)),
+              Color.alphaBlend(tint.withValues(alpha: tint.a * 0.6), const Color(0x800B2250)),
+            ],
+          ),
+          border: Border.all(color: ChachaColors.glassEdge, width: 1.2),
+        ),
+        child: Padding(padding: padding, child: child),
+      );
+    }
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: shape,

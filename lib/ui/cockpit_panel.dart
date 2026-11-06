@@ -60,7 +60,12 @@ class CockpitPanel extends StatelessWidget {
               const SizedBox(height: 5),
               _small('PASSAGERS', '${hud.passengers} / ${hud.seats}'),
               const SizedBox(height: 5),
-              _small('ÉTAT', '${hud.condition.round()} %'),
+              _small('RÉSERVE', '${hud.reserve.round()} %'),
+              const SizedBox(height: 5),
+              _small(
+                'ÉTAT',
+                '${hud.condition.round()} %${hud.armor > 0 ? ' · 🛡 ${(hud.armor * 100).round()} %' : ''}',
+              ),
               const SizedBox(height: 3),
               SizedBox(
                 width: 78,

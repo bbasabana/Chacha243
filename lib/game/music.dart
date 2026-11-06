@@ -78,6 +78,8 @@ class Music {
     if (song == null || _playing == key || !await _has(song.file)) return false;
     final order = ++_order;
     _end?.cancel();
+    _endAt = null;
+    _endLeft = null;
     try {
       if (_playing != null) {
         await _slide(0, _fadeOut, order);
@@ -96,12 +98,41 @@ class Music {
       unawaited(_slide(level ?? song.level, Duration(milliseconds: (song.fadeIn * 1000).round()), order));
       if (!loop) {
         final fadeAt = Duration(milliseconds: (song.seconds * 1000).round()) - _endFade;
-        _end = Timer(fadeAt.isNegative ? Duration.zero : fadeAt, () => _fadeAway(order));
+        _endIn(fadeAt.isNegative ? Duration.zero : fadeAt, order);
       }
       return true;
     } catch (_) {
       return false;
     }
+  }
+
+  DateTime? _endAt;
+  Duration? _endLeft;
+
+  void _endIn(Duration d, int order) {
+    _endAt = DateTime.now().add(d);
+    _end = Timer(d, () => _fadeAway(order));
+  }
+
+  /// La pause du vol : la chanson s'arrête là où elle est, et sa fin attend aussi.
+  Future<void> pause() async {
+    if (_playing == null || _endLeft != null) return;
+    _end?.cancel();
+    _endLeft = _endAt == null ? Duration.zero : _endAt!.difference(DateTime.now());
+    try {
+      await _player.pause();
+    } catch (_) {}
+  }
+
+  /// La reprise : la chanson repart d'où elle s'était arrêtée.
+  Future<void> resume() async {
+    final left = _endLeft;
+    _endLeft = null;
+    if (_playing == null || left == null) return;
+    try {
+      await _player.resume();
+    } catch (_) {}
+    if (_endAt != null) _endIn(left.isNegative ? Duration.zero : left, _order);
   }
 
   /// Fait remonter (ou baisser) la chanson en cours jusqu'à [level], en [seconds] secondes.
@@ -126,6 +157,11 @@ class Music {
   Future<void> stop() async {
     final order = ++_order;
     _end?.cancel();
+    _endAt = null;
+    if (_endLeft != null) {
+      _endLeft = null;
+      _level = 0;
+    }
     if (_playing != null) await _slide(0, _fadeOut, order);
     if (order != _order) return;
     _playing = null;

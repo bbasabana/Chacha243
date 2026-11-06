@@ -46,29 +46,73 @@ class Telemetry {
 
   static String get _platform => kIsWeb ? 'web' : defaultTargetPlatform.name;
 
+  /// Without a connection the game still plays: every report waits on the phone, in order,
+  /// and leaves as soon as the server answers again.
+  static const _box = 'chacha243.outbox';
+  static bool _flushing = false, _again = false;
+
   static Future<void> _post(Map<String, Object?> body) async {
     try {
       final id = await _playerId();
-      await http
-          .post(
-            Uri.parse(_url),
-            headers: {'content-type': 'application/json'},
-            body: jsonEncode({
-              'id': id,
-              'name': pilotName.value ?? '',
-              'platform': _platform,
-              'version': _version,
-              'device': {
-                for (final k in const ['brand', 'manufacturer', 'model', 'os', 'operator', 'sim', 'simCountry'])
-                  k: _device[k] ?? '',
-              },
-              'missions': missionsDone.value,
-              ...body,
-            }),
-          )
-          .timeout(const Duration(seconds: 8));
+      final item = jsonEncode({
+        'id': id,
+        'name': pilotName.value ?? '',
+        'platform': _platform,
+        'version': _version,
+        'device': {
+          for (final k in const ['brand', 'manufacturer', 'model', 'os', 'operator', 'sim', 'simCountry'])
+            k: _device[k] ?? '',
+        },
+        'missions': missionsDone.value,
+        'at': DateTime.now().millisecondsSinceEpoch,
+        ...body,
+      });
+      final p = await SharedPreferences.getInstance();
+      final box = p.getStringList(_box) ?? [];
+      // Only the latest resume point matters; the oldest reports go first when the box is full.
+      if (body['kind'] == 'save') box.removeWhere((x) => x.contains('"kind":"save"'));
+      box.add(item);
+      if (box.length > 200) box.removeRange(0, box.length - 200);
+      await p.setStringList(_box, box);
     } catch (_) {}
+    await _flush();
   }
+
+  /// Sends the waiting reports one by one; stops at the first one the network refuses.
+  static Future<void> _flush() async {
+    if (_flushing) {
+      _again = true;
+      return;
+    }
+    _flushing = true;
+    try {
+      final p = await SharedPreferences.getInstance();
+      while (true) {
+        final box = p.getStringList(_box) ?? [];
+        if (box.isEmpty) break;
+        final item = box.first;
+        final r = await http
+            .post(Uri.parse(_url), headers: {'content-type': 'application/json'}, body: item)
+            .timeout(const Duration(seconds: 8));
+        // The server is down or busy: keep it for later. A refused report (4xx) is dropped.
+        if (r.statusCode >= 500 || r.statusCode == 429) break;
+        final now = p.getStringList(_box) ?? [];
+        now.remove(item);
+        await p.setStringList(_box, now);
+      }
+    } catch (_) {
+      // no connection: everything stays in the box
+    } finally {
+      _flushing = false;
+    }
+    if (_again) {
+      _again = false;
+      await _flush();
+    }
+  }
+
+  /// Called at launch and when the app comes back: sends what waited offline.
+  static Future<void> flush() => _flush();
 
   static Future<void> send(
     String kind, {

@@ -29,6 +29,7 @@ class HistoryEvent {
     this.photo,
     this.song,
     this.big = false,
+    this.medal,
   });
 
   /// Année décimale (1974.83 = fin octobre 1974).
@@ -53,8 +54,36 @@ class HistoryEvent {
   /// le ciel entre en ébullition, le drapeau change sous tes yeux.
   final bool big;
 
+  /// Le nom écrit sur la plaque du médaillon, à la place de l'année.
+  final String? medal;
+
   int get yearLabel => year.floor();
 }
+
+/// Juste après le premier décollage, les deux visages de l'Indépendance passent devant l'avion.
+/// Ils ne sont pas dans la frise : ils ouvrent le vol.
+const independenceFaces = <HistoryEvent>[
+  HistoryEvent(
+    1960.5,
+    EventKind.glory,
+    '30 juin 1960',
+    'Léopoldville',
+    'Patrice Emery Lumumba',
+    "Premier ministre du Congo indépendant. Le 30 juin 1960, devant le roi des Belges, il rappelle les souffrances de la colonisation et promet un pays libre et digne.",
+    photo: 'lumumba',
+    medal: 'Lumumba',
+  ),
+  HistoryEvent(
+    1960.5,
+    EventKind.glory,
+    '30 juin 1960',
+    'Léopoldville',
+    'Joseph Kasa-Vubu',
+    "Premier président de la République du Congo. Chef de l'Abako, il proclame avec Lumumba la naissance du pays indépendant.",
+    photo: 'kasavubu',
+    medal: 'Kasa-Vubu',
+  ),
+];
 
 const historyEvents = <HistoryEvent>[
   HistoryEvent(
