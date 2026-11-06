@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flame/game.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -714,7 +713,7 @@ class _StopoverView extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (noteFor(ChachaGame.landingFee, game.year) case final Banknote n when kDebugMode) ...[
+                if (noteFor(ChachaGame.landingFee, game.year) case final Banknote n) ...[
                   ClipRRect(
                     borderRadius: BorderRadius.circular(2),
                     child: Image.asset(
@@ -823,7 +822,7 @@ class _StoryCardView extends StatelessWidget {
       EventKind.obstacle => ('MOMENT DIFFICILE', Color(0xFFFF7A7A)),
       EventKind.memory => ('RECUEILLEMENT', Colors.white),
     };
-    final tag = card.caught ? label : 'MÉDAILLON MANQUÉ';
+    final tag = card.label ?? (card.caught ? label : 'MÉDAILLON MANQUÉ');
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 360),
       child: Glass(
@@ -1385,17 +1384,38 @@ class _Thumb extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.asset(
-              photo.asset,
+          // Un visage dans un rond doré ; un billet reste un rectangle.
+          if (photo.isNote)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Image.asset(
+                photo.asset,
+                width: width,
+                height: width * 0.5,
+                fit: BoxFit.cover,
+                cacheWidth: (width * 2.5).round(),
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
+            )
+          else
+            Container(
               width: width,
-              height: width * 1.25,
-              fit: BoxFit.cover,
-              cacheWidth: (width * 2.5).round(),
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              height: width,
+              padding: const EdgeInsets.all(2.5),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(colors: [Color(0xFFFFF1A8), Color(0xFFE0A100), Color(0xFFFFD34D)]),
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  photo.asset,
+                  fit: BoxFit.cover,
+                  alignment: const Alignment(0, -0.5),
+                  cacheWidth: (width * 2.5).round(),
+                  errorBuilder: (_, _, _) => const ColoredBox(color: Color(0x33FFFFFF)),
+                ),
+              ),
             ),
-          ),
           const SizedBox(height: 2),
           Text(
             photo.credit,
@@ -1720,7 +1740,7 @@ class _MiniNote extends StatelessWidget {
       'NZ' => const Color(0xFF7B6FC9),
       _ => const Color(0xFF4FA3D9),
     };
-    return Container(
+    final painted = Container(
       width: 26,
       height: 15,
       decoration: BoxDecoration(
@@ -1732,6 +1752,24 @@ class _MiniNote extends StatelessWidget {
       child: Text(
         currency,
         style: const TextStyle(color: Colors.white, fontSize: 7.5, fontWeight: FontWeight.w900),
+      ),
+    );
+    // Le vrai billet de l'époque quand on l'a ; sinon un petit billet dessiné.
+    final file = switch (currency) {
+      'NZ' => 'billet-1-nouveau-zaire-1993.jpg',
+      'FC' => 'billet-1-franc-1997.jpg',
+      _ => null,
+    };
+    if (file == null) return painted;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: Image.asset(
+        'assets/notes/$file',
+        width: 34,
+        height: 17,
+        fit: BoxFit.cover,
+        cacheWidth: 100,
+        errorBuilder: (_, _, _) => painted,
       ),
     );
   }

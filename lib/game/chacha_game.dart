@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
@@ -212,10 +213,13 @@ class StopoverHud {
 
 /// Une fiche d'histoire affichée pendant le vol.
 class StoryCard {
-  const StoryCard(this.event, {this.caught = true});
+  const StoryCard(this.event, {this.caught = true, this.label});
 
   final HistoryEvent event;
   final bool caught;
+
+  /// Une étiquette à la place de « Moment marquant » (« Escale », « Nouvelle monnaie »).
+  final String? label;
 }
 
 /// Une annonce courte en haut de l'écran (nouvelle compagnie, nouveau drapeau…).
@@ -509,6 +513,28 @@ class ChachaGame extends FlameGame {
   double _nextFuelAlert = 0, _nextBuzz = 0;
   bool _halfFuelSaid = false, _refuelSaid = false;
   int _fuelCans = 0;
+
+  /// Les visages des médaillons, chargés une fois au départ.
+  final _portraits = <String, ui.Image>{};
+
+  Future<void> _loadPortraits() async {
+    final keys = {
+      for (final e in historyEvents)
+        if (e.photo != null && (e.kind == EventKind.life || e.kind == EventKind.glory)) e.photo!,
+    };
+    for (final k in keys) {
+      final p = archivePhotos[k];
+      if (p == null || !p.isPortrait) continue;
+      try {
+        final data = await rootBundle.load(p.asset);
+        final codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: 180);
+        _portraits[k] = (await codec.getNextFrame()).image;
+      } catch (_) {
+        // Le fichier n'est pas là (il reste chez l'auteur) : le médaillon garde son année.
+      }
+    }
+  }
+
   TextPainter? _fuelLabel;
 
   /// Pour les sons : « medaille », « kerosene », « kit », « etoile », « ceinture ».
@@ -550,6 +576,7 @@ class ChachaGame extends FlameGame {
   Future<void> onLoad() async {
     planeX = _w * 0.2;
     planeY = _planeOnGroundY;
+    _loadPortraits();
     if (startYear != null && resumed && !autopilot) {
       // Après un crash, on repart d'un aéroport, le réservoir presque vide : d'abord le plein.
       year = startYear!;
@@ -630,6 +657,13 @@ class ChachaGame extends FlameGame {
         _nextEvent = historyEvents.indexWhere((e) => e.year > year + 1);
         _spawnSkyLife();
         if (_traffic.isNotEmpty) _traffic.last.x = _w * 0.84;
+      case 'portrait':
+        // Pour les captures : un médaillon avec un visage, juste devant l'avion.
+        autopilot = false;
+        final e = historyEvents.firstWhere((e) => e.photo == 'ldk');
+        _pickups.add(
+          _Pickup(_PickupKind.medal, _w * 2.5, _h * 0.7, event: e, label: _label('${e.yearLabel}', 15 * _unit)),
+        );
       case 'atterrir':
         _clearStage();
         requestLanding();
@@ -739,9 +773,10 @@ class ChachaGame extends FlameGame {
     _cueGap = 0;
   }
 
-  void _queueBanner(FlightBanner b) => _cue(() => banner.value = b, 4, hide: () => banner.value = null);
+  void _queueBanner(FlightBanner b, {bool first = false}) =>
+      _cue(() => banner.value = b, 4, hide: () => banner.value = null, first: first);
 
-  void _showCard(HistoryEvent e, {bool caught = true}) {
+  void _showCard(HistoryEvent e, {bool caught = true, String? label}) {
     if (e.big && caught) {
       // Grand tournant : le ciel bout, le drapeau change, la fiche suit.
       _cue(
@@ -760,7 +795,7 @@ class ChachaGame extends FlameGame {
     _cue(
       () {
         if (e.song != null && e.kind != EventKind.memory && !(e.big && caught)) onSong?.call(e.song!);
-        card.value = StoryCard(e, caught: caught);
+        card.value = StoryCard(e, caught: caught, label: label);
       },
       e.kind == EventKind.memory ? 7 : 6,
       hide: () => card.value = null,
@@ -1851,7 +1886,7 @@ class ChachaGame extends FlameGame {
           text,
           photo: photo,
         ),
-        caught: false,
+        label: 'ESCALE',
       );
     }
     final m = mission.value;
@@ -2059,16 +2094,22 @@ class ChachaGame extends FlameGame {
     final cur = currencyAt(year);
     if (cur != _lastCurrency) {
       _lastCurrency = cur;
-      _queueBanner(
-        FlightBanner(
-          'Nouvelle monnaie',
-          'Ton portefeuille passe en ${switch (cur) {
-            'Z' => 'zaïres',
-            'NZ' => 'nouveaux zaïres',
-            _ => 'francs congolais',
-          }}',
-          color: ChachaColors.yellow,
+      // Le changement de billets : la fiche montre le nouveau billet.
+      _showCard(
+        HistoryEvent(
+          year,
+          EventKind.life,
+          '${year.floor()}',
+          'Banque centrale',
+          'Place aux ${currencyName(cur)} ($cur)',
+          'Ton portefeuille passe en ${currencyName(cur)} : les anciens billets sont échangés contre les nouveaux.',
+          photo: switch (cur) {
+            'NZ' => 'billetnz',
+            'FC' => 'billet1f',
+            _ => null,
+          },
         ),
+        label: 'NOUVELLE MONNAIE',
       );
     }
 
@@ -2443,7 +2484,11 @@ class ChachaGame extends FlameGame {
     // La tour prévient de loin : la zone se voit venir, les ceintures s'attachent avant d'y entrer.
     if (_warnedZone < _nextZone + 1 && year >= ahead.from - 0.7 && year < ahead.from) {
       _warnedZone = _nextZone + 1;
-      _queueBanner(FlightBanner('Zone de turbulence devant', '${ahead.name} · ${ahead.place}', color: _warRed));
+      // L'annonce passe avant tout le reste : elle doit arriver avant la zone.
+      _queueBanner(
+        FlightBanner('Zone de turbulence devant', '${ahead.name} · ${ahead.place}', color: _warRed),
+        first: true,
+      );
       _talk(TalkMoment.war, force: true);
       if (passengers > 0) _askBelts('Zone de guerre droit devant');
     }
@@ -2758,8 +2803,8 @@ class ChachaGame extends FlameGame {
         final glory = e.kind == EventKind.glory;
         onSound?.call('medaille');
         lives = math.min(_maxLives, lives + 1);
-        // Chaque vie rapporte aussi un peu de kérosène.
-        fuel = math.min(100, fuel + 15);
+        // Chaque vie rapporte aussi un peu de kérosène ; un visage du pays en apporte un bidon entier.
+        fuel = math.min(100, fuel + (_portraits.containsKey(e.photo) ? 32 : 15));
         score += glory ? 300 : 150;
         medals++;
         money += 150;
@@ -2964,7 +3009,10 @@ class ChachaGame extends FlameGame {
       final at = Offset(p.x, p.y);
       switch (p.kind) {
         case _PickupKind.medal:
-          Scenery.medal(canvas, at, p.radius * _unit, t, p.label!, glory: p.event!.kind == EventKind.glory);
+          final face = _portraits[p.event!.photo];
+          face == null
+              ? Scenery.medal(canvas, at, p.radius * _unit, t, p.label!, glory: p.event!.kind == EventKind.glory)
+              : _drawPortraitMedal(canvas, at, p.radius * _unit, face, p.label!);
         case _PickupKind.star:
           canvas.save();
           canvas.translate(at.dx, at.dy);
@@ -3182,6 +3230,52 @@ class ChachaGame extends FlameGame {
       ..lineTo(at.dx + 6 * _unit, at.dy + 12 * _unit)
       ..close();
     canvas.drawPath(tri, Paint()..color = Color.fromRGBO(255, 122, 122, pulse));
+  }
+
+  /// Un médaillon avec un visage : la photo dans un rond doré, l'année dessous,
+  /// et le bidon de kérosène que la personne t'apporte.
+  void _drawPortraitMedal(Canvas canvas, Offset at, double r, ui.Image face, TextPainter label) {
+    final pulse = 1 + 0.06 * math.sin(t * 5);
+    canvas.drawCircle(
+      at,
+      r * 1.9 * pulse,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [const Color(0xFFFFD34D).withValues(alpha: 0.55), const Color(0x00FFD34D)],
+        ).createShader(Rect.fromCircle(center: at, radius: r * 1.9 * pulse)),
+    );
+    final circle = Rect.fromCircle(center: at, radius: r);
+    final side = math.min(face.width, face.height).toDouble();
+    // Le visage est souvent en haut de la photo : on cadre un peu plus haut que le centre.
+    final src = Rect.fromLTWH((face.width - side) / 2, math.max(0, (face.height - side) * 0.25), side, side);
+    canvas.save();
+    canvas.clipPath(Path()..addOval(circle));
+    canvas.drawImageRect(face, src, circle, Paint()..filterQuality = FilterQuality.medium);
+    canvas.restore();
+    canvas.drawCircle(
+      at,
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4 * _unit
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFF1A8), Color(0xFFE0A100), Color(0xFFFFD34D)],
+        ).createShader(circle),
+    );
+    // L'année, sur une petite plaque dorée sous le visage.
+    final plate = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: at + Offset(0, r * 0.98),
+        width: label.width + 12 * _unit,
+        height: label.height + 2 * _unit,
+      ),
+      Radius.circular(8 * _unit),
+    );
+    canvas.drawRRect(plate, Paint()..color = const Color(0xFFFFD34D));
+    label.paint(canvas, plate.center - Offset(label.width / 2, label.height / 2));
+    Scenery.fuelCan(canvas, at + Offset(r * 0.95, -r * 0.55), r * 0.36);
   }
 
   /// Un missile gris à pointe rouge, avec sa traînée de feu.

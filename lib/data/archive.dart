@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// Les photos d'archives : petites vignettes dans les fiches d'histoire.
 ///
 /// Une photo ne s'affiche dans l'application publiée que si ses droits sont réglés
@@ -13,7 +11,16 @@ class ArchivePhoto {
   final bool cleared;
 
   String get asset => file.contains('/') ? 'assets/$file' : 'assets/photos/$file';
-  bool get visible => cleared || kDebugMode;
+
+  /// Les photos et les billets sont gardés en local par l'auteur : quand un fichier manque,
+  /// rien ne s'affiche à sa place.
+  bool get visible => true;
+
+  /// Un billet se montre en rectangle ; un visage, dans un rond.
+  bool get isNote => file.startsWith('notes/');
+
+  /// Un portrait de personne, qu'on peut mettre dans un médaillon.
+  bool get isPortrait => !isNote && !file.startsWith('logo');
 }
 
 const archivePhotos = <String, ArchivePhoto>{
