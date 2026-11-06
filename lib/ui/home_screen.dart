@@ -160,6 +160,30 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                   ),
                                 ),
                         ),
+                        // Un championnat ouvert depuis le tableau de bord : son nom, son prix, sa date de fin.
+                        ValueListenableBuilder(
+                          valueListenable: Telemetry.championship,
+                          builder: (_, ch, _) => ch == null
+                              ? const SizedBox.shrink()
+                              : Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: Glass(
+                                    radius: 14,
+                                    tint: const Color(0x40F7D618),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    child: Text(
+                                      '🏆 ${ch.title}${ch.prize.isEmpty ? '' : ' · prix ${ch.prize}'} · '
+                                      '${ch.first ? 'le premier' : 'le plus rapide'} jusqu\'en 2027 gagne'
+                                      '${ch.ends == null ? '' : ' · jusqu\'au ${ch.ends!.day}/${ch.ends!.month}'}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                        ),
                         const _Title(),
                         const SizedBox(height: 10),
                         Text(
@@ -426,7 +450,7 @@ class _NameDialogState extends State<_NameDialog> {
       if (f != null) {
         final bytes = await f.readAsBytes();
         await savePilotPhoto(bytes);
-        Telemetry.uploadPhoto(bytes);
+        Telemetry.syncPhoto();
       }
     } catch (_) {}
     if (mounted) setState(() => _picking = false);
@@ -558,6 +582,10 @@ class _NameDialogState extends State<_NameDialog> {
   }
 }
 
+String _duration(int s) => s >= 3600
+    ? '${s ~/ 3600} h ${((s % 3600) ~/ 60).toString().padLeft(2, '0')}'
+    : '${s ~/ 60} min ${(s % 60).toString().padLeft(2, '0')} s';
+
 /// Le message du tableau de bord : un champion en photo, le texte, la récompense.
 class _NewsDialog extends StatelessWidget {
   const _NewsDialog(this.news);
@@ -593,7 +621,11 @@ class _NewsDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '🏆 ${n.champion}${n.championYear != null ? ' · arrivé en ${n.championYear}' : ''}',
+                    '🏆 ${n.champion}${n.seconds > 0
+                        ? ' · 1960 → 2027 en ${_duration(n.seconds)}'
+                        : n.championYear != null
+                        ? ' · arrivé en ${n.championYear}'
+                        : ''}',
                     style: const TextStyle(color: ChachaColors.yellow, fontSize: 14, fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 6),

@@ -427,6 +427,9 @@ class ChachaGame extends FlameGame {
   /// L'argent qui restait au crash : à la reprise, on ne retrouve pas ce qu'on a dépensé.
   int? startMoney;
 
+  /// Le temps de vol déjà fait avant la reprise.
+  double startSeconds = 0;
+
   /// Pour les tests : kérosène au départ (0-100).
   double? startFuel;
   double keyX = 0, keyY = 0;
@@ -481,6 +484,7 @@ class ChachaGame extends FlameGame {
     final cp = checkpoint.value;
     if (cp == null) return;
     cp.money = money;
+    cp.seconds = _flightT;
     cp.save();
   }
 
@@ -689,7 +693,8 @@ class ChachaGame extends FlameGame {
       _airport = _nearestAirport();
       fuel = 18;
       if (startMoney != null) money = startMoney!;
-      checkpoint.value = Checkpoint(year, score, medals, money: money);
+      _flightT = startSeconds;
+      checkpoint.value = Checkpoint(year, score, medals, money: money, seconds: _flightT);
       _queueBanner(
         FlightBanner(
           'Reprise en ${year.floor()}',
@@ -845,6 +850,7 @@ class ChachaGame extends FlameGame {
         final cp = checkpoint.value;
         if (cp != null) {
           cp.money = money;
+          cp.seconds = _flightT;
           cp.save();
         }
       }
@@ -1926,6 +1932,9 @@ class ChachaGame extends FlameGame {
 
   /// Ce qui a fait tomber l'avion, et le temps de vol : le panneau du crash les affiche.
   String get failWhy => _failWhy;
+
+  /// L'argent gagné (ou perdu) pendant ce vol, depuis le décollage ou la reprise.
+  int get moneyEarned => money - (startMoney ?? 3000);
   double get flightSeconds => _flightT;
 
   bool get canUseReserve => reserve >= 1 && fuel < 90 && phase == FlightPhase.cruising;
@@ -3090,7 +3099,7 @@ class ChachaGame extends FlameGame {
   // ------------------------------------------------------ zones de turbulence
 
   void _saveCheckpoint(double y) {
-    final cp = Checkpoint(y, score, medals, money: money);
+    final cp = Checkpoint(y, score, medals, money: money, seconds: _flightT);
     checkpoint.value = cp;
     if (!autopilot) cp.save();
   }

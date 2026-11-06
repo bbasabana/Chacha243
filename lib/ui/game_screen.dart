@@ -11,6 +11,7 @@ import '../game/chacha_game.dart';
 import '../game/checkpoint.dart';
 import '../game/music.dart';
 import '../game/sfx.dart';
+import '../game/telemetry.dart';
 import 'guide.dart';
 import '../painting/flag_painter.dart';
 import '../theme/chacha_colors.dart';
@@ -48,6 +49,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       ..startScore = from?.score ?? 0
       ..startMedals = from?.medals ?? 0
       ..startMoney = from?.money
+      ..startSeconds = from?.seconds ?? 0
       ..onBuzz = Sfx.instance.buzz
       ..resumed = from != null || q['reprise'] == '1'
       ..onSound = Sfx.instance.play
@@ -1420,6 +1422,34 @@ class _EndPanel extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Le pilote en photo, avec son nom : c'est son vol.
+              ValueListenableBuilder(
+                valueListenable: pilotPhoto,
+                builder: (_, photo, _) => Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2.5),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: win ? ChachaColors.yellow : Colors.white54,
+                      ),
+                      child: CircleAvatar(
+                        radius: 26,
+                        backgroundColor: ChachaColors.night,
+                        backgroundImage: photo == null ? null : MemoryImage(photo),
+                        child: photo == null ? const Icon(Icons.person_rounded, color: Colors.white70, size: 28) : null,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Commandant ${pilotName.value ?? ''}',
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
               Text(
                 win ? 'Moment de gloire !' : 'CRASH !',
                 style: TextStyle(
@@ -1456,6 +1486,24 @@ class _EndPanel extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
               ),
+              Builder(
+                builder: (_) {
+                  final earned = game.moneyEarned;
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      earned >= 0
+                          ? 'Pendant ce vol, tu as gagné ${_points(earned)} ${hud.currency}'
+                          : 'Pendant ce vol, tu as dépensé ${_points(-earned)} ${hud.currency}',
+                      style: TextStyle(
+                        color: earned >= 0 ? const Color(0xFF7CF0A6) : const Color(0xFFFF9A9A),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  );
+                },
+              ),
               if (hud.score > 0 && hud.score >= bestScore)
                 const Padding(
                   padding: EdgeInsets.only(top: 4),
@@ -1483,6 +1531,12 @@ class _EndPanel extends StatelessWidget {
                     _gift(Icons.school_rounded, 'Diplôme', 'Histoire du Congo 1960 – 2027'),
                     _gift(Icons.flight_rounded, 'Avion offert', 'Tous les avions du hangar'),
                   ],
+                ),
+                // Un championnat est ouvert : le pilote laisse son numéro pour recevoir le prix s'il gagne.
+                ValueListenableBuilder(
+                  valueListenable: Telemetry.championship,
+                  builder: (_, ch, _) =>
+                      ch == null ? const SizedBox.shrink() : _MomoBox(ch, seconds: game.flightSeconds),
                 ),
               ],
               if (past.isNotEmpty) ...[
@@ -1529,6 +1583,109 @@ class _EndPanel extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Le championnat à la fin d'un vol gagné : le temps du pilote et son numéro Mobile Money pour le prix.
+class _MomoBox extends StatefulWidget {
+  const _MomoBox(this.championship, {required this.seconds});
+
+  final Championship championship;
+  final double seconds;
+
+  @override
+  State<_MomoBox> createState() => _MomoBoxState();
+}
+
+class _MomoBoxState extends State<_MomoBox> {
+  final _field = TextEditingController();
+  bool _sending = false, _sent = false, _bad = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Telemetry.savedMomo().then((n) {
+      if (n != null && mounted) setState(() => _field.text = n);
+    });
+  }
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    FocusScope.of(context).unfocus();
+    setState(() => _sending = true);
+    final ok = await Telemetry.sendMomo(_field.text.trim());
+    if (mounted) setState(() => (_sending = false, _sent = ok, _bad = !ok));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.championship;
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0x26F7D618),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0x66F7D618)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            '🏆 ${c.title}${c.prize.isEmpty ? '' : ' · prix : ${c.prize}'}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: ChachaColors.yellow, fontSize: 15, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            c.first
+                ? 'Tu es arrivé en 2027 : le premier arrivé gagne.'
+                : 'Ton temps de 1960 à 2027 : ${_clock(widget.seconds)}. Le plus rapide gagne.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+          const SizedBox(height: 10),
+          if (_sent)
+            const Text(
+              '✓ Numéro enregistré : si tu gagnes, le prix t\'arrive par Mobile Money.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF7CF0A6), fontSize: 13, fontWeight: FontWeight.w800),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _field,
+                    keyboardType: TextInputType.phone,
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+                    decoration: InputDecoration(
+                      hintText: 'Ton numéro Mobile Money · ex. 0812345678',
+                      errorText: _bad ? 'Numéro non valide, ou pas de réseau' : null,
+                      filled: true,
+                      fillColor: const Color(0x22FFFFFF),
+                      isDense: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                    onSubmitted: (_) => _send(),
+                    onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GlassButton(
+                  onTap: _sending ? null : _send,
+                  tint: const Color(0x55CE1021),
+                  child: Text(_sending ? '…' : 'Envoyer'),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }

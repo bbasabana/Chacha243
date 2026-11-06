@@ -84,11 +84,13 @@ class Telemetry {
   static Future<void> saveProgress(Checkpoint? cp) => _post({
     'kind': 'save',
     'year': cp?.year ?? 1960,
-    'save': cp == null ? null : {'year': cp.year, 'score': cp.score, 'medals': cp.medals, 'money': cp.money},
+    'save': cp == null
+        ? null
+        : {'year': cp.year, 'score': cp.score, 'medals': cp.medals, 'money': cp.money, 'seconds': cp.seconds.round()},
   });
 
   /// The pilot's photo goes to the ranking. The pilot exists on the server once a first report was sent.
-  static Future<void> uploadPhoto(Uint8List bytes) async {
+  static Future<bool> uploadPhoto(Uint8List bytes) async {
     try {
       final id = await _playerId();
       for (var i = 0; i < 2; i++) {
@@ -99,21 +101,36 @@ class Telemetry {
               body: jsonEncode({'id': id, 'image': base64Encode(bytes)}),
             )
             .timeout(const Duration(seconds: 15));
-        if (r.statusCode != 404) return;
+        if (r.statusCode == 204) return true;
+        if (r.statusCode != 404) return false;
         await hello();
       }
     } catch (_) {}
+    return false;
   }
 
   /// The game was opened: the phone counts among the players, even before a first flight.
   static Future<void> hello() => _post({'kind': 'hello', 'year': 1960});
 
+  /// The championship in progress (title, prize, end), read with the news; null when there is none.
+  static final championship = ValueNotifier<Championship?>(null);
+
   /// The latest message from the dashboard to every pilot, if this phone has not shown it yet.
+  /// Also refreshes [championship].
   static Future<News?> news() async {
     try {
       final r = await http.get(Uri.parse('$_url/news')).timeout(const Duration(seconds: 5));
       if (r.statusCode != 200) return null;
       final b = jsonDecode(r.body) as Map<String, dynamic>;
+      final ch = b['championship'] as Map<String, dynamic>?;
+      championship.value = ch == null
+          ? null
+          : Championship(
+              ch['title'] as String? ?? '',
+              ch['prize'] as String? ?? '',
+              ch['rule'] == 'first',
+              DateTime.tryParse(ch['ends'] as String? ?? '')?.toLocal(),
+            );
       final id = b['id'];
       if (id is! int) return null;
       final p = await SharedPreferences.getInstance();
@@ -134,10 +151,50 @@ class Telemetry {
         c?['name'] as String?,
         (c?['year'] as num?)?.toInt(),
         photo,
+        (b['seconds'] as num?)?.toInt() ?? 0,
       );
     } catch (_) {
       return null;
     }
+  }
+
+  /// The Mobile Money number where a championship prize is sent. True once the server kept it.
+  static Future<bool> sendMomo(String number) async {
+    try {
+      final id = await _playerId();
+      final r = await http
+          .post(
+            Uri.parse('$_url/momo'),
+            headers: {'content-type': 'application/json'},
+            body: jsonEncode({'id': id, 'number': number}),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (r.statusCode == 204) {
+        await (await SharedPreferences.getInstance()).setString('chacha243.momo', number);
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  static Future<String?> savedMomo() async {
+    try {
+      return (await SharedPreferences.getInstance()).getString('chacha243.momo');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// A photo chosen while offline, or before the pilot existed on the server, goes up at the next launch.
+  static Future<void> syncPhoto() async {
+    final ph = pilotPhoto.value;
+    if (ph == null) return;
+    try {
+      final p = await SharedPreferences.getInstance();
+      final mark = '${ph.length}:${ph.isEmpty ? 0 : ph[ph.length ~/ 2]}';
+      if (p.getString('chacha243.photo_sent') == mark) return;
+      if (await uploadPhoto(ph)) await p.setString('chacha243.photo_sent', mark);
+    } catch (_) {}
   }
 
   static Future<void> newsSeen(int id) async {
@@ -174,6 +231,7 @@ class Telemetry {
           (s['score'] as num).toInt(),
           (s['medals'] as num).toInt(),
           money: (s['money'] as num).toInt(),
+          seconds: (s['seconds'] as num?)?.toDouble() ?? 0,
         ).save(sync: false);
       }
     } catch (_) {}
@@ -182,11 +240,25 @@ class Telemetry {
 
 /// A message from the dashboard: the champion, the rewards.
 class News {
-  const News(this.id, this.title, this.body, this.reward, this.champion, this.championYear, this.photo);
+  const News(this.id, this.title, this.body, this.reward, this.champion, this.championYear, this.photo, this.seconds);
 
   final int id;
   final String title, body, reward;
   final String? champion;
   final int? championYear;
   final Uint8List? photo;
+
+  /// The champion's flight time from 1960 to 2027, when the message announces a winner.
+  final int seconds;
+}
+
+/// A championship opened from the dashboard: the prize is written there, never in the game.
+class Championship {
+  const Championship(this.title, this.prize, this.first, this.ends);
+
+  final String title, prize;
+
+  /// The first to arrive wins; otherwise the fastest flight from 1960 to 2027.
+  final bool first;
+  final DateTime? ends;
 }

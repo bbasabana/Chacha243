@@ -15,7 +15,7 @@ Future<void> main() async {
   await loadProfile();
   // Réinstallé ? Le nom du pilote et son point de reprise reviennent depuis le serveur.
   if (!kIsWeb) await Telemetry.restore();
-  if (!kIsWeb) Telemetry.hello();
+  if (!kIsWeb) Telemetry.hello().then((_) => Telemetry.syncPhoto());
   SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   runApp(const Chacha243App());
