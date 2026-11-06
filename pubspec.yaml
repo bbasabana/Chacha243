@@ -39,6 +39,8 @@ dependencies:
   shared_preferences: ^2.5.6
   audioplayers: ^6.7.1
   url_launcher: ^6.3.3
+  vibration: ^3.2.1
+  in_app_update: ^4.2.5
 
 dev_dependencies:
   flutter_test:

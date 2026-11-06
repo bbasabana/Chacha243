@@ -14,6 +14,7 @@ import '../theme/chacha_colors.dart';
 import 'about_screen.dart';
 import 'game_screen.dart';
 import 'glass.dart';
+import 'update_check.dart';
 import 'hangar_screen.dart';
 import 'timeline_screen.dart';
 
@@ -35,7 +36,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _loadSaved();
     // « Indépendance Cha Cha » à l'ouverture du jeu ; elle s'arrête au décollage.
     Music.instance.play('chacha', loop: true);
-    if (pilotName.value == null) WidgetsBinding.instance.addPostFrameCallback((_) => _askName());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (pilotName.value == null) await _askName();
+      if (mounted) await checkPlayUpdate(context);
+    });
   }
 
   Future<void> _askName() async {

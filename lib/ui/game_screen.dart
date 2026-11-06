@@ -33,7 +33,7 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
+class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   late ChachaGame _game = _newGame(widget.resume);
 
   /// Sur le web, `?demo=1&vitesse=3&annee=1974` lance le pilote automatique (bande-annonce, tests).
@@ -47,6 +47,8 @@ class _GameScreenState extends State<GameScreen> {
       ..startFuel = double.tryParse(q['kerosene'] ?? '')
       ..startScore = from?.score ?? 0
       ..startMedals = from?.medals ?? 0
+      ..startMoney = from?.money
+      ..onBuzz = Sfx.instance.buzz
       ..resumed = from != null || q['reprise'] == '1'
       ..onSound = Sfx.instance.play
       ..quizNow = q['quiz'] == '1'
@@ -63,12 +65,14 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Au décollage, plus de musique : seulement le vol.
     Music.instance.stop();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _focus.dispose();
     Music.instance.stop();
     super.dispose();
@@ -79,8 +83,22 @@ class _GameScreenState extends State<GameScreen> {
 
   /// Le guide met le vol en pause le temps de le lire.
   void _showGuide(bool open) {
-    _game.paused = open;
+    _game.paused = open || _paused;
     setState(() => _guide = open);
+  }
+
+  late bool _paused = Uri.base.queryParameters['montrer'] == 'pause';
+
+  /// Un appel, l'écran qui s'éteint : le vol se met en pause tout seul.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if ((state == AppLifecycleState.paused || state == AppLifecycleState.hidden) && !_paused) _pause(true);
+  }
+
+  /// La pause : le vol s'arrête, on règle le son, puis on reprend là où on était.
+  void _pause(bool on) {
+    _game.paused = on;
+    setState(() => _paused = on);
   }
 
   void _restart(Checkpoint? from) {
@@ -131,13 +149,29 @@ class _GameScreenState extends State<GameScreen> {
               builder: (_, hud, _) => hud == null
                   ? const SizedBox.shrink()
                   : _Scaled(
-                      child: _Hud(game: _game, hud: hud, onRestart: _restart, onGuide: () => _showGuide(true)),
+                      child: _Hud(
+                        game: _game,
+                        hud: hud,
+                        onRestart: _restart,
+                        onGuide: () => _showGuide(true),
+                        onPause: () => _pause(true),
+                      ),
                     ),
             ),
             // Les bulles de la cabine passent devant le tableau de bord : on les lit toujours.
             IgnorePointer(
               child: TalkBubbles(key: ObjectKey(_game), game: _game),
             ),
+            if (_paused && !_guide)
+              Positioned.fill(
+                child: _Scaled(
+                  child: _PauseView(
+                    onResume: () => _pause(false),
+                    onGuide: () => _showGuide(true),
+                    onHome: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
             if (_guide)
               Positioned.fill(
                 child: _Scaled(child: GuideView(onClose: () => _showGuide(false))),
@@ -175,18 +209,26 @@ class _Scaled extends StatelessWidget {
 }
 
 class _Hud extends StatelessWidget {
-  const _Hud({required this.game, required this.hud, required this.onRestart, required this.onGuide});
+  const _Hud({
+    required this.game,
+    required this.hud,
+    required this.onRestart,
+    required this.onGuide,
+    required this.onPause,
+  });
 
   final ChachaGame game;
   final HudState hud;
   final void Function(Checkpoint? from) onRestart;
-  final VoidCallback onGuide;
+  final VoidCallback onGuide, onPause;
 
   @override
   Widget build(BuildContext context) {
     final p = hud.phase;
     final flying = p == FlightPhase.cruising || p == FlightPhase.climbing || p == FlightPhase.approach;
     final ended = p == FlightPhase.crashed || p == FlightPhase.finished;
+    // Le bilan attend que l'avion ait touché le sol : on voit le crash.
+    final showEnd = ended && game.crashShown;
     // Pendant un repas ou une question, le vol attend : rien d'autre ne gêne le panneau.
     final modal = game.meal.value != null || game.quiz.value != null;
     // On découvre le tableau de bord pas à pas : l'année au décollage, les points en montée,
@@ -211,6 +253,13 @@ class _Hud extends StatelessWidget {
                     padding: const EdgeInsets.all(10),
                     radius: 16,
                     child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 8),
+                  GlassButton(
+                    onTap: onPause,
+                    padding: const EdgeInsets.all(10),
+                    radius: 16,
+                    child: const Icon(Icons.pause_rounded, color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 8),
                   GlassButton(
@@ -320,7 +369,7 @@ class _Hud extends StatelessWidget {
             if (p == FlightPhase.ready)
               Align(
                 alignment: const Alignment(0, -0.3),
-                child: _TakeoffPanel(hud: hud, game: game),
+                child: _TakeoffPanel(hud: hud, game: game, onRestart: () => onRestart(null)),
               ),
             if (!modal && !hud.finale && (flying || p == FlightPhase.ready || p == FlightPhase.rolling))
               Align(
@@ -340,7 +389,7 @@ class _Hud extends StatelessWidget {
                 ),
               ),
             ),
-            if (ended && game.homecoming.value)
+            if (showEnd && game.homecoming.value)
               Positioned.fill(
                 child: FinaleView(
                   game: game,
@@ -349,7 +398,7 @@ class _Hud extends StatelessWidget {
                   ),
                 ),
               )
-            else if (ended)
+            else if (showEnd)
               Center(
                 child: _EndPanel(hud: hud, game: game, checkpoint: game.checkpoint.value, onRestart: onRestart),
               ),
@@ -896,10 +945,11 @@ class _StoryCardView extends StatelessWidget {
 }
 
 class _TakeoffPanel extends StatelessWidget {
-  const _TakeoffPanel({required this.hud, required this.game});
+  const _TakeoffPanel({required this.hud, required this.game, required this.onRestart});
 
   final HudState hud;
   final ChachaGame game;
+  final VoidCallback onRestart;
 
   @override
   Widget build(BuildContext context) {
@@ -974,6 +1024,30 @@ class _TakeoffPanel extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 4),
+            // Le prix se lit : le kérosène d'avion coûte cher.
+            Text(
+              '${(100 - hud.fuel).round()} % à ${ChachaGame.fuelPrice} ${hud.currency} le pourcent · tu as ${_money(hud.money)} ${hud.currency} et ${_money(hud.score)} points',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11.5),
+            ),
+            if (hud.money + hud.score < ChachaGame.fuelPrice * (50 - hud.fuel).clamp(5, 100) && hud.fuel < 50) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Plus assez d\'argent pour le kérosène : il faut recommencer depuis 1960.',
+                style: TextStyle(
+                  color: const Color(0xFFFF9A9A).withValues(alpha: 0.95),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              GlassButton(
+                onTap: onRestart,
+                tint: const Color(0x55CE1021),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: const Text('Recommencer en 1960', style: TextStyle(fontSize: 13)),
+              ),
+            ],
             const SizedBox(height: 8),
           ],
           Text(
@@ -2193,4 +2267,97 @@ class _BottlePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BottlePainter old) => old.color != color;
+}
+
+/// La pause : le vol attend ; on règle la musique, les sons et les vibrations.
+class _PauseView extends StatelessWidget {
+  const _PauseView({required this.onResume, required this.onGuide, required this.onHome});
+
+  final VoidCallback onResume, onGuide, onHome;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget toggle(ValueNotifier<bool> which, IconData on, IconData off, String label) => ValueListenableBuilder(
+      valueListenable: which,
+      builder: (_, v, _) => GlassButton(
+        onTap: () => saveSwitch(which, !v),
+        tint: v ? const Color(0x557CF0A6) : ChachaColors.glassFill,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(v ? on : off, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Text('$label : ${v ? 'oui' : 'non'}', style: const TextStyle(fontSize: 14)),
+          ],
+        ),
+      ),
+    );
+    return ColoredBox(
+      color: const Color(0x99000814),
+      child: Center(
+        child: Glass(
+          tint: const Color(0x88001A40),
+          padding: const EdgeInsets.fromLTRB(24, 18, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.pause_circle_rounded, color: ChachaColors.yellow, size: 34),
+              const SizedBox(height: 4),
+              const Text(
+                'Pause',
+                style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
+              ),
+              Text(
+                'Le vol t\'attend. Reprends quand tu veux.',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12.5),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: [
+                  toggle(musicOn, Icons.music_note_rounded, Icons.music_off_rounded, 'Musique'),
+                  toggle(soundsOn, Icons.volume_up_rounded, Icons.volume_off_rounded, 'Sons'),
+                  toggle(vibrationsOn, Icons.vibration_rounded, Icons.mobile_off_rounded, 'Vibrations'),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: [
+                  GlassButton(
+                    onTap: onResume,
+                    tint: const Color(0x66CE1021),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
+                        SizedBox(width: 6),
+                        Text('Reprendre le vol', style: TextStyle(fontSize: 15)),
+                      ],
+                    ),
+                  ),
+                  GlassButton(
+                    onTap: onGuide,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: const Text('Guide du pilote', style: TextStyle(fontSize: 14)),
+                  ),
+                  GlassButton(
+                    onTap: onHome,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: const Text('Accueil', style: TextStyle(fontSize: 14)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

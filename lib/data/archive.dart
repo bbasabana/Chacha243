@@ -35,6 +35,8 @@ const archivePhotos = <String, ArchivePhoto>{
   'gecamines': ArchivePhoto('gecamines-terril.jpg', 'Le terril de la Gécamines, Lubumbashi'),
   'outeniqua': ArchivePhoto('outeniqua-1997.jpg', 'Mobutu, Mandela et Kabila sur l\'Outeniqua, 1997'),
   'wagenia': ArchivePhoto('wagenia-kisangani.jpg', 'Les pêcheurs Wagenia, Kisangani'),
+  'lumumba': ArchivePhoto('patrice-lumumba.jpg', 'Patrice Emery Lumumba'),
+  'kasavubu': ArchivePhoto('joseph-kasa-vubu.jpg', 'Joseph Kasa-Vubu'),
   'kalle': ArchivePhoto('grand-kalle.webp', 'Grand Kallé, auteur d\'« Indépendance Cha Cha »'),
   'mulele': ArchivePhoto('pierre-mulele.jpg', 'Pierre Mulele'),
   'etienne': ArchivePhoto('etienne-tshisekedi.jpg', 'Étienne Tshisekedi'),

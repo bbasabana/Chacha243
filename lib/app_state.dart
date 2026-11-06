@@ -12,6 +12,26 @@ final pilotName = ValueNotifier<String?>(null);
 /// Volume de la musique (0 à 1), réglable depuis l'accueil.
 final musicVolume = ValueNotifier<double>(0.7);
 
+/// Les réglages du vol : la musique, les petits sons, les vibrations (tout est allumé au départ).
+final musicOn = ValueNotifier<bool>(true);
+final soundsOn = ValueNotifier<bool>(true);
+final vibrationsOn = ValueNotifier<bool>(true);
+
+const _kMusicOn = 'chacha243.musique', _kSoundsOn = 'chacha243.sons', _kVibrationsOn = 'chacha243.vibrations';
+
+/// Allume ou éteint un réglage, et le garde sur le téléphone.
+Future<void> saveSwitch(ValueNotifier<bool> which, bool on) async {
+  which.value = on;
+  final key = identical(which, musicOn)
+      ? _kMusicOn
+      : identical(which, soundsOn)
+      ? _kSoundsOn
+      : _kVibrationsOn;
+  try {
+    await (await SharedPreferences.getInstance()).setBool(key, on);
+  } catch (_) {}
+}
+
 /// Missions de passagers réussies : le titre de « bon pilote » grandit avec elles.
 final missionsDone = ValueNotifier<int>(0);
 
@@ -70,6 +90,9 @@ Future<void> loadProfile() async {
     final p = await SharedPreferences.getInstance();
     pilotName.value = p.getString(_kName);
     musicVolume.value = p.getDouble(_kVolume) ?? 0.7;
+    musicOn.value = p.getBool(_kMusicOn) ?? true;
+    soundsOn.value = p.getBool(_kSoundsOn) ?? true;
+    vibrationsOn.value = p.getBool(_kVibrationsOn) ?? true;
     missionsDone.value = p.getInt(_kMissions) ?? 0;
     flights.value = [for (final v in p.getStringList(_kFlights) ?? const <String>[]) ?FlightRecord.decode(v)];
   } catch (_) {}

@@ -15,10 +15,16 @@ import '../data/archive.dart';
 /// se soit tue.
 class Music {
   Music._() {
-    musicVolume.addListener(() => _player.setVolume(musicVolume.value * _level).catchError((_) {}));
+    musicVolume.addListener(_applyVolume);
+    musicOn.addListener(_applyVolume);
   }
 
   static final instance = Music._();
+
+  /// Le volume réglé à l'accueil, ou zéro quand la musique est coupée.
+  double get _volume => musicOn.value ? musicVolume.value : 0;
+
+  void _applyVolume() => _player.setVolume(_volume * _level).catchError((_) {});
 
   static const _fadeOut = Duration(milliseconds: 1200);
   static const _endFade = Duration(seconds: 4);
@@ -56,7 +62,7 @@ class Music {
       }
       i++;
       _level = from + (to - from) * (i / steps);
-      _player.setVolume(musicVolume.value * _level).catchError((_) {});
+      _applyVolume();
       if (i >= steps) {
         t.cancel();
         if (!done.isCompleted) done.complete();

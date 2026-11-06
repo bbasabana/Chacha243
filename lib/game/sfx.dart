@@ -1,24 +1,56 @@
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/services.dart';
+import 'package:vibration/vibration.dart';
 
 import '../app_state.dart';
 
 /// Les petits sons du vol : une médaille, un bidon, un kit, une étoile, une ceinture.
 ///
-/// Ils suivent le volume réglé à l'accueil, un peu plus bas que la musique.
+/// Ils ne prennent jamais la main sur la musique : sans cela, Android couperait la chanson
+/// à chaque étoile attrapée.
 class Sfx {
   Sfx._();
 
   static final instance = Sfx._();
+
+  static final _context = AudioContext(
+    android: const AudioContextAndroid(
+      audioFocus: AndroidAudioFocus.none,
+      usageType: AndroidUsageType.game,
+      contentType: AndroidContentType.sonification,
+    ),
+    iOS: AudioContextIOS(options: const {AVAudioSessionOptions.mixWithOthers}),
+  );
 
   // Deux lecteurs par son : deux étoiles attrapées de suite ne se coupent pas.
   final _players = <String, List<AudioPlayer>>{};
   final _turn = <String, int>{};
 
   void play(String name) {
-    final volume = musicVolume.value * (name == 'etoile' ? 0.35 : 0.7);
-    if (volume <= 0) return;
-    final pair = _players[name] ??= [for (var i = 0; i < 2; i++) AudioPlayer()..setPlayerMode(PlayerMode.lowLatency)];
+    if (!soundsOn.value) return;
+    final volume = musicVolume.value.clamp(0.3, 1.0) * (name == 'etoile' ? 0.35 : 0.7);
+    final pair = _players[name] ??= [
+      for (var i = 0; i < 2; i++)
+        AudioPlayer()
+          ..setAudioContext(_context)
+          ..setPlayerMode(PlayerMode.lowLatency),
+    ];
     final i = _turn[name] = ((_turn[name] ?? 0) + 1) % pair.length;
     pair[i].play(AssetSource('sfx/$name.wav'), volume: volume).catchError((_) {});
+  }
+
+  bool? _vibrator;
+
+  /// Une vraie vibration du téléphone : [ms] millisecondes, force de 1 à 255.
+  Future<void> buzz(int ms, int amplitude) async {
+    if (!vibrationsOn.value) return;
+    try {
+      _vibrator ??= await Vibration.hasVibrator();
+      if (_vibrator == true) {
+        await Vibration.vibrate(duration: ms, amplitude: amplitude);
+      } else {
+        await HapticFeedback.heavyImpact();
+      }
+    } catch (_) {}
   }
 }

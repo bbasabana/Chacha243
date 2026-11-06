@@ -110,6 +110,7 @@ const historyEvents = <HistoryEvent>[
     'Katanga',
     'Assassinat de Patrice Lumumba',
     'Le premier Premier ministre du Congo est assassiné. Un moment de silence.',
+    photo: 'lumumba',
   ),
   HistoryEvent(
     1961.49,
@@ -706,6 +707,7 @@ const historyEvents = <HistoryEvent>[
     'Kinshasa',
     'Lumumba rentre au pays',
     'La relique de Patrice Lumumba est rendue à sa famille.',
+    photo: 'lumumba',
   ),
   HistoryEvent(
     2023.08,
