@@ -1288,11 +1288,11 @@ class _Controls extends StatelessWidget {
             ],
           ),
         const SizedBox(width: 14),
-        // TURBO est un bouton rond, à portée du pouce droit.
+        // TURBO est un bouton rond, à portée du pouce droit. Il s'allume en jaune quand la tour demande la ligne droite.
         GlassButton(
           onPressChanged: (down) => game.boost = down,
           radius: 45,
-          tint: const Color(0x66CE1021),
+          tint: game.turboCall ? const Color(0xCCF7D618) : const Color(0x66CE1021),
           padding: EdgeInsets.zero,
           child: const SizedBox(
             width: 90,

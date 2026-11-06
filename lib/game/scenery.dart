@@ -542,7 +542,7 @@ class Scenery {
       r * 2,
       Paint()
         ..shader = RadialGradient(
-          colors: const [Color(0x667CF0A6), Color(0x007CF0A6)],
+          colors: const [Color(0x665AB4FF), Color(0x005AB4FF)],
         ).createShader(Rect.fromCircle(center: at, radius: r * 2)),
     );
     c.drawCircle(
@@ -550,7 +550,7 @@ class Scenery {
       r,
       Paint()
         ..shader = const LinearGradient(
-          colors: [Color(0xFF9CF7BE), Color(0xFF1C9E5A)],
+          colors: [Color(0xFF9FD3FF), Color(0xFF1F6FD1)],
         ).createShader(Rect.fromCircle(center: at, radius: r)),
     );
     c.save();

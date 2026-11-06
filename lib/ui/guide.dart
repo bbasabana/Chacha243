@@ -71,7 +71,7 @@ class GuideView extends StatelessWidget {
                           _Item(
                             _Symbol.kit,
                             'Kit d\'entretien',
-                            'Le plein et l\'entretien faits en vol : pas besoin de descendre.',
+                            'Le rond bleu avec une clé : l\'avion est révisé en vol et le réservoir refait le plein.',
                           ),
                           _Item(_Symbol.star, 'Étoile', 'Des points. Les points peuvent payer le kérosène.'),
                         ]),
@@ -105,7 +105,7 @@ class GuideView extends StatelessWidget {
                           _Item(
                             _Symbol.turbo,
                             'TURBO',
-                            'Décoller sur la piste, puis voler plus vite : les années passent plus vite.',
+                            'Maintiens-le sur la piste pour décoller, puis lâche-le. Quand la tour annonce « Ligne droite », maintiens-le et file droit : +400 points.',
                           ),
                           _Item(
                             _Symbol.camera,

@@ -47,10 +47,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Future<void> _askName() async {
     final name = await showDialog<String>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: pilotName.value != null,
       builder: (_) => const _NameDialog(),
     );
-    if (name != null && name.isNotEmpty) await savePilotName(name);
+    if (name != null && name.isNotEmpty) {
+      await savePilotName(name);
+      // Le nouveau nom part aussi au classement.
+      if (!kIsWeb) Telemetry.hello();
+    }
   }
 
   /// Le message envoyé à tous les pilotes depuis le tableau de bord : le champion, les récompenses.
@@ -141,6 +145,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                           Text(
                                             'Commandant $name · ${pilotRank(missionsDone.value)}',
                                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          // Le nom et la photo se changent ici, à tout moment.
+                                          const Icon(Icons.edit_rounded, color: Colors.white70, size: 16),
+                                          const SizedBox(width: 3),
+                                          const Text(
+                                            'Nom et photo',
+                                            style: TextStyle(color: Colors.white70, fontSize: 12),
                                           ),
                                         ],
                                       ),
@@ -438,8 +450,10 @@ class _NameDialogState extends State<_NameDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Mbote ! Comment t\'appelles-tu, commandant ?',
+              Text(
+                pilotName.value == null
+                    ? 'Mbote ! Comment t\'appelles-tu, commandant ?'
+                    : 'Ton nom et ta photo de pilote',
                 style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 4),
