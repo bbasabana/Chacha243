@@ -17,7 +17,7 @@ class TiltControl {
 
   void start() {
     try {
-      _sub = accelerometerEventStream(samplingPeriod: SensorInterval.gameInterval).listen(
+      _sub = accelerometerEventStream(samplingPeriod: const Duration(milliseconds: 33)).listen(
         (e) {
           final side = e.x >= 0 ? 1.0 : -1.0;
           _pitch = math.atan2(e.z, e.x.abs());

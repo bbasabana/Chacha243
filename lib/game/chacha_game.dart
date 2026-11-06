@@ -991,7 +991,7 @@ class ChachaGame extends FlameGame {
           turningPoint.value = TurningPoint(e, flagAt(e.year - 0.02).style, flagAt(e.year + 0.12).style);
           HapticFeedback.heavyImpact();
         },
-        4.6,
+        7,
         hide: () => turningPoint.value = null,
       );
     }
@@ -1000,11 +1000,27 @@ class ChachaGame extends FlameGame {
         if (e.song != null && e.kind != EventKind.memory && !(e.big && caught)) onSong?.call(e.song!);
         card.value = StoryCard(e, caught: caught, label: label);
       },
-      e.kind == EventKind.memory || independenceFaces.contains(e) ? 8 : 6,
+      _readTime(e),
       hide: () => card.value = null,
       // Lumumba et Kasa-Vubu : leur fiche suit tout de suite le médaillon, avant les conseils de la tour.
       first: independenceFaces.contains(e),
     );
+  }
+
+  /// Quand l'histoire parle (une fiche, un grand tournant, des messages qui attendent), les années ralentissent :
+  /// on lit, on apprend, puis le temps reprend.
+  double get _storyPace {
+    if (turningPoint.value != null || card.value != null) return 0.3;
+    final waiting = _cues.where((c) => !c.hold).length;
+    return waiting >= 3 ? 0.5 : 1;
+  }
+
+  /// Le temps de lire une fiche : environ trois mots par seconde, jamais moins de 9 secondes, au plus 18.
+  double _readTime(HistoryEvent e) {
+    final words = '${e.title} ${e.date} ${e.city} ${e.text}'.split(' ').length;
+    // Un grand tournant ou une photo à regarder : on laisse le temps de lire et de voir.
+    final least = e.big ? 15.0 : (e.kind == EventKind.memory || e.photo != null ? 12.0 : 9.0);
+    return (3 + words / 3).clamp(least, e.big ? 20.0 : 18.0);
   }
 
   void _loseLife([String why = 'Touché en vol']) {
@@ -1085,8 +1101,47 @@ class ChachaGame extends FlameGame {
 
   double _pending = 0;
 
+  /// Mesure du temps passé par image (vol de test lancé avec --dart-define=BENCH=…).
+  static const bench = String.fromEnvironment('BENCH');
+  final _sw = Stopwatch();
+  int _benchFrames = 0, _benchUpdate = 0, _benchRender = 0;
+  double _benchT = 0;
+
   @override
+  // ignore: must_call_super
   void update(double dt) {
+    if (bench.isEmpty) return _update(dt);
+    _sw
+      ..reset()
+      ..start();
+    _update(dt);
+    _benchUpdate += _sw.elapsedMicroseconds;
+    _benchFrames++;
+    _benchT += dt;
+    if (_benchT >= 3) {
+      debugPrint(
+        'BENCH y=${year.toStringAsFixed(2)} fps=${(_benchFrames / _benchT).toStringAsFixed(0)} '
+        'update=${_benchUpdate ~/ _benchFrames}µs render=${_benchRender ~/ _benchFrames}µs '
+        'clouds=${_clouds.length} parts=${_particles.length} jets=${_jets.length} pick=${_pickups.length} '
+        'storm=${year < stormUntil} zone=${_zone?.name}',
+      );
+      _benchFrames = _benchUpdate = _benchRender = 0;
+      _benchT = 0;
+    }
+  }
+
+  @override
+  // ignore: must_call_super
+  void render(Canvas canvas) {
+    if (bench.isEmpty) return _render(canvas);
+    _sw
+      ..reset()
+      ..start();
+    _render(canvas);
+    _benchRender += _sw.elapsedMicroseconds;
+  }
+
+  void _update(double dt) {
     super.update(dt);
     // Flame appelle update(0) pendant la construction de son widget : rien à faire à ce moment-là.
     if (dt == 0) return;
@@ -1241,7 +1296,8 @@ class ChachaGame extends FlameGame {
     _runStage(dt);
     _hudTimer -= dt;
     if (_hudTimer <= 0) {
-      _hudTimer = 0.1;
+      // Le tableau de bord se met à jour 5 fois par seconde : assez pour l'œil, bien moins de travail.
+      _hudTimer = 0.2;
       _pushHud();
     }
   }
@@ -1391,7 +1447,13 @@ class ChachaGame extends FlameGame {
     _airT += dt;
     if (_zone == null) {
       // Juste après le décollage, le ciel est calme : l'histoire reprend après quelques secondes.
-      year += dt * ts / _yearSeconds * (boost ? 1.6 : 1) * (_indep == 1 || _maintT >= 0 ? 0 : (_airT < 14 ? 0.06 : 1));
+      year +=
+          dt *
+          ts /
+          _yearSeconds *
+          (boost ? 1.6 : 1) *
+          _storyPace *
+          (_indep == 1 || _maintT >= 0 ? 0 : (_airT < 14 ? 0.06 : 1));
       _checkDecade();
     } else {
       _updateZone(dt * ts);
@@ -1482,7 +1544,8 @@ class ChachaGame extends FlameGame {
       quizNow = false;
       _askQuiz();
     }
-    if (t >= _nextKit && (fuel < 55 || condition < 55)) _spawnKit();
+    // Le kit attend que la fiche d'histoire soit lue : on n'apprend pas en esquivant.
+    if (t >= _nextKit && (fuel < 55 || condition < 55) && card.value == null && turningPoint.value == null) _spawnKit();
     if (fuel < 10 && !_tenSaid && reserve >= 1) {
       _tenSaid = true;
       _say(
@@ -3644,6 +3707,13 @@ class ChachaGame extends FlameGame {
       j.y += j.drift * dt;
       if (!j.hit && phase == FlightPhase.cruising && _hits(j.x, j.y, _jetLength * (j.missile ? 0.09 : 0.16))) {
         j.hit = true;
+        // Le choc perce le réservoir et coûte des points : on le voit tout de suite, au-dessus de l'avion.
+        if (invulnerable <= 0 && _finaleT < 0) {
+          final leak = j.missile ? 12.0 : 8.0, cost = j.missile ? 150 : 100;
+          fuel = math.max(fuel > 5 ? 5 : fuel, fuel - leak);
+          score = math.max(0, score - cost);
+          _float('−${leak.round()} % kérosène · −$cost points', planeX, planeY - 40 * _unit, const Color(0xFFFF8A65));
+        }
         _loseLife(j.missile ? 'Missile' : 'Avion de chasse');
       }
     }
@@ -3908,8 +3978,7 @@ class ChachaGame extends FlameGame {
 
   // ----------------------------------------------------------------- dessin
 
-  @override
-  void render(Canvas canvas) {
+  void _render(Canvas canvas) {
     final s = Size(_w, _h);
     canvas.save();
     if (shake > 0) canvas.translate((_rng.nextDouble() - 0.5) * 14 * shake, (_rng.nextDouble() - 0.5) * 14 * shake);

@@ -2,6 +2,8 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="Chacha243"
+        android:appCategory="game"
+        android:isGame="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round">

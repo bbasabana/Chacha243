@@ -26,6 +26,19 @@ class ArchivePhoto {
 const archivePhotos = <String, ArchivePhoto>{
   'tshombe': ArchivePhoto('moise-tshombe.jpg', 'Moïse Tshombe'),
   'mobutu': ArchivePhoto('mobutu-au-pouvoir.jpg', 'Mobutu Sese Seko'),
+  'mobututoque': ArchivePhoto('mobutu-toque.jpg', 'Mobutu Sese Seko et sa toque de léopard'),
+  'zaire': ArchivePhoto(
+    'drapeau-zaire.jpg',
+    'Le drapeau du Zaïre : la main et la torche',
+    credit: 'République du Zaïre',
+  ),
+  'mpr': ArchivePhoto('logo-mpr.jpg', 'Le Mouvement populaire de la révolution', credit: 'MPR'),
+  'leopards': ArchivePhoto('leopards-1974.jpg', 'Les Léopards du Zaïre, champions d\'Afrique 1974'),
+  'carte': ArchivePhoto(
+    'carte-citoyen-zaire.jpg',
+    'La carte d\'identité pour citoyen, République du Zaïre',
+    credit: 'République du Zaïre',
+  ),
   'ali': ArchivePhoto('mobutu-ali-1974.jpg', 'Mobutu et Mohamed Ali, Kinshasa, 1974'),
   'abala': ArchivePhoto('ayidini-abala.jpg', 'Le pasteur Ayidini Abala'),
   'ldk': ArchivePhoto('laurent-desire-kabila.jpg', 'Laurent-Désiré Kabila'),
@@ -50,6 +63,7 @@ const archivePhotos = <String, ArchivePhoto>{
   'bcc': ArchivePhoto('logo-banque-centrale.png', 'Banque centrale du Congo', credit: 'Logo BCC'),
   'bcdc': ArchivePhoto('logo-banque-commerciale.png', 'Banque commerciale du Congo', credit: 'Logo BCDC'),
   'billet1f': ArchivePhoto('notes/billet-1-franc-1997.jpg', 'Billet de 1 franc congolais', credit: 'BCC, 1997'),
+  'billet1z': ArchivePhoto('notes/billet-1-zaire-1977.jpg', 'Billet de 1 zaïre', credit: 'Banque du Zaïre, 1977'),
   'billetnz': ArchivePhoto(
     'notes/billet-1-nouveau-zaire-1993.jpg',
     'Billet de 1 nouveau zaïre',
@@ -143,6 +157,7 @@ class MomentSong {
     this.seconds = 40,
     this.level = 0.75,
     this.fadeIn = 1.5,
+    this.then,
   });
 
   final String file;
@@ -160,6 +175,9 @@ class MomentSong {
 
   /// La montée du début, en secondes.
   final double fadeIn;
+
+  /// La chanson qui suit l'extrait sans silence (clé de momentSongs), ou null.
+  final String? then;
 }
 
 const momentSongs = <String, MomentSong>{
@@ -169,6 +187,17 @@ const momentSongs = <String, MomentSong>{
     'Grand Kallé et l\'African Jazz',
     seconds: 50,
   ),
+  // L'hymne du Zaïre : un court extrait, et la chanson du MPR prend la suite sans silence.
+  'hymne': MomentSong(
+    'zaire-hymne.mp3',
+    'La Zaïroise',
+    'Hymne national du Zaïre',
+    seconds: 46,
+    level: 0.6,
+    fadeIn: 1,
+    then: 'mpr',
+  ),
+  'mpr': MomentSong('mpr-chant.mp3', 'Chant du MPR', 'MPR', seconds: 75, level: 0.5, fadeIn: 2),
   'okjazz': MomentSong('franco-chicotte.mp3', 'Chicotte (1964)', 'Franco et l\'OK Jazz'),
   'bomaye': MomentSong('ali-bomaye.mp3', '« Ali, bomaye ! »', 'Kinshasa, 1974'),
   'viva': MomentSong('viva-pole-position.mp3', 'Pole Position', 'Papa Wemba et Viva la Musica'),

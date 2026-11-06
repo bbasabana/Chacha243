@@ -39,7 +39,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   /// Sur le web, `?demo=1&vitesse=3&annee=1974` lance le pilote automatique (bande-annonce, tests).
   ChachaGame _newGame(Checkpoint? from) {
-    final q = Uri.base.queryParameters;
+    final q = ChachaGame.bench.isNotEmpty ? Uri.splitQueryString(ChachaGame.bench) : Uri.base.queryParameters;
     return ChachaGame(widget.type)
       ..autopilot = q['demo'] == '1' && q['montrer'] != 'plein'
       ..timeScale = double.tryParse(q['vitesse'] ?? '') ?? 1
@@ -346,7 +346,7 @@ class _Hud extends StatelessWidget {
                               child: _MissionChip(mission: m, hud: hud),
                             ),
                     ),
-                  if (!ended && !modal)
+                  if (!ended && !modal && p != FlightPhase.ready)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: _StageSlot(game: game),
@@ -395,10 +395,21 @@ class _Hud extends StatelessWidget {
                 ),
               ),
             ),
+            // Au sol : le panneau du décollage sous la barre du haut, et les messages juste dessous,
+            // chacun à sa place, sans se couvrir.
             if (p == FlightPhase.ready)
               Align(
-                alignment: const Alignment(0, -0.3),
-                child: _TakeoffPanel(hud: hud, game: game, onRestart: () => onRestart(null)),
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 78),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _TakeoffPanel(hud: hud, game: game, onRestart: () => onRestart(null)),
+                      if (!modal) ...[const SizedBox(height: 8), _StageSlot(game: game)],
+                    ],
+                  ),
+                ),
               ),
             if (!modal && !hud.finale && (flying || p == FlightPhase.ready || p == FlightPhase.rolling))
               Align(
@@ -491,7 +502,7 @@ class _YearPanel extends StatelessWidget {
                 hud.airline,
                 style: const TextStyle(color: ChachaColors.yellow, fontSize: 11, fontWeight: FontWeight.w800),
               ),
-              if (hud.flightSeconds >= 1) ...[
+              if (hud.flightSeconds >= 1 && hud.phase != FlightPhase.ready) ...[
                 const SizedBox(height: 2),
                 // Le temps qui passe : tout le vol, et l'étape en cours.
                 Text(
@@ -506,6 +517,8 @@ class _YearPanel extends StatelessWidget {
                 if (hud.nextStage.isNotEmpty && !hud.inZone)
                   Text(
                     hud.nextStage,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: ChachaColors.yellow,
                       fontSize: 10,
@@ -1018,7 +1031,7 @@ class _TakeoffPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Glass(
       tint: const Color(0x40001A40),
-      padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

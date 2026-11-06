@@ -97,7 +97,9 @@ class Music {
       );
       unawaited(_slide(level ?? song.level, Duration(milliseconds: (song.fadeIn * 1000).round()), order));
       if (!loop) {
-        final fadeAt = Duration(milliseconds: (song.seconds * 1000).round()) - _endFade;
+        // Une chanson qui en enchaîne une autre lui passe la main un peu avant sa propre fin.
+        final fadeAt =
+            Duration(milliseconds: (song.seconds * 1000).round()) - (song.then != null ? _fadeOut : _endFade);
         _endIn(fadeAt.isNegative ? Duration.zero : fadeAt, order);
       }
       return true;
@@ -111,7 +113,14 @@ class Music {
 
   void _endIn(Duration d, int order) {
     _endAt = DateTime.now().add(d);
-    _end = Timer(d, () => _fadeAway(order));
+    _end = Timer(d, () {
+      final next = current?.then;
+      if (next != null && order == _order) {
+        play(next);
+      } else {
+        _fadeAway(order);
+      }
+    });
   }
 
   /// La pause du vol : la chanson s'arrête là où elle est, et sa fin attend aussi.

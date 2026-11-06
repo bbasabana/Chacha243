@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'app_state.dart';
 import 'data/aircraft_types.dart';
+import 'game/chacha_game.dart';
 import 'game/telemetry.dart';
 import 'theme/chacha_colors.dart';
 import 'ui/game_screen.dart';
@@ -65,7 +66,7 @@ class Chacha243App extends StatelessWidget {
           ),
         );
       },
-      home: switch (Uri.base.queryParameters) {
+      home: switch (ChachaGame.bench.isNotEmpty ? Uri.splitQueryString(ChachaGame.bench) : Uri.base.queryParameters) {
         {'demo': '1'} && final q => GameScreen(type: selectedAircraft.value = aircraftById(q['avion'] ?? 'dc6')),
         {'ecran': 'hangar'} => const HangarScreen(),
         _ => const HomeScreen(),
