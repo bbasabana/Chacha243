@@ -1,0 +1,199 @@
+/// Les moments marquants du 30 juin 1960 au 30 juin 2027.
+///
+/// Les dates suivent le document de conception ; chacune doit encore être validée par
+/// des historiens avant la sortie.
+enum EventKind {
+  /// Médaillon à attraper : une vie.
+  life,
+
+  /// Médaillon doré : une vie, des confettis aux couleurs du drapeau.
+  glory,
+
+  /// Moment difficile : une zone d'orages à traverser.
+  obstacle,
+
+  /// Pause de recueillement, sans médaillon.
+  memory,
+}
+
+class HistoryEvent {
+  const HistoryEvent(this.year, this.kind, this.date, this.city, this.title, this.text,
+      {this.war = false, this.volcano = false, this.photo, this.song, this.big = false});
+
+  /// Année décimale (1974.83 = fin octobre 1974).
+  final double year;
+  final EventKind kind;
+  final String date;
+  final String city;
+  final String title;
+  final String text;
+
+  /// Un moment de guerre : pas d'orages, mais des vagues d'avions de chasse (voir war_zones.dart).
+  final bool war;
+
+  /// Une éruption : on voit le volcan cracher sa lave sous l'avion.
+  final bool volcano;
+
+  /// La vignette d'archive (clé de archivePhotos) et la chanson du moment (clé de momentSongs).
+  final String? photo;
+  final String? song;
+
+  /// Un grand tournant (prise de pouvoir, changement de pays, passation) :
+  /// le ciel entre en ébullition, le drapeau change sous tes yeux.
+  final bool big;
+
+  int get yearLabel => year.floor();
+}
+
+const historyEvents = <HistoryEvent>[
+  HistoryEvent(1960.5, EventKind.glory, '30 juin 1960', 'Kinshasa (Léopoldville)', 'Indépendance',
+      "Le Congo devient indépendant. Toute la ville danse sur « Indépendance Cha Cha ».", song: 'chacha'),
+  HistoryEvent(1960.53, EventKind.obstacle, 'juillet 1960 – janvier 1963', 'Lubumbashi (Élisabethville)',
+      'Sécession du Katanga', 'Le 11 juillet 1960, Moïse Tshombe, chef de la Conakat, proclame l\'indépendance du Katanga. Le pays traverse sa première grande crise.', war: true, photo: 'tshombe'),
+  HistoryEvent(1960.6, EventKind.obstacle, 'août 1960', 'Mbuji-Mayi (Bakwanga)', 'Sécession du Sud-Kasaï',
+      'Le Sud-Kasaï se sépare à son tour.', war: true),
+  HistoryEvent(1960.8, EventKind.life, 'depuis 1922', 'Léopoldville', 'Bralima et Marsavco',
+      'Le pays fabrique sa bière et son savon : la Marsavco naît en 1922, la Bralima le 23 octobre 1923, et la première Primus sort en 1926.'),
+  HistoryEvent(1960.9, EventKind.life, 'années 1960', 'Léopoldville', 'Franco et l\'OK Jazz',
+      'Franco Luambo Makiadi et son OK Jazz, né en 1956, font danser tout le pays sur la rumba.', song: 'okjazz'),
+  HistoryEvent(1961.05, EventKind.memory, '17 janvier 1961', 'Katanga', 'Assassinat de Patrice Lumumba',
+      'Le premier Premier ministre du Congo est assassiné. Un moment de silence.'),
+  HistoryEvent(1961.49, EventKind.life, '29 juin 1961', 'Kinshasa', 'Naissance d\'Air Congo',
+      'Air Congo fait son premier vol, avec des DC-3, DC-4 et DC-6.'),
+  HistoryEvent(1964.47, EventKind.life, '22 juin 1964', 'Kinshasa', 'La banque du pays',
+      'La Banque nationale du Congo, créée en 1961, entre en fonction : elle émet la monnaie. Elle deviendra la Banque du Zaïre, puis la Banque centrale du Congo. La Banque commerciale du Congo, elle, remonte à 1909.', photo: 'bcc'),
+  HistoryEvent(1964.5, EventKind.obstacle, '1964', 'Kisangani (Stanleyville)', 'Rébellions',
+      "L'Est et le centre du pays sont secoués par les rébellions.", war: true),
+  HistoryEvent(1965.9, EventKind.life, '24 novembre 1965', 'Kinshasa', 'Mobutu prend le pouvoir',
+      'Joseph-Désiré Mobutu prend le pouvoir. Il le gardera plus de 30 ans.', big: true),
+  HistoryEvent(1966.4, EventKind.life, '1966', 'Tout le pays', 'Les villes changent de nom',
+      'Léopoldville devient Kinshasa, Élisabethville Lubumbashi, Stanleyville Kisangani.'),
+  HistoryEvent(1966.42, EventKind.memory, '2 juin 1966', 'Kinshasa', 'Les martyrs de la Pentecôte',
+      'Évariste Kimba, Jérôme Anany, Emmanuel Bamba et Alexandre Mahamba sont pendus en public. Le stade des Martyrs porte leur nom.'),
+  HistoryEvent(1967.0, EventKind.life, '2 janvier 1967', 'Lubumbashi', 'La Gécamines',
+      'Les mines de cuivre du Katanga, jusque-là à l\'Union minière, deviennent congolaises (Gécomin, puis Gécamines en 1972). Le terril de Lubumbashi en est le symbole.', photo: 'gecamines'),
+  HistoryEvent(1967.48, EventKind.life, '24 juin 1967', 'Kinshasa', 'Naissance du zaïre',
+      'Une nouvelle monnaie, le zaïre, remplace le franc congolais : 1 zaïre vaut 1 000 francs. Ton portefeuille passe en zaïres.'),
+  HistoryEvent(1968.1, EventKind.glory, '1968', 'Addis-Abeba', 'Champions d\'Afrique',
+      'Les Léopards remportent la Coupe d\'Afrique des nations.'),
+  HistoryEvent(1971.82, EventKind.life, '27 octobre 1971', 'Kinshasa', 'Le pays devient le Zaïre',
+      'Le Congo devient la République du Zaïre ; Air Congo devient Air Zaïre.', big: true),
+  HistoryEvent(1974.2, EventKind.glory, 'mars 1974', 'Égypte', 'Deuxième titre africain',
+      'Les Léopards sont encore champions d\'Afrique, puis jouent la Coupe du monde en Allemagne.'),
+  HistoryEvent(1974.7, EventKind.glory, 'septembre 1974', 'Kinshasa', 'Festival Zaïre 74',
+      'Les plus grands musiciens d\'Afrique et d\'Amérique jouent à Kinshasa.'),
+  HistoryEvent(1974.83, EventKind.glory, '30 octobre 1974', 'Kinshasa', 'Ali – Foreman',
+      '« Ali boma ye ! » Le combat du siècle se déroule au stade du 20 Mai.', photo: 'ali', song: 'bomaye'),
+  HistoryEvent(1976.7, EventKind.obstacle, '1976', 'Yambuku (Équateur)', 'Première épidémie d\'Ebola',
+      'Le virus Ebola est identifié pour la première fois, près de la rivière Ebola.'),
+  HistoryEvent(1977.12, EventKind.glory, 'février 1977', 'Kinshasa', 'Naissance de Viva la Musica',
+      'Papa Wemba fonde Viva la Musica. Le style et la sape kinoise font le tour du monde.', song: 'viva'),
+  HistoryEvent(1977.2, EventKind.obstacle, '1977', 'Katanga (Shaba)', 'Guerre du Shaba I',
+      'Des rebelles venus d\'Angola attaquent le Shaba.', war: true),
+  HistoryEvent(1978.4, EventKind.obstacle, 'mai 1978', 'Kolwezi', 'Guerre du Shaba II',
+      'Kolwezi est prise par des rebelles, puis reprise.', war: true),
+  HistoryEvent(1980.35, EventKind.glory, 'mai 1980', 'Kinshasa', 'Visite du pape Jean-Paul II',
+      'Pour la première fois, un pape vient au Zaïre.'),
+  HistoryEvent(1981.5, EventKind.life, '1981', 'Kinshasa', 'Naissance de Wenge Musica',
+      'Des jeunes de Kinshasa créent Wenge Musica. Le groupe se séparera en 1997 en deux orchestres célèbres.', song: 'wenge'),
+  HistoryEvent(1982.9, EventKind.life, '1982', 'Kinshasa', 'Kester Emeneya et Victoria Eleison',
+      'Kester Emeneya quitte Viva la Musica et fonde Victoria Eleison.', song: 'kester'),
+  HistoryEvent(1985.62, EventKind.glory, 'août 1985', 'Kinshasa', 'Jean-Paul II revient',
+      'Deuxième visite du pape, qui béatifie Anuarite.'),
+  HistoryEvent(1989.78, EventKind.memory, 'octobre 1989', 'Kinshasa', 'Adieu Franco',
+      'Franco Luambo, le « Grand Maître » de la rumba, s\'éteint.'),
+  HistoryEvent(1989.78, EventKind.memory, '12 octobre 1989', 'Bruxelles', 'Franco nous quitte',
+      'Le « Grand Maître » Franco Luambo Makiadi meurt. Le pays pleure son musicien.'),
+  HistoryEvent(1990.31, EventKind.life, '24 avril 1990', 'Kinshasa', '« Comprenez mon émotion »',
+      'Mobutu annonce la fin du parti unique et le multipartisme. Sa phrase reste dans toutes les mémoires.', photo: 'mobutu'),
+  HistoryEvent(1990.6, EventKind.life, 'années 1990 (à confirmer)', 'Ituri, Kinshasa', 'Les églises de réveil',
+      'Les églises de réveil et leurs chants se répandent. Le pasteur pentecôtiste Ayidini Abala, né le 15 juillet 1927 en Ituri, en est une grande figure.',
+      photo: 'abala', song: 'reveil'),
+  HistoryEvent(1991.7, EventKind.obstacle, 'septembre 1991', 'Kinshasa', 'Les pillages',
+      'Kinshasa et d\'autres villes sont pillées.'),
+  HistoryEvent(1992.12, EventKind.memory, '16 février 1992', 'Kinshasa', 'Marche des chrétiens',
+      'Des chrétiens marchent pour la reprise de la Conférence nationale.'),
+  HistoryEvent(1992.12, EventKind.memory, '16 février 1992', 'Kinshasa', 'La marche des chrétiens',
+      'Des milliers de chrétiens marchent pour la reprise de la Conférence nationale. La marche est réprimée dans le sang.'),
+  HistoryEvent(1992.5, EventKind.life, '1991 – 1992', 'Kinshasa', 'Conférence nationale souveraine',
+      'Le pays débat de son avenir pendant des mois.'),
+  HistoryEvent(1993.8, EventKind.obstacle, '22 octobre 1993', 'Kinshasa', 'Le nouveau zaïre',
+      'Les prix montent si vite qu\'il faut une nouvelle monnaie : 1 nouveau zaïre vaut 3 millions d\'anciens zaïres.', photo: 'billetnz'),
+  HistoryEvent(1994.55, EventKind.obstacle, '1994', 'Goma', 'Réfugiés et choléra',
+      'Des centaines de milliers de réfugiés rwandais arrivent à Goma ; le choléra frappe.'),
+  HistoryEvent(1994.7, EventKind.life, '14 septembre 1994', 'Kinshasa', 'Naissance du stade',
+      'Le grand stade de Kinshasa ouvre ses 80 000 places. Il prendra en 1997 le nom de stade des Martyrs.'),
+  HistoryEvent(1995.4, EventKind.obstacle, '1995', 'Kikwit', 'Ebola à Kikwit', 'Nouvelle épidémie d\'Ebola.'),
+  HistoryEvent(1995.45, EventKind.memory, 'juin 1995', 'Kinshasa', 'Fin d\'Air Zaïre',
+      'Couverte de dettes, Air Zaïre s\'arrête.'),
+  HistoryEvent(1996.8, EventKind.obstacle, 'octobre 1996 – mai 1997', 'De l\'Est à Kinshasa', 'Guerre de l\'AFDL',
+      'L\'AFDL de Laurent-Désiré Kabila traverse le pays.', war: true),
+  HistoryEvent(1997.34, EventKind.life, '4 mai 1997', 'Au large de Pointe-Noire', 'Rencontre sur l\'Outeniqua',
+      'Nelson Mandela réunit Mobutu et Laurent-Désiré Kabila sur le navire sud-africain Outeniqua pour une sortie pacifique. Les pourparlers échouent : l\'AFDL continue vers Kinshasa.', photo: 'outeniqua'),
+  HistoryEvent(1997.38, EventKind.life, '17 mai 1997', 'Kinshasa', 'Le Zaïre redevient le Congo',
+      'L\'AFDL de Laurent-Désiré Kabila entre à Kinshasa, Mobutu part. Le Zaïre redevient la République démocratique du Congo, et les FAZ deviennent les FAC.', photo: 'ldk', big: true),
+  HistoryEvent(1998.49, EventKind.life, '30 juin 1998', 'Kinshasa', 'Retour du franc congolais',
+      'Le franc congolais remplace le nouveau zaïre : 1 franc vaut 100 000 nouveaux zaïres. La Banque du Zaïre devient la Banque centrale du Congo.', photo: 'billet1f'),
+  HistoryEvent(1998.6, EventKind.obstacle, 'août 1998', 'Est, Kinshasa', 'Deuxième guerre du Congo',
+      'Une guerre qui implique de nombreux pays de la région.', war: true),
+  HistoryEvent(1999.91, EventKind.life, '30 novembre 1999', 'New York, Kinshasa', 'Les Casques bleus de la MONUC',
+      'L\'ONU crée la MONUC pour accompagner la paix au Congo.'),
+  HistoryEvent(2000.45, EventKind.memory, 'juin 2000', 'Kisangani', 'Guerre des Six Jours',
+      'Kisangani est le théâtre de combats meurtriers.'),
+  HistoryEvent(2001.04, EventKind.memory, '16 janvier 2001', 'Kinshasa', 'Assassinat de L.-D. Kabila',
+      'Laurent-Désiré Kabila est assassiné ; Joseph Kabila lui succède.'),
+  HistoryEvent(2002.05, EventKind.obstacle, '17 janvier 2002', 'Goma', 'Éruption du Nyiragongo',
+      'La lave du volcan traverse la ville de Goma.', volcano: true, photo: 'nyiragongo'),
+  HistoryEvent(2003.3, EventKind.life, '2002 – 2003', 'Sun City, Pretoria', 'Accords de paix',
+      'Les accords ouvrent une période de transition.'),
+  HistoryEvent(2003.5, EventKind.life, '2003', 'Kinshasa', 'Naissance des FARDC',
+      'Pendant la transition, les forces armées sont réunies dans une seule armée : les FARDC.'),
+  HistoryEvent(2006.13, EventKind.glory, '2006', 'Tout le pays', 'Nouvelle Constitution, élections',
+      'Nouveau drapeau, nouvelle Constitution et premières élections pluralistes.', photo: 'jkabila', big: true),
+  HistoryEvent(2007.1, EventKind.obstacle, '2007 – 2008', 'Bas-Congo', 'Bundu dia Kongo',
+      'Des affrontements entre la police et le mouvement Bundu dia Kongo font de nombreuses victimes au Bas-Congo.'),
+  HistoryEvent(2010.5, EventKind.glory, '30 juin 2010', 'Kinshasa', 'Cinquantenaire',
+      'Le pays fête ses 50 ans d\'indépendance.'),
+  HistoryEvent(2010.51, EventKind.life, '1er juillet 2010', 'Kinshasa', 'La MONUC devient la MONUSCO',
+      'La mission de l\'ONU change de nom et de mandat : stabiliser le pays.'),
+  HistoryEvent(2012.88, EventKind.obstacle, 'novembre 2012', 'Goma', 'Le M23 prend Goma',
+      'La rébellion du M23 occupe Goma ; elle est défaite fin 2013.', war: true),
+  HistoryEvent(2015.8, EventKind.life, '20 octobre 2015', 'Kinshasa', 'Congo Airways décolle',
+      'Premier vol de Congo Airways, avec deux Airbus A320.'),
+  HistoryEvent(2016.3, EventKind.memory, 'avril 2016', 'Abidjan', 'Adieu Papa Wemba',
+      'Le roi de la rumba et de la Sape s\'éteint sur scène.'),
+  HistoryEvent(2016.6, EventKind.obstacle, 'août 2016 – 2017', 'Kasaï', 'Kamuina Nsapu',
+      'Après la mort du chef coutumier Kamuina Nsapu, des violences touchent le Kasaï jusqu\'en 2017.'),
+  HistoryEvent(2018.0, EventKind.memory, 'décembre 2017 – 2018', 'Kinshasa', 'Marches du CLC',
+      'Les laïcs catholiques marchent pour des élections.'),
+  HistoryEvent(2018.6, EventKind.obstacle, '2018 – 2020', 'Beni, Butembo', 'Ebola au Nord-Kivu',
+      'Une des plus graves épidémies d\'Ebola de l\'histoire.'),
+  HistoryEvent(2018.77, EventKind.glory, 'octobre 2018', 'Bukavu', 'Nobel de la paix',
+      'Le Dr Denis Mukwege reçoit le prix Nobel de la paix.'),
+  HistoryEvent(2019.07, EventKind.glory, '24 janvier 2019', 'Kinshasa', 'Passation pacifique',
+      'Joseph Kabila passe le pouvoir à Félix Tshisekedi : une première.', photo: 'tshisekedi', big: true),
+  HistoryEvent(2020.2, EventKind.obstacle, 'mars 2020', 'Tout le pays', 'Covid-19',
+      'Confinement, masques, frontières fermées : le monde entier s\'arrête.'),
+  HistoryEvent(2021.4, EventKind.obstacle, '22 mai 2021', 'Goma', 'Le Nyiragongo se réveille',
+      'Nouvelle éruption du volcan au-dessus de Goma.', volcano: true, photo: 'nyiragongo'),
+  HistoryEvent(2021.9, EventKind.obstacle, 'fin 2021', 'Nord-Kivu', 'Retour du M23',
+      'La rébellion du M23 reprend les armes.', war: true),
+  HistoryEvent(2022.47, EventKind.memory, 'juin 2022', 'Kinshasa', 'Lumumba rentre au pays',
+      'La relique de Patrice Lumumba est rendue à sa famille.'),
+  HistoryEvent(2023.08, EventKind.glory, '31 janvier – 3 février 2023', 'Kinshasa', 'Visite du pape François',
+      'Plus d\'un million de fidèles à la messe de N\'dolo.'),
+  HistoryEvent(2023.97, EventKind.life, 'décembre 2023', 'Tout le pays', 'Élections générales',
+      'Félix Tshisekedi est réélu.'),
+  HistoryEvent(2024.1, EventKind.glory, 'février 2024', 'Côte d\'Ivoire', 'Demi-finale de la CAN',
+      'Les Léopards atteignent le dernier carré.'),
+  HistoryEvent(2024.92, EventKind.life, '1er décembre 2024', 'Kinshasa', 'Air Congo renaît',
+      'La nouvelle Air Congo commence ses vols, avec Ethiopian Airlines.'),
+  HistoryEvent(2025.08, EventKind.obstacle, 'janvier – février 2025', 'Goma, Bukavu', 'Goma et Bukavu tombent',
+      'Le M23 prend Goma, puis Bukavu.', war: true),
+  HistoryEvent(2025.3, EventKind.memory, '21 avril 2025', 'Rome', 'Mort du pape François',
+      'Le pape qui était venu à Kinshasa s\'éteint.'),
+  HistoryEvent(2025.48, EventKind.life, 'juin 2025', 'Washington', 'Accord de paix',
+      'La RDC et le Rwanda signent un accord de paix.'),
+  HistoryEvent(2026.14, EventKind.glory, '20 février 2026', 'Kinshasa', 'Air Congo s\'envole loin',
+      'Air Congo annonce Cotonou, Douala, Johannesburg et Kampala.'),
+];
