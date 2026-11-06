@@ -439,7 +439,21 @@ class ChachaGame extends FlameGame {
   bool _homeApproach = false;
 
   // Cabine qui parle, louange des moments difficiles
-  double _talkTimer = 0, _nextTalk = 0, _nextComfort = 0;
+  double _talkTimer = 0, _nextTalk = 0, _nextComfort = 0, _nextChat = 25;
+
+  /// Plus le pays avance, plus le ciel est dur : de 0 en 1960 à 1 en 2027.
+  double get _level => ((year - 1960) / 67).clamp(0.0, 1.0);
+
+  /// On ne garde jamais plus de cinq vies : un crash reste toujours possible.
+  static const _maxLives = 5;
+
+  /// Après une épreuve, le ciel se calme : pas d'orage isolé jusqu'à [_calmUntil].
+  double _calmUntil = 0, _nextSquall = 30, _dance = 0;
+
+  // Le pilote automatique de la démo n'est pas parfait : il réagit avec un temps de retard
+  // et se laisse parfois surprendre, comme un vrai pilote.
+  double _apNext = 0, _apBlind = 0;
+  Offset? _apTarget;
 
   static const _runwayStart = -400.0;
   static const _runwayEnd = 3600.0;
@@ -623,6 +637,7 @@ class ChachaGame extends FlameGame {
     shake = 0.5;
     HapticFeedback.heavyImpact();
     _burst(planeX, planeY, 26, const [Color(0xFFFFB04A), Color(0xFFFF3B3B), Colors.white]);
+    if (lives > 0) _talk(lives == 1 ? TalkMoment.danger : TalkMoment.hit, force: lives == 1);
     if (lives <= 0) {
       lives = 0;
       _setPhase(FlightPhase.crashed);
@@ -816,6 +831,15 @@ class ChachaGame extends FlameGame {
     }
     if (_offerPending && t - _offerAt > 1.5) acceptStopover();
     boost = (t % 8) < 3;
+    if (_finaleT < 0) {
+      if (t < _apNext && _apTarget != null) {
+        touchTarget = _apTarget;
+        return;
+      }
+      _apNext = t + 0.22 + _level * 0.25;
+      if (_apBlind <= t && _rng.nextDouble() < 0.025 + _level * 0.06) _apBlind = t + 0.9 + _level;
+    }
+    final blind = t < _apBlind;
     _Pickup? goal;
     for (final p in _pickups) {
       if (p.x < planeX - 10) continue;
@@ -828,7 +852,7 @@ class ChachaGame extends FlameGame {
     }
     var y = goal?.y ?? _h * 0.45;
     for (final c in _clouds) {
-      if (!c.storm || c.x < planeX - c.r || c.x > planeX + 420 * _unit) continue;
+      if (blind || !c.storm || c.x < planeX - c.r || c.x > planeX + 420 * _unit) continue;
       if ((y - c.y).abs() < c.r * 2.4) y = c.y + (planeY > c.y ? 1 : -1) * c.r * 2.6;
     }
     // Les avions de chasse : choisir la hauteur la plus éloignée de ceux qui arrivent.
@@ -838,7 +862,7 @@ class ChachaGame extends FlameGame {
       for (final b in _bombs)
         if (b.x > planeX - 40 * _unit && b.x < planeX + 500 * _unit) Offset(b.x, b.y + b.vy * 0.4),
     ];
-    if (threats.any((j) => (j.dy - y).abs() < _h * 0.16)) {
+    if (!blind && threats.any((j) => (j.dy - y).abs() < _h * 0.16)) {
       var best = y, bestGap = -1.0;
       for (var i = 0; i <= 12; i++) {
         final c = _h * (0.14 + i * 0.06);
@@ -850,7 +874,7 @@ class ChachaGame extends FlameGame {
       }
       y = best;
     }
-    touchTarget = Offset(_w * 0.26, y.clamp(_h * 0.14, _h * 0.86));
+    touchTarget = _apTarget = Offset(_w * 0.26, y.clamp(_h * 0.14, _h * 0.86));
   }
 
   void _roll(double dt) {
@@ -931,6 +955,18 @@ class ChachaGame extends FlameGame {
     _checkZone();
     if (_zone == null && year >= _finaleFrom && year < _homeYear) return _startFinale();
     _steer(dt);
+    if (_dance > 0) {
+      // L'avion danse : il balance ses ailes au rythme de la joie.
+      _dance = math.max(0, _dance - dt);
+      pitch += math.sin(t * 11) * 0.1 * math.min(1, _dance);
+      if (phaseTime % 0.5 < dt) {
+        _burst(planeX, planeY, 6, const [ChachaColors.yellow, ChachaColors.red, ChachaColors.sky], speed: 120, size: 3);
+      }
+    }
+    if (_zone == null && t >= _nextChat && radio.value == null) {
+      _nextChat = t + 28 + _rng.nextDouble() * 22;
+      _talk(TalkMoment.chat);
+    }
 
     // Carburant
     final maxVy = _h * (0.7 + type.handling * 0.6);
@@ -1177,11 +1213,16 @@ class ChachaGame extends FlameGame {
     if (!force && (t < _nextTalk || _finaleT >= 0)) return;
     final options = cabinTalks[m];
     if (options == null || options.isEmpty) return;
-    final lines = options[_rng.nextInt(options.length)];
+    // Chaque conversation passe une fois avant de revenir : on n'entend pas deux fois la même.
+    final bag = _talkBags[m] ??= [];
+    if (bag.isEmpty) bag.addAll(List.generate(options.length, (i) => i)..shuffle(_rng));
+    final lines = options[bag.removeLast()];
     talk.value = CabinTalk(lines);
     _talkTimer = seconds ?? 2.2 + lines.length * 1.6;
     _nextTalk = t + 14;
   }
+
+  final _talkBags = <TalkMoment, List<int>>{};
 
   /// Un moment difficile : une louange douce réconforte, sans revenir trop souvent.
   void _comfort() {
@@ -1226,10 +1267,26 @@ class ChachaGame extends FlameGame {
   }
 
   void _spawnAmbient() {
+    final d = _level;
     if (year < stormUntil && t >= _nextStorm) {
-      _nextStorm = t + 1.0 + _rng.nextDouble() * 0.8;
-      final y = (planeY + (_rng.nextDouble() - 0.5) * _h * 0.7).clamp(_h * 0.15, _h * 0.85);
-      _clouds.add(_Cloud(_w + 120 * _unit, y, _unit * (34 + _rng.nextDouble() * 20), 1, storm: true));
+      // Les orages se resserrent au fil des années, et viennent parfois à deux.
+      _nextStorm = t + (1.0 - 0.45 * d) + _rng.nextDouble() * (0.8 - 0.3 * d);
+      for (var i = 0; i < (_rng.nextDouble() < d * 0.8 ? 2 : 1); i++) {
+        final y = (planeY + (_rng.nextDouble() - 0.5) * _h * 0.7).clamp(_h * 0.15, _h * 0.85);
+        _clouds.add(
+          _Cloud(_w + (120 + i * 160) * _unit, y, _unit * (34 + _rng.nextDouble() * 20 + d * 10), 1, storm: true),
+        );
+      }
+    }
+    // Hors des grands moments, un orage isolé surgit de temps en temps, de plus en plus souvent.
+    if (year >= 1963 && _zone == null && t >= _nextSquall && t >= _calmUntil && year >= stormUntil) {
+      _nextSquall = t + 22 - 13 * d + _rng.nextDouble() * 8;
+      final n = 1 + (d * 3 * _rng.nextDouble()).floor();
+      for (var i = 0; i < n; i++) {
+        final y = (planeY + (_rng.nextDouble() - 0.5) * _h * 0.5).clamp(_h * 0.15, _h * 0.85);
+        _clouds.add(_Cloud(_w + (120 + i * 140) * _unit, y, _unit * (30 + _rng.nextDouble() * 18), 1, storm: true));
+      }
+      if (n > 1) _talk(TalkMoment.storm);
     }
     if (t >= _nextStar) {
       _nextStar = t + 1.3 + _rng.nextDouble();
@@ -2086,8 +2143,10 @@ class ChachaGame extends FlameGame {
       before = last;
       last = lane;
       // Dès la troisième vague, certains avions dérivent vers toi.
-      final drift = _wave >= 3 && _rng.nextBool() ? ((planeY - lanes[lane]) * 0.22).clamp(-_h * 0.12, _h * 0.12) : 0.0;
-      _jets.add(_Jet(_w + _jetLength, lanes[lane], i * 0.55, _unit * (560 + 90 * _wave), drift));
+      final drift = _wave >= (_level > 0.5 ? 2 : 3) && _rng.nextBool()
+          ? ((planeY - lanes[lane]) * 0.22).clamp(-_h * 0.12, _h * 0.12)
+          : 0.0;
+      _jets.add(_Jet(_w + _jetLength, lanes[lane], i * 0.55, _unit * (560 + 90 * _wave + 160 * _level), drift));
     }
     if (_wave > 1) HapticFeedback.selectionClick();
     _pushHud();
@@ -2097,8 +2156,10 @@ class ChachaGame extends FlameGame {
     final z = _zone!;
     _zone = null;
     _waveActive = false;
-    lives = math.min(9, lives + 1);
+    lives = math.min(_maxLives, lives + 1);
     score += 500;
+    _calmUntil = t + 16;
+    _dance = 4;
     flash = 0.5;
     _peace = 7;
     _confetti();
@@ -2273,7 +2334,7 @@ class ChachaGame extends FlameGame {
       case _PickupKind.medal:
         final e = p.event!;
         final glory = e.kind == EventKind.glory;
-        lives = math.min(9, lives + 1);
+        lives = math.min(_maxLives, lives + 1);
         // Chaque vie rapporte aussi un peu de kérosène.
         fuel = math.min(100, fuel + 15);
         score += glory ? 300 : 150;
@@ -2284,7 +2345,9 @@ class ChachaGame extends FlameGame {
         _burst(p.x, p.y, 30, const [ChachaColors.yellow, Colors.white, Color(0xFFFFE9A0)], speed: 300);
         if (glory) {
           _confetti();
-          _talk(TalkMoment.glory);
+          _dance = 3;
+          _calmUntil = math.max(_calmUntil, t + 8);
+          _talk(_rng.nextBool() ? TalkMoment.glory : TalkMoment.dance);
         }
         HapticFeedback.lightImpact();
       case _PickupKind.star:
