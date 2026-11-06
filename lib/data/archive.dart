@@ -33,6 +33,7 @@ const archivePhotos = <String, ArchivePhoto>{
   'etienne': ArchivePhoto('etienne-tshisekedi.jpg', 'Étienne Tshisekedi'),
   'bemba': ArchivePhoto('jean-pierre-bemba.jpg', 'Jean-Pierre Bemba'),
   'kamerhe': ArchivePhoto('vital-kamerhe.jpg', 'Vital Kamerhe'),
+  'unplusquatre': ArchivePhoto('un-plus-quatre.jpg', 'Le « 1 + 4 » : Joseph Kabila et ses quatre vice-présidents'),
   'gizenga': ArchivePhoto('antoine-gizenga.jpg', 'Antoine Gizenga'),
   'mukwege': ArchivePhoto('denis-mukwege.jpg', 'Le Dr Denis Mukwege à Panzi'),
   // Logos et billets : marques et signes monétaires, à n'afficher qu'avec l'accord de la banque.

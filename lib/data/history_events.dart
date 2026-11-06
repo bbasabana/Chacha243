@@ -513,8 +513,9 @@ const historyEvents = <HistoryEvent>[
     '30 juin 2003',
     'Kinshasa',
     'Le « 1 + 4 »',
-    'Un président, Joseph Kabila, et quatre vice-présidents, dont Jean-Pierre Bemba, conduisent la transition.',
-    photo: 'bemba',
+    'Un président, Joseph Kabila, et quatre vice-présidents : Abdoulaye Yerodia Ndombasi, Azarias Ruberwa, '
+        'Arthur Z\'ahidi Ngoma et Jean-Pierre Bemba. Ensemble, ils conduisent la transition jusqu\'aux élections de 2006.',
+    photo: 'unplusquatre',
   ),
   HistoryEvent(
     2003.5,
