@@ -439,94 +439,118 @@ class _NameDialogState extends State<_NameDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // Couché, la place manque : la photo à gauche, le nom à droite, et pas de clavier tant qu'on
+    // ne touche pas le nom. Tout défile si le clavier prend de la place.
+    final avatar = ValueListenableBuilder(
+      valueListenable: pilotPhoto,
+      builder: (_, photo, _) => GestureDetector(
+        onTap: () => _pickPhoto(ImageSource.gallery),
+        child: CircleAvatar(
+          radius: 42,
+          backgroundColor: const Color(0x33FFFFFF),
+          backgroundImage: photo == null ? null : MemoryImage(photo),
+          child: _picking
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                )
+              : photo == null
+              ? const Icon(Icons.add_a_photo_rounded, color: Colors.white, size: 30)
+              : null,
+        ),
+      ),
+    );
     return Dialog(
       backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Glass(
-          tint: const Color(0x66001A40),
-          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                pilotName.value == null
-                    ? 'Mbote ! Comment t\'appelles-tu, commandant ?'
-                    : 'Ton nom et ta photo de pilote',
-                style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Ton nom et ta photo vont au classement des pilotes. Ils restent même si tu réinstalles le jeu.',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  ValueListenableBuilder(
-                    valueListenable: pilotPhoto,
-                    builder: (_, photo, _) => GestureDetector(
+        constraints: const BoxConstraints(maxWidth: 600),
+        child: SingleChildScrollView(
+          child: Glass(
+            tint: const Color(0x66001A40),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    avatar,
+                    const SizedBox(height: 10),
+                    GlassButton(
                       onTap: () => _pickPhoto(ImageSource.gallery),
-                      child: CircleAvatar(
-                        radius: 30,
-                        backgroundColor: const Color(0x33FFFFFF),
-                        backgroundImage: photo == null ? null : MemoryImage(photo),
-                        child: photo == null
-                            ? (_picking
-                                  ? const SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
-                                    )
-                                  : const Icon(Icons.add_a_photo_rounded, color: Colors.white, size: 26))
-                            : null,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      child: const Text('Choisir une photo', style: TextStyle(fontSize: 12.5)),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        GlassButton(
-                          onTap: () => _pickPhoto(ImageSource.gallery),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          child: const Text('Choisir une photo', style: TextStyle(fontSize: 13)),
-                        ),
-                        GlassButton(
-                          onTap: () => _pickPhoto(ImageSource.camera),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          child: const Text('Prendre un selfie', style: TextStyle(fontSize: 13)),
-                        ),
-                      ],
+                    const SizedBox(height: 6),
+                    GlassButton(
+                      onTap: () => _pickPhoto(ImageSource.camera),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      child: const Text('Prendre un selfie', style: TextStyle(fontSize: 12.5)),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _field,
-                autofocus: true,
-                textCapitalization: TextCapitalization.words,
-                maxLength: 18,
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
-                decoration: InputDecoration(
-                  hintText: 'Ton nom de pilote',
-                  counterText: '',
-                  filled: true,
-                  fillColor: const Color(0x22FFFFFF),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  ],
                 ),
-                onSubmitted: (_) => _done(),
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: GlassButton(onTap: _done, tint: const Color(0x55CE1021), child: const Text('Enregistrer')),
-              ),
-            ],
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        pilotName.value == null
+                            ? 'Mbote ! Comment t\'appelles-tu, commandant ?'
+                            : 'Ton nom et ta photo de pilote',
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Ils vont au classement des pilotes et restent même si tu réinstalles le jeu.',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12.5),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _field,
+                        autofocus: false,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.done,
+                        maxLength: 18,
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+                        decoration: InputDecoration(
+                          hintText: 'Ton nom de pilote',
+                          labelText: pilotName.value == null
+                              ? 'Ton nom de pilote'
+                              : 'Nom de pilote · touche pour le changer',
+                          labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
+                          counterText: '',
+                          filled: true,
+                          fillColor: const Color(0x22FFFFFF),
+                          prefixIcon: const Icon(Icons.edit_rounded, color: Colors.white70, size: 20),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        // Le ✓ du clavier ferme le clavier : on revoit la fenêtre, puis on enregistre.
+                        onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (pilotName.value != null) ...[
+                            GlassButton(onTap: () => Navigator.of(context).pop(), child: const Text('Fermer')),
+                            const SizedBox(width: 10),
+                          ],
+                          GlassButton(onTap: _done, tint: const Color(0x55CE1021), child: const Text('Enregistrer')),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
