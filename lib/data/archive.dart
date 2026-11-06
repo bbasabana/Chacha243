@@ -75,6 +75,14 @@ Banknote? noteFor(int amount, double year) {
   return out.firstWhere((b) => b.value >= amount, orElse: () => out.last);
 }
 
+/// Le nom de la monnaie en toutes lettres, sous le montant.
+String currencyName(String code) => switch (code) {
+  'F' => 'francs',
+  'Z' => 'zaïres',
+  'NZ' => 'nouveaux zaïres',
+  _ => 'francs congolais',
+};
+
 /// La monnaie de l'époque : franc, zaïre, nouveau zaïre, puis franc congolais.
 String currencyAt(double year) => year < 1967.48
     ? 'F'

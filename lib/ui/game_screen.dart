@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +11,8 @@ import '../data/history_events.dart';
 import '../game/chacha_game.dart';
 import '../game/checkpoint.dart';
 import '../game/music.dart';
+import '../game/sfx.dart';
+import 'guide.dart';
 import '../painting/flag_painter.dart';
 import '../theme/chacha_colors.dart';
 import '../app_state.dart';
@@ -44,6 +48,8 @@ class _GameScreenState extends State<GameScreen> {
       ..startFuel = double.tryParse(q['kerosene'] ?? '')
       ..startScore = from?.score ?? 0
       ..startMedals = from?.medals ?? 0
+      ..resumed = from != null || q['reprise'] == '1'
+      ..onSound = Sfx.instance.play
       ..quizNow = q['quiz'] == '1'
       ..showcase = q['montrer']
       // « Indépendance Cha Cha » pour l'arrivée du 30 juin 2027, en boucle pendant la fête ;
@@ -67,6 +73,15 @@ class _GameScreenState extends State<GameScreen> {
     _focus.dispose();
     Music.instance.stop();
     super.dispose();
+  }
+
+  // Pour les captures : `?montrer=guide` ouvre le guide dès le départ.
+  late bool _guide = Uri.base.queryParameters['montrer'] == 'guide';
+
+  /// Le guide met le vol en pause le temps de le lire.
+  void _showGuide(bool open) {
+    _game.paused = open;
+    setState(() => _guide = open);
   }
 
   void _restart(Checkpoint? from) {
@@ -117,13 +132,17 @@ class _GameScreenState extends State<GameScreen> {
               builder: (_, hud, _) => hud == null
                   ? const SizedBox.shrink()
                   : _Scaled(
-                      child: _Hud(game: _game, hud: hud, onRestart: _restart),
+                      child: _Hud(game: _game, hud: hud, onRestart: _restart, onGuide: () => _showGuide(true)),
                     ),
             ),
             // Les bulles de la cabine passent devant le tableau de bord : on les lit toujours.
             IgnorePointer(
               child: TalkBubbles(key: ObjectKey(_game), game: _game),
             ),
+            if (_guide)
+              Positioned.fill(
+                child: _Scaled(child: GuideView(onClose: () => _showGuide(false))),
+              ),
           ],
         ),
       ),
@@ -157,11 +176,12 @@ class _Scaled extends StatelessWidget {
 }
 
 class _Hud extends StatelessWidget {
-  const _Hud({required this.game, required this.hud, required this.onRestart});
+  const _Hud({required this.game, required this.hud, required this.onRestart, required this.onGuide});
 
   final ChachaGame game;
   final HudState hud;
   final void Function(Checkpoint? from) onRestart;
+  final VoidCallback onGuide;
 
   @override
   Widget build(BuildContext context) {
@@ -192,6 +212,13 @@ class _Hud extends StatelessWidget {
                     padding: const EdgeInsets.all(10),
                     radius: 16,
                     child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 8),
+                  GlassButton(
+                    onTap: onGuide,
+                    padding: const EdgeInsets.all(10),
+                    radius: 16,
+                    child: const Icon(Icons.help_outline_rounded, color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 10),
                   _Reveal(
@@ -294,7 +321,7 @@ class _Hud extends StatelessWidget {
             if (p == FlightPhase.ready)
               Align(
                 alignment: const Alignment(0, -0.3),
-                child: _TakeoffPanel(hud: hud),
+                child: _TakeoffPanel(hud: hud, game: game),
               ),
             if (!modal && !hud.finale && (flying || p == FlightPhase.ready || p == FlightPhase.rolling))
               Align(
@@ -500,14 +527,26 @@ class _StatusPanel extends StatelessWidget {
           ),
           _MiniNote(currency: hud.currency),
           const SizedBox(width: 6),
-          Text(
-            '${_money(hud.money)} ${hud.currency}',
-            style: const TextStyle(
-              color: Color(0xFF9CF0B8),
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${_money(hud.money)} ${hud.currency}',
+                style: const TextStyle(
+                  color: Color(0xFF9CF0B8),
+                  fontSize: 15,
+                  height: 1.1,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+              // La monnaie en toutes lettres : on comprend que Z veut dire zaïres.
+              Text(
+                currencyName(hud.currency),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 9, fontWeight: FontWeight.w700),
+              ),
+            ],
           ),
         ],
       ),
@@ -556,9 +595,24 @@ class _RadioView extends StatelessWidget {
             Text(call.french, style: const TextStyle(color: Colors.white, fontSize: 13)),
             if (call.offer != null) ...[
               const SizedBox(height: 10),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
+                  if (call.fuelPrice != null)
+                    GlassButton(
+                      onTap: game.buyFuel,
+                      tint: const Color(0x55F7D618),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.local_gas_station_rounded, color: Colors.white, size: 18),
+                          const SizedBox(width: 6),
+                          Text('Acheter le plein · ${call.fuelPrice}', style: const TextStyle(fontSize: 14)),
+                        ],
+                      ),
+                    ),
                   GlassButton(
                     onTap: game.acceptStopover,
                     tint: const Color(0x557CF0A6),
@@ -572,7 +626,6 @@ class _RadioView extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
                   GlassButton(
                     onTap: game.declineStopover,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -844,9 +897,10 @@ class _StoryCardView extends StatelessWidget {
 }
 
 class _TakeoffPanel extends StatelessWidget {
-  const _TakeoffPanel({required this.hud});
+  const _TakeoffPanel({required this.hud, required this.game});
 
   final HudState hud;
+  final ChachaGame game;
 
   @override
   Widget build(BuildContext context) {
@@ -894,8 +948,39 @@ class _TakeoffPanel extends StatelessWidget {
             const SizedBox(height: 8),
           ] else
             const SizedBox(height: 4),
+          if (!hud.firstFlight && hud.fuel < 99) ...[
+            // Après une reprise : le réservoir est presque vide, on paie le plein avant de partir.
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.local_gas_station_rounded,
+                  color: hud.fuel < 50 ? const Color(0xFFFF7A7A) : Colors.white,
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Kérosène : ${hud.fuel.round()} %',
+                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(width: 12),
+                GlassButton(
+                  onTap: game.buyFuel,
+                  tint: const Color(0x557CF0A6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Text(
+                    'Faire le plein · ${_money(game.fuelBill)} ${hud.currency}',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
           Text(
-            'Maintiens TURBO pour prendre de la vitesse sur la piste',
+            hud.fuel < 50
+                ? 'Fais le plein, puis maintiens TURBO pour décoller'
+                : 'Maintiens TURBO pour prendre de la vitesse sur la piste',
             style: TextStyle(color: Colors.white.withValues(alpha: 0.85)),
           ),
           const SizedBox(height: 2),
@@ -906,6 +991,35 @@ class _TakeoffPanel extends StatelessWidget {
             style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// « Descends » qui bat doucement au-dessus des flèches pendant l'approche.
+class _DescendHint extends StatelessWidget {
+  const _DescendHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(seconds: 13),
+      builder: (_, v, child) => Transform.translate(offset: Offset(0, 4 * math.sin(v * 40)), child: child),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(color: ChachaColors.yellow, borderRadius: BorderRadius.circular(12)),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.south_rounded, color: Color(0xFF2A1600), size: 16),
+            SizedBox(width: 4),
+            Text(
+              'Descends',
+              style: TextStyle(color: Color(0xFF2A1600), fontSize: 12, fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -923,10 +1037,33 @@ class _Controls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
+        if (game.canLand) ...[
+          // Le pilote peut demander l'atterrissage : là où l'attendent ses passagers, sinon au plus proche.
+          ValueListenableBuilder(
+            valueListenable: game.mission,
+            builder: (_, m, _) => GlassButton(
+              onTap: game.requestLanding,
+              radius: 20,
+              tint: m != null ? const Color(0x66F7D618) : ChachaColors.glassFill,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.flight_land_rounded, color: Colors.white, size: 22),
+                  Text('ATTERRIR', style: TextStyle(fontSize: 10, letterSpacing: 1)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
         if (hud.phase == FlightPhase.cruising || hud.phase == FlightPhase.approach) ...[
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (hud.phase == FlightPhase.approach)
+                // À l'approche : on rappelle qu'il faut faire descendre l'avion soi-même.
+                const Padding(padding: EdgeInsets.only(bottom: 8), child: _DescendHint()),
               GlassButton(
                 onPressChanged: (down) => game.keyY = down ? -1 : 0,
                 radius: 22,

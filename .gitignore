@@ -58,3 +58,5 @@ app.*.map.json
 
 # Réglages locaux des outils
 /.claude/
+/assets/sfx/*
+!/assets/sfx/LISEZMOI.txt

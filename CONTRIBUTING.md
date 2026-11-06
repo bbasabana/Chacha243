@@ -194,6 +194,10 @@ Rien ne s'affiche directement. Bannières, messages de la tour, fiches d'histoir
 
 Une zone de guerre est annoncée de loin : la tour prévient, les ceintures s'attachent, puis on entre. Elle compte trois fois plus de vagues que son nombre d'avions au plus fort (`_wavesOf`) : un ou deux avions d'abord, puis de plus en plus.
 
+#### Atterrir, le kérosène, la reprise
+
+Le bouton ATTERRIR (`requestLanding`) mène là où attendent les passagers de la mission, sinon à l'aéroport le plus proche : « Préparation de l'atterrissage », puis le pilote fait descendre l'avion au doigt ou avec ▼ en suivant le couloir jaune (`_approachTime`, 13 s) ; le train sort tout seul. Sous 22 % de kérosène, la tour propose d'acheter le plein en vol (`buyFuel` : l'argent d'abord, puis des points convertis) ou d'atterrir ; une mauvaise réponse à la question du kérosène relance cette alerte. Après un crash, la reprise part d'un aéroport, réservoir presque vide : pas de décollage sans le plein. Le bouton « ? » ouvre le guide du pilote (`lib/ui/guide.dart`), qui met le vol en pause. Les petits sons (`lib/game/sfx.dart`, fichiers dans `assets/sfx/`, gardés en local) suivent le volume de l'accueil ; dans les turbulences, le téléphone vibre doucement.
+
 ### 4.10 La musique et la cabine qui parle
 
 - **Les chansons des moments** (`momentSongs`) : un extrait monte en fondu jusqu'à son niveau (`level`, 0,75 par défaut : la musique ne couvre jamais le vol), dure `seconds`, puis s'éteint. Entre deux chansons, le silence laisse le vol au calme.
