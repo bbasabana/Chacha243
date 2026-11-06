@@ -28,6 +28,7 @@ const archivePhotos = <String, ArchivePhoto>{
   'gecamines': ArchivePhoto('gecamines-terril.jpg', 'Le terril de la Gécamines, Lubumbashi'),
   'outeniqua': ArchivePhoto('outeniqua-1997.jpg', 'Mobutu, Mandela et Kabila sur l\'Outeniqua, 1997'),
   'wagenia': ArchivePhoto('wagenia-kisangani.jpg', 'Les pêcheurs Wagenia, Kisangani'),
+  'kalle': ArchivePhoto('grand-kalle.webp', 'Grand Kallé, auteur d\'« Indépendance Cha Cha »'),
   // Logos et billets : marques et signes monétaires, à n'afficher qu'avec l'accord de la banque.
   'bcc': ArchivePhoto('logo-banque-centrale.png', 'Banque centrale du Congo', credit: 'Logo BCC'),
   'bcdc': ArchivePhoto('logo-banque-commerciale.png', 'Banque commerciale du Congo', credit: 'Logo BCDC'),
@@ -87,16 +88,25 @@ int drinkPrice(String drink) => mealSpirits.contains(drink) ? 60 : (mealBeers.co
 
 /// Les chansons des moments : le jeu joue le fichier s'il est dans assets/audio,
 /// une fois les droits obtenus. Sans fichier, le moment reste silencieux.
+///
+/// En vol, on n'entend qu'un extrait : la chanson part de [start], monte en douceur,
+/// dure [seconds], puis s'éteint en fondu. À l'accueil, elle tourne en boucle.
 class MomentSong {
-  const MomentSong(this.file, this.title, this.artist);
+  const MomentSong(this.file, this.title, this.artist, {this.start = 0, this.seconds = 40});
 
   final String file;
   final String title;
   final String artist;
+
+  /// Où commence l'extrait dans le fichier, en secondes (le refrain, par exemple).
+  final double start;
+
+  /// La durée de l'extrait en vol, fondu de fin compris.
+  final double seconds;
 }
 
 const momentSongs = <String, MomentSong>{
-  'chacha': MomentSong('independance-cha-cha.mp3', 'Indépendance Cha Cha', 'Grand Kallé et l\'African Jazz'),
+  'chacha': MomentSong('independance-cha-cha.mp3', 'Indépendance Cha Cha', 'Grand Kallé et l\'African Jazz', seconds: 50),
   'okjazz': MomentSong('franco-ok-jazz.mp3', 'Une rumba de l\'OK Jazz', 'Franco Luambo Makiadi'),
   'bomaye': MomentSong('ali-bomaye.mp3', '« Ali, bomaye ! »', 'le chant du stade du 20-Mai'),
   'viva': MomentSong('viva-la-musica.mp3', 'Une chanson de Viva la Musica', 'Papa Wemba'),

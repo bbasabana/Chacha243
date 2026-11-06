@@ -306,20 +306,24 @@ Ajoute un `Airport` dans `lib/data/airports.dart`. Si la ville a changé de nom,
 
 Les listes `mealBases`, `mealDishes`, `mealBeers`, `mealSodas` et `mealSpirits` sont dans `lib/data/archive.dart`. Le prix d'une boisson se règle dans `drinkPrice()`.
 
+### Ajouter une chanson
+
+Déclare-la dans `momentSongs` (`lib/data/archive.dart`) et relie-la au moment par `song: 'cle'`. En vol, on n'entend qu'un **extrait** : il part de `start` (en secondes, pour tomber sur le refrain), monte en fondu, dure `seconds` (40 s par défaut), puis s'éteint en fondu sur 4 s. Quand un autre moment arrive avec sa chanson, la précédente baisse d'abord, puis la nouvelle monte : rien ne coupe net. À l'accueil, *Indépendance Cha Cha* tourne en boucle ; elle revient pour l'arrivée en 2027. Le fichier lui-même reste hors du dépôt.
+
 ### Ajouter une photo d'archive
 
 Déclare-la dans `archivePhotos` (`lib/data/archive.dart`) avec `cleared: false` et sa provenance, puis relie-la au moment par `photo: 'cle'`. **N'ajoute pas le fichier au dépôt** : envoie-le au mainteneur avec ses droits.
 
 ## 11. Ce qu'il ne faut pas faire
 
-- ❌ Pousser des photos, logos, billets ou chansons.
-- ❌ Ajouter une date sans source, ou casser l'ordre des listes.
-- ❌ Désigner un camp dans un conflit, montrer des personnes comme obstacles, ajouter des tirs.
-- ❌ Publier un état dans un `ValueNotifier` depuis `onLoad()` ou pendant `update(0)`.
-- ❌ Mettre une règle de jeu dans un widget, ou un widget dans le moteur.
-- ❌ Ajouter une dépendance sans discussion.
-- ❌ Fusionner dans `main` sans relecture.
+- Pousser des photos, logos, billets ou chansons.
+- Ajouter une date sans source, ou casser l'ordre des listes.
+- Désigner un camp dans un conflit, montrer des personnes comme obstacles, ajouter des tirs.
+- Publier un état dans un `ValueNotifier` depuis `onLoad()` ou pendant `update(0)`.
+- Mettre une règle de jeu dans un widget, ou un widget dans le moteur.
+- Ajouter une dépendance sans discussion.
+- Fusionner dans `main` sans relecture.
 
 ---
 
-Une question ? Ouvre une issue. Merci de faire voler l'histoire du pays. 🇨🇩
+Une question ? Ouvre une issue. Merci de faire voler l'histoire du pays.

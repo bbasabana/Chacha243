@@ -47,7 +47,7 @@ class HistoryEvent {
 
 const historyEvents = <HistoryEvent>[
   HistoryEvent(1960.5, EventKind.glory, '30 juin 1960', 'Kinshasa (Léopoldville)', 'Indépendance',
-      "Le Congo devient indépendant. Toute la ville danse sur « Indépendance Cha Cha ».", song: 'chacha'),
+      "Le Congo devient indépendant. Toute la ville danse sur « Indépendance Cha Cha » de Grand Kallé.", photo: 'kalle', song: 'chacha'),
   HistoryEvent(1960.53, EventKind.obstacle, 'juillet 1960 – janvier 1963', 'Lubumbashi (Élisabethville)',
       'Sécession du Katanga', 'Le 11 juillet 1960, Moïse Tshombe, chef de la Conakat, proclame l\'indépendance du Katanga. Le pays traverse sa première grande crise.', war: true, photo: 'tshombe'),
   HistoryEvent(1960.6, EventKind.obstacle, 'août 1960', 'Mbuji-Mayi (Bakwanga)', 'Sécession du Sud-Kasaï',
