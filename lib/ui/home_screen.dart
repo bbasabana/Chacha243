@@ -14,7 +14,6 @@ import '../theme/chacha_colors.dart';
 import 'about_screen.dart';
 import 'game_screen.dart';
 import 'glass.dart';
-import 'update_check.dart';
 import 'hangar_screen.dart';
 import 'timeline_screen.dart';
 
@@ -38,7 +37,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     Music.instance.play('chacha', loop: true);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (pilotName.value == null) await _askName();
-      if (mounted) await checkPlayUpdate(context);
     });
   }
 

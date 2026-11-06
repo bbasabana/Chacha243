@@ -40,7 +40,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   ChachaGame _newGame(Checkpoint? from) {
     final q = Uri.base.queryParameters;
     return ChachaGame(widget.type)
-      ..autopilot = q['demo'] == '1'
+      ..autopilot = q['demo'] == '1' && q['montrer'] != 'plein'
       ..timeScale = double.tryParse(q['vitesse'] ?? '') ?? 1
       ..startYear = from?.year ?? double.tryParse(q['annee'] ?? '')
       ..warmup = double.tryParse(q['avance'] ?? '') ?? 0
@@ -970,7 +970,11 @@ class _TakeoffPanel extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            hud.firstFlight ? '30 juin 1960 · prêt au décollage' : '${hud.year.floor()} · prêt au décollage',
+            hud.firstFlight
+                ? '30 juin 1960 · prêt au décollage'
+                : hud.refuel > 0
+                ? '${hud.year.floor()} · plein en cours'
+                : '${hud.year.floor()} · prêt au décollage',
             style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
           ),
           if (hud.firstFlight) ...[
@@ -997,39 +1001,67 @@ class _TakeoffPanel extends StatelessWidget {
             const SizedBox(height: 8),
           ] else
             const SizedBox(height: 4),
-          if (!hud.firstFlight && hud.fuel < 99) ...[
+          if (!hud.firstFlight && (hud.fuel < 99 || hud.refuel > 0)) ...[
             // Après une reprise : le réservoir est presque vide, on paie le plein avant de partir.
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.local_gas_station_rounded,
-                  color: hud.fuel < 50 ? const Color(0xFFFF7A7A) : Colors.white,
-                  size: 18,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Kérosène : ${hud.fuel.round()} %',
-                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800),
-                ),
+                _TankGauge(fuel: hud.fuel, filling: hud.refuel == 2),
                 const SizedBox(width: 12),
-                GlassButton(
-                  onTap: game.buyFuel,
-                  tint: const Color(0x557CF0A6),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Text(
-                    'Faire le plein · ${_money(game.fuelBill)} ${hud.currency}',
-                    style: const TextStyle(fontSize: 13),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Kérosène : ${hud.fuel.round()} %',
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 6),
+                    if (hud.refuel == 0)
+                      GlassButton(
+                        onTap: game.buyFuel,
+                        tint: const Color(0x557CF0A6),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        child: Text(
+                          'Faire le plein · ${_money(game.fuelBill)} ${hud.currency}',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      )
+                    else
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            hud.refuel == 2 ? Icons.local_gas_station_rounded : Icons.local_shipping_rounded,
+                            color: ChachaColors.yellow,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            switch (hud.refuel) {
+                              1 => 'Le camion-citerne arrive…',
+                              2 => 'Plein en cours…',
+                              _ => 'Plein terminé · le camion repart',
+                            },
+                            style: const TextStyle(
+                              color: ChachaColors.yellow,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
                 ),
               ],
             ),
             const SizedBox(height: 4),
             // Le prix se lit : le kérosène d'avion coûte cher.
-            Text(
-              '${(100 - hud.fuel).round()} % à ${ChachaGame.fuelPrice} ${hud.currency} le pourcent · tu as ${_money(hud.money)} ${hud.currency} et ${_money(hud.score)} points',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11.5),
-            ),
+            if (hud.refuel == 0)
+              Text(
+                '${(100 - hud.fuel).round()} % à ${ChachaGame.fuelPrice} ${hud.currency} le pourcent · tu as ${_money(hud.money)} ${hud.currency} et ${_money(hud.score)} points',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11.5),
+              ),
             if (hud.money + hud.score < ChachaGame.fuelPrice * (50 - hud.fuel).clamp(5, 100) && hud.fuel < 50) ...[
               const SizedBox(height: 8),
               Text(
@@ -1051,7 +1083,9 @@ class _TakeoffPanel extends StatelessWidget {
             const SizedBox(height: 8),
           ],
           Text(
-            hud.fuel < 50
+            hud.refuel > 0
+                ? 'Attends la fin du plein : le camion doit repartir'
+                : hud.fuel < 50
                 ? 'Fais le plein, puis maintiens TURBO pour décoller'
                 : 'Maintiens TURBO pour prendre de la vitesse sur la piste',
             style: TextStyle(color: Colors.white.withValues(alpha: 0.85)),
@@ -1064,6 +1098,47 @@ class _TakeoffPanel extends StatelessWidget {
             style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Le réservoir de l'avion, dessiné à côté du bouton : il se remplit pendant que le camion pompe.
+class _TankGauge extends StatelessWidget {
+  const _TankGauge({required this.fuel, required this.filling});
+
+  final double fuel;
+  final bool filling;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = (fuel / 100).clamp(0.0, 1.0);
+    final color = fuel < 50 ? const Color(0xFFFF7A7A) : const Color(0xFF7CF0A6);
+    return Container(
+      width: 30,
+      height: 58,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 2),
+        color: const Color(0x33000000),
+        boxShadow: filling ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 10)] : null,
+      ),
+      alignment: Alignment.bottomCenter,
+      child: AnimatedFractionallySizedBox(
+        duration: const Duration(milliseconds: 120),
+        heightFactor: f,
+        widthFactor: 1,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(5),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [color, color.withValues(alpha: 0.6)],
+            ),
+          ),
+        ),
       ),
     );
   }

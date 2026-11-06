@@ -112,6 +112,14 @@ Future<void> saveVolume(double v) async {
   } catch (_) {}
 }
 
+/// Les missions retrouvées après une réinstallation.
+Future<void> saveMissions(int n) async {
+  missionsDone.value = n;
+  try {
+    await (await SharedPreferences.getInstance()).setInt(_kMissions, n);
+  } catch (_) {}
+}
+
 Future<void> addMission() async {
   missionsDone.value++;
   try {

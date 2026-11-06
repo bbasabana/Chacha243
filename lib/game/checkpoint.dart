@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'telemetry.dart';
+
 /// Le point de reprise : après un atterrissage d'urgence, on redécolle là où on s'est arrêté.
 ///
 /// Il est posé à l'entrée de chaque zone de turbulence, à la sortie, et à chaque décennie.
@@ -29,13 +31,16 @@ class Checkpoint {
     }
   }
 
-  Future<void> save() async {
+  /// Sur le téléphone, et une copie en ligne pour la retrouver après une réinstallation.
+  Future<void> save({bool sync = true}) async {
+    if (sync) Telemetry.saveProgress(this);
     try {
       await (await SharedPreferences.getInstance()).setStringList(_key, ['$year', '$score', '$medals', '$money']);
     } catch (_) {}
   }
 
   static Future<void> clear() async {
+    Telemetry.saveProgress(null);
     try {
       await (await SharedPreferences.getInstance()).remove(_key);
     } catch (_) {}

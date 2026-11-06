@@ -50,6 +50,7 @@ class HudState {
     this.finale = false,
     this.planeLow = false,
     this.planeHigh = false,
+    this.refuel = 0,
   });
 
   final FlightPhase phase;
@@ -88,6 +89,9 @@ class HudState {
   /// L'avion passe derrière le tableau de bord (en bas) ou derrière l'année (en haut) :
   /// le panneau s'efface pour qu'on voie toujours l'avion.
   final bool planeLow, planeHigh;
+
+  /// Le plein au sol : 0 aucun, 1 le camion arrive, 2 il remplit, 3 il repart.
+  final int refuel;
 }
 
 /// Une conversation dans la cabine : deux ou trois répliques, en lingala et en français.
@@ -445,6 +449,15 @@ class ChachaGame extends FlameGame {
   // Zones de turbulence
   WarZone? _zone;
   String _failWhy = '';
+  // Le camion-citerne au sol : il arrive, branche le tuyau, remplit, puis repart.
+  double _truckT = -1, _fuelFrom = 0, _fuelTo = 0;
+  static const _truckIn = 3.2, _truckPlug = 1.0, _truckOut = 3.0;
+  double get _truckFill => math.max(2.5, (_fuelTo - _fuelFrom) / 100 * 9);
+  int get _truckStep => _truckT < _truckIn + _truckPlug
+      ? 1
+      : _truckT < _truckIn + _truckPlug + _truckFill
+      ? 2
+      : 3;
   bool _startSent = false;
   int _yearSent = 0;
   int _nextZone = 0, _wave = 0, _wavesCleared = 0, _decade = 0;
@@ -684,6 +697,10 @@ class ChachaGame extends FlameGame {
       case 'atterrir':
         _clearStage();
         requestLanding();
+      case 'plein':
+        // Pour les captures : le camion-citerne au milieu du plein.
+        buyFuel();
+        if (_truckT >= 0) _truckT = _truckIn + _truckPlug;
       case 'repas':
         _offerMeal();
       case 'ceintures':
@@ -964,7 +981,13 @@ class ChachaGame extends FlameGame {
 
     switch (phase) {
       case FlightPhase.ready:
-        if (boost && fuel < 50) {
+        _updateTruck(dt);
+        if (boost && _truckT >= 0) {
+          if (!_refuelSaid) {
+            _refuelSaid = true;
+            _say('Tour de ${_airport?.cityAt(year) ?? 'contrôle'}', Lingala.zelaMoke, 'Attends la fin du plein.');
+          }
+        } else if (boost && fuel < 50) {
           // Réservoir presque vide : pas de décollage sans le plein.
           if (!_refuelSaid) {
             _refuelSaid = true;
@@ -1730,7 +1753,7 @@ class ChachaGame extends FlameGame {
   /// Acheter le plein : avec l'argent d'abord, puis en convertissant des points.
   void buyFuel() {
     final price = fuelBill;
-    if (price <= 0) return;
+    if (price <= 0 || _truckT >= 0) return;
     final cur = currencyAt(year);
     var pay = price;
     if (money < price) {
@@ -1759,6 +1782,16 @@ class ChachaGame extends FlameGame {
       }
     }
     money -= pay;
+    if (phase == FlightPhase.ready) {
+      // Au sol, le kérosène arrive par le camion-citerne : le réservoir se remplit sous les yeux.
+      if (_truckT >= 0) return;
+      _fuelFrom = fuel;
+      _fuelTo = math.min(100, fuel + pay / fuelPrice);
+      _truckT = 0;
+      HapticFeedback.lightImpact();
+      _pushHud();
+      return;
+    }
     fuel = math.min(100, fuel + pay / fuelPrice);
     _offerPending = false;
     _lowFuelSaid = _halfFuelSaid = false;
@@ -1768,6 +1801,154 @@ class ChachaGame extends FlameGame {
       FlightBanner('Kérosène acheté', 'Réservoir à ${fuel.round()} % · −${_fmt(pay)} $cur', color: _peaceGreen),
     );
     _pushHud();
+  }
+
+  void _updateTruck(double dt) {
+    if (_truckT < 0) return;
+    _truckT += dt;
+    final f0 = _truckIn + _truckPlug;
+    if (_truckT >= f0) fuel = _fuelFrom + (_fuelTo - _fuelFrom) * ((_truckT - f0) / _truckFill).clamp(0.0, 1.0);
+    if (_truckT >= f0 + _truckFill && fuel != _fuelTo) fuel = _fuelTo;
+    if (_truckT >= f0 + _truckFill + _truckOut) {
+      _truckT = -1;
+      fuel = _fuelTo;
+      _lowFuelSaid = _halfFuelSaid = false;
+      onSound?.call('kerosene');
+      HapticFeedback.mediumImpact();
+      _queueBanner(
+        FlightBanner(
+          fuel >= 50 ? 'Prêt à décoller' : 'Plein partiel',
+          'Réservoir à ${fuel.round()} % · maintiens TURBO',
+          color: _peaceGreen,
+        ),
+        first: true,
+      );
+      _pushHud();
+    }
+  }
+
+  /// Le camion-citerne, rouge et blanc, avec son tuyau branché sous l'aile pendant le plein.
+  void _drawTruck(Canvas canvas) {
+    if (_truckT < 0 || phase != FlightPhase.ready) return;
+    final u = _unit, len = planeLength * 0.42, h = len * 0.42;
+    final stop = planeX + planeLength * 0.42;
+    final f0 = _truckIn + _truckPlug, out0 = f0 + _truckFill;
+    double ease(double x) => 1 - math.pow(1 - x.clamp(0.0, 1.0), 3).toDouble();
+    final double x;
+    if (_truckT < _truckIn) {
+      x = _w + len - (_w + len - stop) * ease(_truckT / _truckIn);
+    } else if (_truckT < out0) {
+      x = stop;
+    } else {
+      final k = ((_truckT - out0) / _truckOut).clamp(0.0, 1.0);
+      x = stop + (_w + len * 2 - stop) * k * k;
+    }
+    final base = groundY + 26 * u;
+    final moving = _truckT < _truckIn || _truckT > out0;
+    // tuyau
+    if (_truckT >= _truckIn && _truckT < out0 + 0.4) {
+      final plug = ((_truckT - _truckIn) / _truckPlug).clamp(0.0, 1.0);
+      final a = Offset(x - len * 0.42, base - h * 0.55);
+      final b = Offset(planeX + planeLength * 0.05, planeY + planeLength * 0.04);
+      final end = Offset.lerp(a, b, plug)!;
+      final mid = Offset((a.dx + end.dx) / 2, math.max(a.dy, end.dy) + 16 * u);
+      final hose = Path()
+        ..moveTo(a.dx, a.dy)
+        ..quadraticBezierTo(mid.dx, mid.dy, end.dx, end.dy);
+      canvas.drawPath(
+        hose,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.4 * u
+          ..color = const Color(0xFF1C1C1C),
+      );
+      if (_truckStep == 2) {
+        // le kérosène coule : des points lumineux suivent le tuyau
+        for (final m in hose.computeMetrics()) {
+          for (var i = 0; i < 4; i++) {
+            final p = m.getTangentForOffset(m.length * ((t * 0.9 + i / 4) % 1))?.position;
+            if (p != null) canvas.drawCircle(p, 2 * u, Paint()..color = const Color(0xFFF7D618));
+          }
+        }
+      }
+    }
+    canvas.save();
+    canvas.translate(x, base);
+    // ombre
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(0, 2 * u), width: len * 1.05, height: 7 * u),
+      Paint()
+        ..color = const Color(0x55000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+    final wheelR = h * 0.17;
+    final chassis = RRect.fromRectAndRadius(
+      Rect.fromLTRB(-len / 2, -wheelR * 1.6, len / 2, -wheelR * 0.6),
+      Radius.circular(2 * u),
+    );
+    canvas.drawRRect(chassis, Paint()..color = const Color(0xFF2A2A2E));
+    // citerne
+    final tank = RRect.fromRectAndRadius(
+      Rect.fromLTRB(-len * 0.2, -h * 0.92, len / 2, -wheelR * 1.5),
+      Radius.circular(h * 0.3),
+    );
+    canvas.drawRRect(
+      tank,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFFFFF), Color(0xFFD9DEE6)],
+        ).createShader(tank.outerRect),
+    );
+    canvas.drawRect(Rect.fromLTRB(-len * 0.2, -h * 0.62, len / 2, -h * 0.5), Paint()..color = ChachaColors.red);
+    final label = TextPainter(
+      text: TextSpan(
+        text: 'KÉROSÈNE',
+        style: TextStyle(color: ChachaColors.red, fontSize: h * 0.16, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    label.paint(canvas, Offset(len * 0.15 - label.width / 2, -h * 0.86));
+    // cabine (vers la gauche, le sens d'arrivée)
+    final cab = Path()
+      ..moveTo(-len / 2, -wheelR * 1.5)
+      ..lineTo(-len / 2, -h * 0.62)
+      ..lineTo(-len * 0.4, -h * 0.82)
+      ..lineTo(-len * 0.24, -h * 0.82)
+      ..lineTo(-len * 0.24, -wheelR * 1.5)
+      ..close();
+    canvas.drawPath(cab, Paint()..color = ChachaColors.red);
+    canvas.drawPath(
+      Path()
+        ..moveTo(-len * 0.47, -h * 0.6)
+        ..lineTo(-len * 0.39, -h * 0.76)
+        ..lineTo(-len * 0.28, -h * 0.76)
+        ..lineTo(-len * 0.28, -h * 0.6)
+        ..close(),
+      Paint()..color = const Color(0xFF9FD3FF),
+    );
+    // gyrophare
+    final blink = (t * 3).floor().isEven;
+    canvas.drawCircle(
+      Offset(-len * 0.33, -h * 0.86),
+      2.6 * u,
+      Paint()..color = blink ? const Color(0xFFFFB020) : const Color(0xFF7A5200),
+    );
+    // roues
+    final spin = moving ? t * 12 : 0.0;
+    for (final wx in [-len * 0.36, len * 0.18, len * 0.36]) {
+      canvas.drawCircle(Offset(wx, -wheelR), wheelR, Paint()..color = const Color(0xFF141414));
+      canvas.drawCircle(Offset(wx, -wheelR), wheelR * 0.45, Paint()..color = const Color(0xFF9AA0A8));
+      canvas.drawLine(
+        Offset(wx, -wheelR) + Offset(math.cos(spin), math.sin(spin)) * wheelR * 0.45,
+        Offset(wx, -wheelR) - Offset(math.cos(spin), math.sin(spin)) * wheelR * 0.45,
+        Paint()
+          ..color = const Color(0xFF3A3A3A)
+          ..strokeWidth = 1.4 * u,
+      );
+    }
+    canvas.restore();
   }
 
   /// Le pilote demande lui-même à atterrir : là où l'attendent ses passagers, sinon au plus proche.
@@ -2993,6 +3174,7 @@ class ChachaGame extends FlameGame {
       finale: _finaleT >= 0 && phase != FlightPhase.finished,
       planeLow: planeY > _h * 0.6 && planeX < _w * 0.42,
       planeHigh: planeY < _h * 0.3 && planeX < _w * 0.42,
+      refuel: _truckT < 0 ? 0 : _truckStep,
     );
     final z = _zone;
     zoneHud.value = z == null
@@ -3151,6 +3333,7 @@ class ChachaGame extends FlameGame {
     if (phase == FlightPhase.approach) _drawGlidePath(canvas);
     if (phase == FlightPhase.ground) _drawCrew(canvas, behind: true);
     _drawPlane(canvas);
+    _drawTruck(canvas);
     if (phase == FlightPhase.ground) _drawCrew(canvas, behind: false);
     for (final j in _jets) {
       if (j.wait > 0) continue;
