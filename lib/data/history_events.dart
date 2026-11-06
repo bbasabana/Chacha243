@@ -83,8 +83,9 @@ const historyEvents = <HistoryEvent>[
     'août 1960',
     'Mbuji-Mayi (Bakwanga)',
     'Sécession du Sud-Kasaï',
-    'Le Sud-Kasaï se sépare à son tour.',
+    'Le 8 août 1960, Albert Kalonji proclame l\'État autonome du Sud-Kasaï, à côté du Katanga de Moïse Tshombe. Le pays est coupé en morceaux jusqu\'en 1962–1963.',
     war: true,
+    photo: 'secessions',
   ),
   HistoryEvent(
     1960.8,
@@ -109,7 +110,7 @@ const historyEvents = <HistoryEvent>[
     '17 janvier 1961',
     'Katanga',
     'Assassinat de Patrice Lumumba',
-    'Le premier Premier ministre du Congo est assassiné. Un moment de silence.',
+    'Patrice Emery Lumumba, premier Premier ministre du Congo, est assassiné au Katanga avec Maurice Mpolo et Joseph Okito. Un moment de silence.',
     photo: 'lumumba',
   ),
   HistoryEvent(

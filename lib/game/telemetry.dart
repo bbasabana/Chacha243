@@ -70,8 +70,15 @@ class Telemetry {
     } catch (_) {}
   }
 
-  static Future<void> send(String kind, {required double year, int score = 0, String stage = '', String detail = ''}) =>
-      _post({'kind': kind, 'year': year, 'score': score, 'stage': stage, 'detail': detail});
+  static Future<void> send(
+    String kind, {
+    required double year,
+    int score = 0,
+    String stage = '',
+    String detail = '',
+    double seconds = 0,
+  }) =>
+      _post({'kind': kind, 'year': year, 'score': score, 'stage': stage, 'detail': detail, 'seconds': seconds.round()});
 
   /// Keeps the resume point on the server too (null once the flight reached 2027).
   static Future<void> saveProgress(Checkpoint? cp) => _post({
@@ -79,6 +86,65 @@ class Telemetry {
     'year': cp?.year ?? 1960,
     'save': cp == null ? null : {'year': cp.year, 'score': cp.score, 'medals': cp.medals, 'money': cp.money},
   });
+
+  /// The pilot's photo goes to the ranking. The pilot exists on the server once a first report was sent.
+  static Future<void> uploadPhoto(Uint8List bytes) async {
+    try {
+      final id = await _playerId();
+      for (var i = 0; i < 2; i++) {
+        final r = await http
+            .post(
+              Uri.parse('$_url/photo'),
+              headers: {'content-type': 'application/json'},
+              body: jsonEncode({'id': id, 'image': base64Encode(bytes)}),
+            )
+            .timeout(const Duration(seconds: 15));
+        if (r.statusCode != 404) return;
+        await hello();
+      }
+    } catch (_) {}
+  }
+
+  /// The game was opened: the phone counts among the players, even before a first flight.
+  static Future<void> hello() => _post({'kind': 'hello', 'year': 1960});
+
+  /// The latest message from the dashboard to every pilot, if this phone has not shown it yet.
+  static Future<News?> news() async {
+    try {
+      final r = await http.get(Uri.parse('$_url/news')).timeout(const Duration(seconds: 5));
+      if (r.statusCode != 200) return null;
+      final b = jsonDecode(r.body) as Map<String, dynamic>;
+      final id = b['id'];
+      if (id is! int) return null;
+      final p = await SharedPreferences.getInstance();
+      if (p.getInt('chacha243.news') == id) return null;
+      final c = b['champion'] as Map<String, dynamic>?;
+      Uint8List? photo;
+      if (c != null && c['photo'] == true) {
+        final ph = await http
+            .get(Uri.parse('$_url/photo?id=${Uri.encodeQueryComponent(c['id'] as String)}'))
+            .timeout(const Duration(seconds: 6));
+        if (ph.statusCode == 200) photo = ph.bodyBytes;
+      }
+      return News(
+        id,
+        b['title'] as String? ?? '',
+        b['body'] as String? ?? '',
+        b['reward'] as String? ?? '',
+        c?['name'] as String?,
+        (c?['year'] as num?)?.toInt(),
+        photo,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> newsSeen(int id) async {
+    try {
+      await (await SharedPreferences.getInstance()).setInt('chacha243.news', id);
+    } catch (_) {}
+  }
 
   /// After a reinstall: no name on the phone yet, so ask the server for the pilot's name and resume point.
   static Future<void> restore() async {
@@ -95,6 +161,12 @@ class Telemetry {
       await savePilotName(name);
       final m = b['missions'];
       if (m is int && m > missionsDone.value) await saveMissions(m);
+      if (b['photo'] == true) {
+        final ph = await http
+            .get(Uri.parse('$_url/photo?id=${Uri.encodeQueryComponent(id)}'))
+            .timeout(const Duration(seconds: 6));
+        if (ph.statusCode == 200 && ph.bodyBytes.length > 100) await savePilotPhoto(ph.bodyBytes);
+      }
       final s = b['save'];
       if (s is Map<String, dynamic>) {
         await Checkpoint(
@@ -106,4 +178,15 @@ class Telemetry {
       }
     } catch (_) {}
   }
+}
+
+/// A message from the dashboard: the champion, the rewards.
+class News {
+  const News(this.id, this.title, this.body, this.reward, this.champion, this.championYear, this.photo);
+
+  final int id;
+  final String title, body, reward;
+  final String? champion;
+  final int? championYear;
+  final Uint8List? photo;
 }

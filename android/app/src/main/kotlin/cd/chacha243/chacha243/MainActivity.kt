@@ -1,6 +1,8 @@
 package cd.chacha243.chacha243
 
 import android.content.Context
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.os.Build
 import android.provider.Settings
 import android.telephony.TelephonyManager
@@ -9,6 +11,26 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    // Couché, toujours : on le redemande à chaque retour et si l'écran a tourné malgré tout.
+    private fun lockLandscape() {
+        if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        lockLandscape()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            lockLandscape()
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         // Le téléphone du pilote : sa marque, son Android, son opérateur, et un identifiant qui reste

@@ -55,6 +55,10 @@
 	<string>Main</string>
 	<key>UIRequiresFullScreen</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choisir ta photo de pilote.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Prendre ta photo de pilote.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationLandscapeLeft</string>

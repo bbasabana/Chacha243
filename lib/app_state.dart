@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,6 +10,18 @@ final selectedAircraft = ValueNotifier<AircraftType>(aircraftById('dc6'));
 
 /// Le nom du pilote, demandé une seule fois puis gardé sur le téléphone.
 final pilotName = ValueNotifier<String?>(null);
+
+/// La photo du pilote (un petit JPEG), choisie avec son nom ; elle part aussi au classement en ligne.
+final pilotPhoto = ValueNotifier<Uint8List?>(null);
+const _kPhoto = 'chacha243.photo';
+
+Future<void> savePilotPhoto(Uint8List? bytes) async {
+  pilotPhoto.value = bytes;
+  try {
+    final p = await SharedPreferences.getInstance();
+    bytes == null ? await p.remove(_kPhoto) : await p.setString(_kPhoto, base64Encode(bytes));
+  } catch (_) {}
+}
 
 /// Volume de la musique (0 à 1), réglable depuis l'accueil.
 final musicVolume = ValueNotifier<double>(0.7);
@@ -89,6 +103,8 @@ Future<void> loadProfile() async {
   try {
     final p = await SharedPreferences.getInstance();
     pilotName.value = p.getString(_kName);
+    final photo = p.getString(_kPhoto);
+    if (photo != null) pilotPhoto.value = base64Decode(photo);
     musicVolume.value = p.getDouble(_kVolume) ?? 0.7;
     musicOn.value = p.getBool(_kMusicOn) ?? true;
     soundsOn.value = p.getBool(_kSoundsOn) ?? true;

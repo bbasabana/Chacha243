@@ -15,6 +15,7 @@ Future<void> main() async {
   await loadProfile();
   // Réinstallé ? Le nom du pilote et son point de reprise reviennent depuis le serveur.
   if (!kIsWeb) await Telemetry.restore();
+  if (!kIsWeb) Telemetry.hello();
   SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   runApp(const Chacha243App());
@@ -45,8 +46,24 @@ class Chacha243App extends StatelessWidget {
       // Le jeu se joue couché. Sur le web, on ne peut pas tourner l'écran : on demande de tourner le téléphone.
       builder: (context, child) {
         final size = MediaQuery.sizeOf(context);
-        if (!kIsWeb || size.height <= size.width || size.width > 700) return child!;
-        return const _TurnPhone();
+        if (size.height <= size.width) return child!;
+        if (kIsWeb && size.width <= 700) return const _TurnPhone();
+        if (kIsWeb) return child!;
+        // Sur le téléphone, si le système tourne quand même l'écran en portrait (en voiture, un réglage
+        // du constructeur…), le jeu reste couché : on le dessine tourné d'un quart de tour.
+        final mq = MediaQuery.of(context);
+        return RotatedBox(
+          quarterTurns: 1,
+          child: MediaQuery(
+            data: mq.copyWith(
+              size: Size(size.height, size.width),
+              padding: EdgeInsets.zero,
+              viewPadding: EdgeInsets.zero,
+              viewInsets: EdgeInsets.zero,
+            ),
+            child: child!,
+          ),
+        );
       },
       home: switch (Uri.base.queryParameters) {
         {'demo': '1'} && final q => GameScreen(type: selectedAircraft.value = aircraftById(q['avion'] ?? 'dc6')),

@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../app_state.dart';
 import '../data/aircraft_types.dart';
@@ -8,6 +10,7 @@ import '../data/eras.dart';
 import '../game/checkpoint.dart';
 import '../game/music.dart';
 import '../game/scenery.dart';
+import '../game/telemetry.dart';
 import '../painting/aircraft_painter.dart';
 import '../painting/flag_painter.dart';
 import '../theme/chacha_colors.dart';
@@ -37,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     Music.instance.play('chacha', loop: true);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (pilotName.value == null) await _askName();
+      if (mounted && !kIsWeb) await _showNews();
     });
   }
 
@@ -47,6 +51,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       builder: (_) => const _NameDialog(),
     );
     if (name != null && name.isNotEmpty) await savePilotName(name);
+  }
+
+  /// Le message envoyé à tous les pilotes depuis le tableau de bord : le champion, les récompenses.
+  Future<void> _showNews() async {
+    final n = await Telemetry.news();
+    if (n == null || !mounted) return;
+    await showDialog<void>(context: context, builder: (_) => _NewsDialog(n));
+    await Telemetry.newsSeen(n.id);
   }
 
   void _volume() => showDialog<void>(context: context, builder: (_) => const _VolumeDialog());
@@ -119,7 +131,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          const Icon(Icons.badge_rounded, color: ChachaColors.yellow, size: 18),
+                                          ValueListenableBuilder(
+                                            valueListenable: pilotPhoto,
+                                            builder: (_, photo, _) => photo == null
+                                                ? const Icon(Icons.badge_rounded, color: ChachaColors.yellow, size: 18)
+                                                : CircleAvatar(radius: 13, backgroundImage: MemoryImage(photo)),
+                                          ),
                                           const SizedBox(width: 8),
                                           Text(
                                             'Commandant $name · ${pilotRank(missionsDone.value)}',
@@ -387,6 +404,22 @@ class _NameDialogState extends State<_NameDialog> {
     super.dispose();
   }
 
+  bool _picking = false;
+
+  Future<void> _pickPhoto(ImageSource from) async {
+    if (_picking) return;
+    setState(() => _picking = true);
+    try {
+      final f = await ImagePicker().pickImage(source: from, maxWidth: 320, maxHeight: 320, imageQuality: 78);
+      if (f != null) {
+        final bytes = await f.readAsBytes();
+        await savePilotPhoto(bytes);
+        Telemetry.uploadPhoto(bytes);
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _picking = false);
+  }
+
   void _done() {
     final n = _field.text.trim();
     if (n.isNotEmpty) Navigator.of(context).pop(n.length > 18 ? n.substring(0, 18) : n);
@@ -411,8 +444,52 @@ class _NameDialogState extends State<_NameDialog> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Ton nom est gardé sur ce téléphone : pas besoin de le retaper.',
+                'Ton nom et ta photo vont au classement des pilotes. Ils restent même si tu réinstalles le jeu.',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  ValueListenableBuilder(
+                    valueListenable: pilotPhoto,
+                    builder: (_, photo, _) => GestureDetector(
+                      onTap: () => _pickPhoto(ImageSource.gallery),
+                      child: CircleAvatar(
+                        radius: 30,
+                        backgroundColor: const Color(0x33FFFFFF),
+                        backgroundImage: photo == null ? null : MemoryImage(photo),
+                        child: photo == null
+                            ? (_picking
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.add_a_photo_rounded, color: Colors.white, size: 26))
+                            : null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        GlassButton(
+                          onTap: () => _pickPhoto(ImageSource.gallery),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: const Text('Choisir une photo', style: TextStyle(fontSize: 13)),
+                        ),
+                        GlassButton(
+                          onTap: () => _pickPhoto(ImageSource.camera),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: const Text('Prendre un selfie', style: TextStyle(fontSize: 13)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               TextField(
@@ -436,6 +513,90 @@ class _NameDialogState extends State<_NameDialog> {
                 child: GlassButton(onTap: _done, tint: const Color(0x55CE1021), child: const Text('Enregistrer')),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Le message du tableau de bord : un champion en photo, le texte, la récompense.
+class _NewsDialog extends StatelessWidget {
+  const _NewsDialog(this.news);
+
+  final News news;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = news;
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 460, maxHeight: MediaQuery.sizeOf(context).height - 40),
+        child: SingleChildScrollView(
+          child: Glass(
+            tint: const Color(0x77001A40),
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (n.champion != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(shape: BoxShape.circle, color: ChachaColors.yellow),
+                    child: CircleAvatar(
+                      radius: 40,
+                      backgroundColor: ChachaColors.night,
+                      backgroundImage: n.photo == null ? null : MemoryImage(n.photo!),
+                      child: n.photo == null
+                          ? const Icon(Icons.emoji_events_rounded, color: ChachaColors.yellow, size: 40)
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '🏆 ${n.champion}${n.championYear != null ? ' · arrivé en ${n.championYear}' : ''}',
+                    style: const TextStyle(color: ChachaColors.yellow, fontSize: 14, fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 6),
+                ],
+                Text(
+                  n.title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900),
+                ),
+                if (n.body.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    n.body,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 14),
+                  ),
+                ],
+                if (n.reward.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0x33F7D618),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0x66F7D618)),
+                    ),
+                    child: Text(
+                      '🎁 Récompense : ${n.reward}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                GlassButton(
+                  onTap: () => Navigator.of(context).pop(),
+                  tint: const Color(0x55CE1021),
+                  child: const Text('Mbote ! On décolle'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

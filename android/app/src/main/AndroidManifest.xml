@@ -7,6 +7,7 @@
         android:roundIcon="@mipmap/ic_launcher_round">
         <activity
             android:screenOrientation="sensorLandscape"
+            android:resizeableActivity="false"
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
@@ -23,6 +24,10 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Le jeu se joue couché : ni le constructeur ni l'utilisateur ne peuvent forcer le portrait. -->
+            <property android:name="android.window.PROPERTY_COMPAT_ALLOW_ORIENTATION_OVERRIDE" android:value="false"/>
+            <property android:name="android.window.PROPERTY_COMPAT_ALLOW_USER_ASPECT_RATIO_OVERRIDE" android:value="false"/>
+            <property android:name="android.window.PROPERTY_COMPAT_ALLOW_USER_ASPECT_RATIO_FULLSCREEN_OVERRIDE" android:value="false"/>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

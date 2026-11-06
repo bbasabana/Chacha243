@@ -57,7 +57,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       // les chansons des moments quand leur fichier est là.
       ..onFinale = (() => Music.instance.play('chacha', loop: true, level: 0.95))
       ..onSong = ((key) => Music.instance.play(key))
-      ..onSwell = Music.instance.swell;
+      ..onSwell = Music.instance.swell
+      ..onHush = Music.instance.stop;
   }
 
   final _focus = FocusNode();
@@ -462,6 +463,19 @@ class _YearPanel extends StatelessWidget {
                 hud.airline,
                 style: const TextStyle(color: ChachaColors.yellow, fontSize: 11, fontWeight: FontWeight.w800),
               ),
+              if (hud.flightSeconds >= 1) ...[
+                const SizedBox(height: 2),
+                // Le temps qui passe : tout le vol, et l'étape en cours.
+                Text(
+                  '⏱ ${_clock(hud.flightSeconds)} · ${hud.inZone ? 'zone' : 'paix'} ${_clock(hud.stageSeconds)}',
+                  style: TextStyle(
+                    color: hud.inZone ? const Color(0xFFFF9A9A) : Colors.white.withValues(alpha: 0.8),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
             ],
           ),
         ],
@@ -1173,6 +1187,11 @@ class _DescendHint extends StatelessWidget {
   }
 }
 
+String _clock(double s) {
+  final m = s ~/ 60, r = (s % 60).floor();
+  return '$m:${r.toString().padLeft(2, '0')}';
+}
+
 class _Controls extends StatelessWidget {
   const _Controls({required this.game, required this.hud});
 
@@ -1185,6 +1204,23 @@ class _Controls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
+        if (game.canUseReserve) ...[
+          // La réserve : ce qui a débordé du plein, à verser quand le kérosène manque.
+          GlassButton(
+            onTap: game.useReserve,
+            radius: 20,
+            tint: hud.fuel < 15 ? const Color(0x99F7D618) : ChachaColors.glassFill,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.local_gas_station_rounded, color: Colors.white, size: 22),
+                Text('RÉSERVE ${hud.reserve.round()} %', style: const TextStyle(fontSize: 10, letterSpacing: 0.6)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
         if (game.canLand) ...[
           // Le pilote peut demander l'atterrissage : là où l'attendent ses passagers, sinon au plus proche.
           ValueListenableBuilder(
@@ -1385,12 +1421,25 @@ class _EndPanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                win ? 'Moment de gloire !' : "Atterrissage d'urgence",
+                win ? 'Moment de gloire !' : 'CRASH !',
                 style: TextStyle(
-                  color: win ? ChachaColors.yellow : Colors.white,
-                  fontSize: 28,
+                  color: win ? ChachaColors.yellow : const Color(0xFFFF6B6B),
+                  fontSize: win ? 28 : 34,
                   fontWeight: FontWeight.w900,
+                  letterSpacing: win ? 0 : 2,
                 ),
+              ),
+              if (!win) ...[
+                const SizedBox(height: 4),
+                Text(
+                  "L'avion s'est écrasé${game.failWhy.isEmpty ? '' : ' · ${game.failWhy}'}",
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+              ],
+              const SizedBox(height: 4),
+              Text(
+                'Temps de vol : ${_clock(game.flightSeconds)} · enregistré dans le classement des pilotes',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12.5),
               ),
               const SizedBox(height: 6),
               Text(

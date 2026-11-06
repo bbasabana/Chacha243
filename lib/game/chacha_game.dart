@@ -51,6 +51,10 @@ class HudState {
     this.planeLow = false,
     this.planeHigh = false,
     this.refuel = 0,
+    this.reserve = 0,
+    this.flightSeconds = 0,
+    this.stageSeconds = 0,
+    this.stageName = '',
   });
 
   final FlightPhase phase;
@@ -92,6 +96,13 @@ class HudState {
 
   /// Le plein au sol : 0 aucun, 1 le camion arrive, 2 il remplit, 3 il repart.
   final int refuel;
+
+  /// Le kérosène en réserve (0 à 100) : ce qui déborde du réservoir plein.
+  final double reserve;
+
+  /// Le temps passé en vol, et dans l'étape en cours (une zone de guerre, ou le ciel de paix).
+  final double flightSeconds, stageSeconds;
+  final String stageName;
 }
 
 /// Une conversation dans la cabine : deux ou trois répliques, en lingala et en français.
@@ -449,6 +460,28 @@ class ChachaGame extends FlameGame {
   // Zones de turbulence
   WarZone? _zone;
   String _failWhy = '';
+  void Function()? onHush;
+
+  /// Le réservoir de secours : ce qui déborde du plein y va, on le verse quand le kérosène manque.
+  double reserve = 0;
+  bool _reserveSaid = false, _tenSaid = false;
+
+  /// Le temps en vol depuis le décollage, celui de l'étape en cours, celui depuis le dernier décollage.
+  double _flightT = 0, _stageT = 0, _airT = 0, _zoneWarnT = -99;
+
+  /// Les pénuries : pendant ces mois-là, aucun bidon ne vient. Il faut tenir avec ses réserves.
+  static const _shortages = [
+    (1973.8, 1974.6, 'Choc pétrolier', 'Le prix du pétrole explose dans le monde'),
+    (1991.7, 1992.3, 'Pillages de Kinshasa', 'Les dépôts de carburant sont vides'),
+  ];
+  int _shortageSaid = 0;
+  (double, double, String, String)? get _shortage {
+    for (final x in _shortages) {
+      if (year >= x.$1 && year < x.$2) return x;
+    }
+    return null;
+  }
+
   // Le camion-citerne au sol : il arrive, branche le tuyau, remplit, puis repart.
   double _truckT = -1, _fuelFrom = 0, _fuelTo = 0;
   static const _truckIn = 3.2, _truckPlug = 1.0, _truckOut = 3.0;
@@ -736,9 +769,21 @@ class ChachaGame extends FlameGame {
     HapticFeedback.selectionClick();
   }
 
+  static String _clock(double s) {
+    final m = s ~/ 60, r = (s % 60).floor();
+    return m > 0 ? '$m min ${r.toString().padLeft(2, '0')} s' : '$r s';
+  }
+
   void _report(String kind, [String detail = '']) {
     if (autopilot) return;
-    Telemetry.send(kind, year: year, score: score, stage: _zone?.name ?? _airline.name, detail: detail);
+    Telemetry.send(
+      kind,
+      year: year,
+      score: score,
+      stage: _zone?.name ?? _airline.name,
+      detail: detail,
+      seconds: _flightT,
+    );
   }
 
   void _setPhase(FlightPhase p) {
@@ -776,7 +821,7 @@ class ChachaGame extends FlameGame {
   double _cueLeft = 0, _cueGap = 0;
 
   /// Le silence entre deux messages : le vol respire.
-  static const _breath = 1.8;
+  static const _breath = 3.6;
 
   void _cue(
     VoidCallback show,
@@ -789,7 +834,7 @@ class ChachaGame extends FlameGame {
     final c = _Cue(show, seconds, hide: hide, done: done, hold: hold);
     first ? _cues.insert(0, c) : _cues.add(c);
     // Quand l'histoire s'emballe, on garde les messages les plus récents.
-    while (_cues.length > 8) {
+    while (_cues.length > 10) {
       _cues.removeAt(0);
     }
   }
@@ -830,7 +875,7 @@ class ChachaGame extends FlameGame {
   }
 
   void _queueBanner(FlightBanner b, {bool first = false}) =>
-      _cue(() => banner.value = b, 4, hide: () => banner.value = null, first: first);
+      _cue(() => banner.value = b, 5.5, hide: () => banner.value = null, first: first);
 
   void _showCard(HistoryEvent e, {bool caught = true, String? label}) {
     if (e.big && caught) {
@@ -1169,6 +1214,7 @@ class ChachaGame extends FlameGame {
     worldX += groundSpeed * dt;
     if (climb >= 1) {
       tilt.calibrate();
+      _airT = 0;
       _setPhase(FlightPhase.cruising);
       _nextOffer = t + 20;
       if (_takeoffs++ == 0) {
@@ -1220,13 +1266,17 @@ class ChachaGame extends FlameGame {
     final scroll = _scroll * ts;
     worldX += scroll * dt;
     groundSpeed = scroll;
+    _flightT += dt;
+    _stageT += dt;
+    _airT += dt;
     if (_zone == null) {
-      year += dt * ts / _yearSeconds * (boost ? 1.6 : 1);
+      // Juste après le décollage, le ciel est calme : l'histoire reprend après quelques secondes.
+      year += dt * ts / _yearSeconds * (boost ? 1.6 : 1) * (_airT < 14 ? 0.06 : 1);
       _checkDecade();
     } else {
       _updateZone(dt * ts);
     }
-    _checkZone();
+    if (_airT >= 10) _checkZone();
     if (_zone == null && year >= _finaleFrom && year < _homeYear) return _startFinale();
     _steer(dt);
     if (_dance > 0) {
@@ -1310,7 +1360,18 @@ class ChachaGame extends FlameGame {
       _askQuiz();
     }
     if (t >= _nextKit && (fuel < 55 || condition < 55)) _spawnKit();
-    if (fuel <= 0) {
+    if (fuel < 10 && !_tenSaid && reserve >= 1) {
+      _tenSaid = true;
+      _say(
+        'Tour de contrôle',
+        Lingala.mafuta,
+        'Plus que 10 % de kérosène ! Tu as ${reserve.round()} % en réserve : touche RÉSERVE pour la verser.',
+        first: true,
+      );
+    }
+    if (fuel <= 0 && reserve >= 1) {
+      useReserve();
+    } else if (fuel <= 0) {
       fuel = 45;
       _queueBanner(
         const FlightBanner('Panne sèche !', "Ravitaillement d'urgence : une vie en moins", color: ChachaColors.red),
@@ -1534,10 +1595,10 @@ class ChachaGame extends FlameGame {
     if (lines.length > 3) {
       // Une longue conversation : chacun parle à son tour, avec un temps entre deux répliques.
       for (final l in lines) {
-        _cue(() => talk.value = CabinTalk([l]), 3.4, hide: () => talk.value = null);
+        _cue(() => talk.value = CabinTalk([l]), 5.5, hide: () => talk.value = null);
       }
     } else {
-      _cue(() => talk.value = CabinTalk(lines), seconds ?? 2.5 + lines.length * 1.8, hide: () => talk.value = null);
+      _cue(() => talk.value = CabinTalk(lines), seconds ?? 4 + lines.length * 2, hide: () => talk.value = null);
     }
     _nextTalk = t + 20;
   }
@@ -1644,6 +1705,10 @@ class ChachaGame extends FlameGame {
         case EventKind.memory:
           slowMo = 4.5;
           _showCard(e);
+          // Le souvenir arrive avec un bidon : on garde de quoi continuer le voyage.
+          if (_shortage == null) {
+            _pickups.add(_Pickup(_PickupKind.fuel, _w + 160 * _unit, _h * (0.3 + _rng.nextDouble() * 0.4)));
+          }
           if (e.song != null) onSong?.call(e.song!);
       }
     }
@@ -1675,7 +1740,26 @@ class ChachaGame extends FlameGame {
       _nextStar = t + 1.3 + _rng.nextDouble();
       _pickups.add(_Pickup(_PickupKind.star, _w + 40, _h * (0.15 + _rng.nextDouble() * 0.7)));
     }
-    if (t >= _nextFuel) {
+    final short = _shortage;
+    if (short != null && _shortageSaid < _shortages.indexOf(short) + 1) {
+      _shortageSaid = _shortages.indexOf(short) + 1;
+      _queueBanner(
+        FlightBanner(
+          'Pénurie de kérosène · ${short.$3}',
+          '${short.$4} : plus de bidons pendant un moment',
+          color: _warRed,
+        ),
+        first: true,
+      );
+      _say(
+        'Tour de contrôle',
+        Lingala.keba,
+        reserve >= 1
+            ? 'Pénurie : aucun bidon ne viendra. Garde tes ${reserve.round()} % de réserve pour la fin.'
+            : 'Pénurie : aucun bidon ne viendra. Économise ton kérosène, attrape les médailles.',
+      );
+    }
+    if (t >= _nextFuel && short == null) {
       _nextFuel = t + 7 + _rng.nextDouble() * 4;
       _pickups.add(_Pickup(_PickupKind.fuel, _w + 40, _h * (0.2 + _rng.nextDouble() * 0.6)));
     }
@@ -1751,6 +1835,55 @@ class ChachaGame extends FlameGame {
   }
 
   /// Acheter le plein : avec l'argent d'abord, puis en convertissant des points.
+  /// Ajoute du kérosène ; au-delà du plein, il part en réserve.
+  void _addFuel(double amount) {
+    final room = 100 - fuel;
+    if (amount <= room) {
+      fuel += amount;
+      return;
+    }
+    fuel = 100;
+    final before = reserve;
+    // La réserve se remplit moins vite que le réservoir, et ne dépasse pas 60 %.
+    reserve = math.min(60, reserve + (amount - room) * 0.5);
+    if (reserve > before && !_reserveSaid) {
+      _reserveSaid = true;
+      _queueBanner(
+        FlightBanner(
+          'Réservoir plein',
+          'Le reste part en réserve : ${reserve.round()} % · touche RÉSERVE quand il manquera',
+          color: _peaceGreen,
+        ),
+      );
+    }
+  }
+
+  /// Ce qui a fait tomber l'avion, et le temps de vol : le panneau du crash les affiche.
+  String get failWhy => _failWhy;
+  double get flightSeconds => _flightT;
+
+  bool get canUseReserve => reserve >= 1 && fuel < 90 && phase == FlightPhase.cruising;
+
+  /// Verse la réserve dans le réservoir.
+  void useReserve() {
+    if (reserve < 1 || fuel >= 99) return;
+    final put = math.min(reserve, 100 - fuel);
+    reserve -= put;
+    fuel += put;
+    _tenSaid = false;
+    onSound?.call('kerosene');
+    HapticFeedback.mediumImpact();
+    _queueBanner(
+      FlightBanner(
+        'Réserve versée',
+        '+${put.round()} % · il reste ${reserve.round()} % en réserve',
+        color: _peaceGreen,
+      ),
+      first: true,
+    );
+    _pushHud();
+  }
+
   void buyFuel() {
     final price = fuelBill;
     if (price <= 0 || _truckT >= 0) return;
@@ -2061,10 +2194,18 @@ class ChachaGame extends FlameGame {
     // Le kit d'abord : la tour ne propose l'escale que s'il est manqué.
     _nextOffer = math.max(_nextOffer, t + 8);
     _pickups.add(_Pickup(_PickupKind.repair, _w + 300 * _unit, _h * (0.25 + _rng.nextDouble() * 0.5)));
+    _queueBanner(
+      FlightBanner(
+        'Kit d\'entretien en approche',
+        'Le rond VERT avec une clé · avion à ${condition.round()} %, kérosène ${fuel.round()} %',
+        color: _peaceGreen,
+      ),
+      first: true,
+    );
     _say(
       'Tour de contrôle',
       Lingala.keba,
-      'Un kit d\'entretien arrive devant toi. Attrape-le : pas besoin de descendre !',
+      'Le rond vert avec une clé, c\'est le kit d\'entretien : il répare l\'avion et refait le plein. Va le chercher !',
     );
   }
 
@@ -2727,13 +2868,13 @@ class ChachaGame extends FlameGame {
     if (q == null) return;
     quiz.value = null;
     if (i == q.answer) {
-      fuel = math.min(100, fuel + 55);
+      _addFuel(55);
       score += 150;
       _confetti();
       onSong?.call(q.event.song ?? 'chacha');
       _say('Tour de contrôle', Lingala.elonga, 'Bonne réponse ! Ravitaillement en vol : +55 % de kérosène.');
     } else {
-      fuel = math.min(100, fuel + 15);
+      _addFuel(15);
       _say(
         'Tour de contrôle',
         Lingala.makasi,
@@ -2764,15 +2905,21 @@ class ChachaGame extends FlameGame {
   int _wavesOf(WarZone z) => z.waves * 3;
 
   /// Combien d'avions de chasse dans la vague [k] (de 1 au total).
-  int _jetsIn(WarZone z, int k) => 1 + ((k - 1) * (z.waves + 1) / _wavesOf(z)).floor();
+  /// La crise monte, culmine au milieu de la zone, puis retombe : peu d'avions au début et à la fin.
+  int _jetsIn(WarZone z, int k) => 1 + (z.waves * math.sin(math.pi * k / (_wavesOf(z) + 1))).round();
+
+  /// Le cœur de la crise : le tiers du milieu des vagues.
+  bool _peakWave(WarZone z, int k) => k > _wavesOf(z) / 3 && k <= _wavesOf(z) * 2 / 3 + 0.5;
 
   void _checkZone() {
     if (_zone != null || _nextZone >= warZones.length) return;
     final ahead = warZones[_nextZone];
     // La tour prévient de loin : la zone se voit venir, les ceintures s'attachent avant d'y entrer.
-    if (_warnedZone < _nextZone + 1 && year >= ahead.from - 0.7 && year < ahead.from) {
+    if (_warnedZone < _nextZone + 1 && year >= ahead.from - 0.7 && year < ahead.to) {
       _warnedZone = _nextZone + 1;
-      // L'annonce passe avant tout le reste : elle doit arriver avant la zone.
+      _zoneWarnT = t;
+      // L'annonce passe avant tout le reste : elle doit arriver avant la zone. La musique se tait.
+      onHush?.call();
       _queueBanner(
         FlightBanner('Zone de turbulence devant', '${ahead.name} · ${ahead.place}', color: _warRed),
         first: true,
@@ -2780,7 +2927,8 @@ class ChachaGame extends FlameGame {
       _talk(TalkMoment.war, force: true);
       if (passengers > 0) _askBelts('Zone de guerre droit devant');
     }
-    if (year < ahead.from) return;
+    // On entre dans la zone quelques secondes après l'annonce, le temps d'attacher les ceintures.
+    if (year < ahead.from || t < _zoneWarnT + 9) return;
     final z = warZones[_nextZone++];
     _zone = z;
     final waves = _wavesOf(z);
@@ -2798,7 +2946,17 @@ class ChachaGame extends FlameGame {
       _warnedZone = _nextZone;
       if (passengers > 0) _askBelts('Zone de guerre droit devant');
     }
-    _comfort();
+    _stageT = 0;
+    onHush?.call();
+    _queueBanner(FlightBanner('La RDC entre dans la zone', '${z.name} · ${z.place}', color: _warRed), first: true);
+    // La fiche de la crise suit : la photo et le texte qui l'expliquent.
+    if (_nextEvent < historyEvents.length) {
+      final e = historyEvents[_nextEvent];
+      if (e.war && z.contains(e.year)) {
+        _nextEvent++;
+        _showCard(e);
+      }
+    }
     _queueBanner(
       const FlightBanner(
         Lingala.keba,
@@ -2857,7 +3015,22 @@ class ChachaGame extends FlameGame {
       _jets.add(_Jet(_w + _jetLength, lanes[lane], wait, _unit * (480 + 60 * jets + 140 * _level), drift));
     }
     // Dès la deuxième vague, des missiles filent vers l'avion entre les avions de chasse.
-    if (_wave >= 2) {
+    if (_wave == (_wavesOf(_zone!) / 3).floor() + 1) {
+      _queueBanner(
+        const FlightBanner('Le cœur de la crise', 'Les combats redoublent · tiens bon', color: _warRed),
+        first: true,
+      );
+    } else if (_wave == (_wavesOf(_zone!) * 2 / 3).floor() + 1) {
+      _queueBanner(
+        const FlightBanner(
+          'La crise faiblit',
+          'Moins d\'avions de chasse · la sortie approche',
+          color: ChachaColors.yellow,
+        ),
+        first: true,
+      );
+    }
+    if (_peakWave(_zone!, _wave)) {
       final missiles = 1 + _wave % 2 + (_level > 0.5 ? 1 : 0);
       for (var i = 0; i < missiles; i++) {
         final y = _h * (0.18 + _rng.nextDouble() * 0.64);
@@ -2879,6 +3052,8 @@ class ChachaGame extends FlameGame {
 
   void _exitZone() {
     final z = _zone!;
+    _report('stage', '${z.name} · ${_clock(_stageT)}');
+    _stageT = 0;
     _zone = null;
     _waveActive = false;
     lives = math.min(_maxLives, lives + 1);
@@ -3092,7 +3267,7 @@ class ChachaGame extends FlameGame {
         onSound?.call('medaille');
         lives = math.min(_maxLives, lives + 1);
         // Chaque vie rapporte aussi un peu de kérosène ; un visage du pays en apporte un bidon entier.
-        fuel = math.min(100, fuel + (_portraits.containsKey(e.photo) ? 32 : 15));
+        _addFuel(_portraits.containsKey(e.photo) ? 32 : 15);
         score += glory ? 300 : 150;
         medals++;
         money += 150;
@@ -3111,7 +3286,7 @@ class ChachaGame extends FlameGame {
         onSound?.call('etoile');
         _burst(p.x, p.y, 8, const [ChachaColors.yellow, Colors.white], speed: 140, size: 3);
       case _PickupKind.fuel:
-        fuel = math.min(100, fuel + 32);
+        _addFuel(32);
         score += 20;
         onSound?.call('kerosene');
         // Le premier bidon s'explique ; les suivants se voient sur la jauge.
@@ -3126,7 +3301,7 @@ class ChachaGame extends FlameGame {
         }
         _burst(p.x, p.y, 10, const [ChachaColors.red, Colors.white], speed: 160, size: 3);
       case _PickupKind.repair:
-        fuel = 100;
+        _addFuel(100);
         condition = 100;
         score += 80;
         _burst(p.x, p.y, 24, const [Color(0xFF7CF0A6), Colors.white], speed: 220, size: 4);
@@ -3175,6 +3350,10 @@ class ChachaGame extends FlameGame {
       planeLow: planeY > _h * 0.6 && planeX < _w * 0.42,
       planeHigh: planeY < _h * 0.3 && planeX < _w * 0.42,
       refuel: _truckT < 0 ? 0 : _truckStep,
+      reserve: reserve,
+      flightSeconds: _flightT,
+      stageSeconds: _stageT,
+      stageName: _zone?.name ?? 'Ciel de paix',
     );
     final z = _zone;
     zoneHud.value = z == null
