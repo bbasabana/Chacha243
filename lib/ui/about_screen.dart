@@ -21,20 +21,27 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget section(String title, List<Widget> children) => Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Glass(
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title.toUpperCase(),
-                    style: const TextStyle(color: ChachaColors.yellow, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1.4)),
-                const SizedBox(height: 6),
-                ...children,
-              ],
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Glass(
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title.toUpperCase(),
+              style: const TextStyle(
+                color: ChachaColors.yellow,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.4,
+              ),
             ),
-          ),
-        );
+            const SizedBox(height: 6),
+            ...children,
+          ],
+        ),
+      ),
+    );
     const body = TextStyle(color: Colors.white, fontSize: 14.5, height: 1.4);
 
     void copy(String text, String done) {
@@ -66,8 +73,10 @@ class AboutScreen extends StatelessWidget {
                       child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
                     ),
                     const SizedBox(width: 14),
-                    const Text('À propos · Soutenir',
-                        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                    const Text(
+                      'À propos · Soutenir',
+                      style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -92,17 +101,26 @@ class AboutScreen extends StatelessWidget {
                         const SizedBox(height: 10),
                         GlassButton(
                           onTap: () async {
-                            final ok = await launchUrl(Uri.parse(firstVersionUrl), mode: LaunchMode.externalApplication);
+                            final ok = await launchUrl(
+                              Uri.parse(firstVersionUrl),
+                              mode: LaunchMode.externalApplication,
+                            );
                             if (!ok) copy(firstVersionUrl, 'Lien copié');
                           },
-                          child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.history_rounded, color: Colors.white, size: 18),
-                            SizedBox(width: 8),
-                            Text('Voir la version de 2014', style: TextStyle(fontSize: 15)),
-                          ]),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.history_rounded, color: Colors.white, size: 18),
+                              SizedBox(width: 8),
+                              Text('Voir la version de 2014', style: TextStyle(fontSize: 15)),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 6),
-                        Text(firstVersionUrl, style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11.5)),
+                        Text(
+                          firstVersionUrl,
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11.5),
+                        ),
                       ]),
                       section('Soutenir le projet', [
                         const Text(
@@ -116,38 +134,52 @@ class AboutScreen extends StatelessWidget {
                           children: [
                             GlassButton(
                               onTap: () => copy(
-                                  'Apprends l\'histoire du Congo en pilotant l\'avion de 1960 à 2027 : Chacha243 ! $storeUrl'.trim(),
-                                  'Message copié : colle-le où tu veux le partager'),
+                                'Apprends l\'histoire du Congo en pilotant l\'avion de 1960 à 2027 : Chacha243 ! $storeUrl'
+                                    .trim(),
+                                'Message copié : colle-le où tu veux le partager',
+                              ),
                               tint: const Color(0x55CE1021),
-                              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(Icons.share_rounded, color: Colors.white, size: 18),
-                                SizedBox(width: 8),
-                                Text('Partager le jeu', style: TextStyle(fontSize: 15)),
-                              ]),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.share_rounded, color: Colors.white, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Partager le jeu', style: TextStyle(fontSize: 15)),
+                                ],
+                              ),
                             ),
                             GlassButton(
                               onTap: storeUrl.isEmpty ? null : () => copy(storeUrl, 'Lien copié'),
-                              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(Icons.star_rounded, color: Colors.white, size: 18),
-                                SizedBox(width: 8),
-                                Text('Noter l\'application', style: TextStyle(fontSize: 15)),
-                              ]),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.star_rounded, color: Colors.white, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Noter l\'application', style: TextStyle(fontSize: 15)),
+                                ],
+                              ),
                             ),
                             GlassButton(
                               onTap: supportUrl.isEmpty ? null : () => copy(supportUrl, 'Lien copié'),
-                              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(Icons.volunteer_activism_rounded, color: Colors.white, size: 18),
-                                SizedBox(width: 8),
-                                Text('Faire un don', style: TextStyle(fontSize: 15)),
-                              ]),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.volunteer_activism_rounded, color: Colors.white, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Faire un don', style: TextStyle(fontSize: 15)),
+                                ],
+                              ),
                             ),
                             GlassButton(
                               onTap: contactEmail.isEmpty ? null : () => copy(contactEmail, 'Adresse copiée'),
-                              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(Icons.photo_library_rounded, color: Colors.white, size: 18),
-                                SizedBox(width: 8),
-                                Text('Proposer une photo, une date', style: TextStyle(fontSize: 15)),
-                              ]),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.photo_library_rounded, color: Colors.white, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Proposer une photo, une date', style: TextStyle(fontSize: 15)),
+                                ],
+                              ),
                             ),
                           ],
                         ),

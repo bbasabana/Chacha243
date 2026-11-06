@@ -268,10 +268,7 @@ class AircraftPainter {
     final r = finH * 0.2;
     switch (l.emblem) {
       case TailEmblem.star:
-        canvas.drawPath(
-          FlagPainter.starPath(center, r),
-          Paint()..color = ChachaColors.yellow,
-        );
+        canvas.drawPath(FlagPainter.starPath(center, r), Paint()..color = ChachaColors.yellow);
       case TailEmblem.zaire:
         canvas.drawCircle(center, r, Paint()..color = ChachaColors.yellow);
         canvas.drawPath(
@@ -287,10 +284,14 @@ class AircraftPainter {
         canvas.save();
         canvas.translate(center.dx, center.dy);
         canvas.rotate(-math.pi / 3.2);
-        canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: finH * 3, height: r * 1.3),
-            Paint()..color = ChachaColors.yellow);
-        canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: finH * 3, height: r * 0.9),
-            Paint()..color = ChachaColors.red);
+        canvas.drawRect(
+          Rect.fromCenter(center: Offset.zero, width: finH * 3, height: r * 1.3),
+          Paint()..color = ChachaColors.yellow,
+        );
+        canvas.drawRect(
+          Rect.fromCenter(center: Offset.zero, width: finH * 3, height: r * 0.9),
+          Paint()..color = ChachaColors.red,
+        );
         canvas.restore();
         canvas.drawPath(
           FlagPainter.starPath(Offset(center.dx - r * 0.2, center.dy - r * 1.6), r * 0.55),
@@ -375,10 +376,13 @@ class AircraftPainter {
     final lead = t.highWing
         ? [Offset(62, -h * 0.98), Offset(41.5, h * 1.0)]
         : [Offset(63, h * 0.35), Offset(37.5, h * ((t.bodyHeight > 12 ? 2.3 : 2.0) + 0.06))];
-    canvas.drawLine(lead[0], lead[1],
-        Paint()
-          ..color = const Color(0x99FFFFFF)
-          ..strokeWidth = 0.45);
+    canvas.drawLine(
+      lead[0],
+      lead[1],
+      Paint()
+        ..color = const Color(0x99FFFFFF)
+        ..strokeWidth = 0.45,
+    );
 
     // Moteurs, du plus loin au plus proche du fuselage
     Offset along(double f) => Offset.lerp(lead[0], lead[1], f)!;
@@ -405,10 +409,13 @@ class AircraftPainter {
 
   static void _jet(Canvas canvas, Offset c, double len, double r, [Color? paint]) {
     final rect = Rect.fromCenter(center: c, width: len, height: r * 2);
-    canvas.drawLine(c + Offset(len * 0.1, -r), c + Offset(len * 0.2, -r * 2.2),
-        Paint()
-          ..color = const Color(0xFF9AA6B5)
-          ..strokeWidth = r * 0.5);
+    canvas.drawLine(
+      c + Offset(len * 0.1, -r),
+      c + Offset(len * 0.2, -r * 2.2),
+      Paint()
+        ..color = const Color(0xFF9AA6B5)
+        ..strokeWidth = r * 0.5,
+    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect, Radius.circular(r)),
       Paint()
@@ -424,24 +431,34 @@ class AircraftPainter {
       // Liseré rouge et jaune sur le capot, comme sur la livrée
       canvas.save();
       canvas.clipRRect(RRect.fromRectAndRadius(rect, Radius.circular(r)));
-      canvas.drawLine(Offset(rect.left + len * 0.2, rect.bottom), Offset(rect.left + len * 0.55, rect.top),
-          Paint()
-            ..color = ChachaColors.yellow
-            ..strokeWidth = r * 0.5);
-      canvas.drawLine(Offset(rect.left + len * 0.27, rect.bottom), Offset(rect.left + len * 0.62, rect.top),
-          Paint()
-            ..color = ChachaColors.red
-            ..strokeWidth = r * 0.3);
+      canvas.drawLine(
+        Offset(rect.left + len * 0.2, rect.bottom),
+        Offset(rect.left + len * 0.55, rect.top),
+        Paint()
+          ..color = ChachaColors.yellow
+          ..strokeWidth = r * 0.5,
+      );
+      canvas.drawLine(
+        Offset(rect.left + len * 0.27, rect.bottom),
+        Offset(rect.left + len * 0.62, rect.top),
+        Paint()
+          ..color = ChachaColors.red
+          ..strokeWidth = r * 0.3,
+      );
       canvas.restore();
     }
     // Entrée d'air et sortie des gaz
-    canvas.drawOval(Rect.fromCenter(center: Offset(rect.right - r * 0.15, c.dy), width: r * 0.6, height: r * 1.75),
-        Paint()..color = const Color(0xFF1A2333));
-    canvas.drawOval(Rect.fromCenter(center: Offset(rect.right - r * 0.05, c.dy), width: r * 0.3, height: r * 1.9),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.25
-          ..color = const Color(0xFFE6EDF5));
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(rect.right - r * 0.15, c.dy), width: r * 0.6, height: r * 1.75),
+      Paint()..color = const Color(0xFF1A2333),
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(rect.right - r * 0.05, c.dy), width: r * 0.3, height: r * 1.9),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.25
+        ..color = const Color(0xFFE6EDF5),
+    );
     canvas.drawPath(
       Path()
         ..moveTo(rect.left + 0.2, c.dy - r * 0.6)
@@ -450,11 +467,14 @@ class AircraftPainter {
         ..close(),
       Paint()..color = const Color(0xFF5B6573),
     );
-    canvas.drawLine(Offset(rect.left + r, c.dy - r * 0.55), Offset(rect.right - r, c.dy - r * 0.55),
-        Paint()
-          ..color = const Color(0xCCFFFFFF)
-          ..strokeWidth = r * 0.22
-          ..strokeCap = StrokeCap.round);
+    canvas.drawLine(
+      Offset(rect.left + r, c.dy - r * 0.55),
+      Offset(rect.right - r, c.dy - r * 0.55),
+      Paint()
+        ..color = const Color(0xCCFFFFFF)
+        ..strokeWidth = r * 0.22
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   static void _prop(Canvas canvas, Offset c, double h, double phase) {
@@ -475,8 +495,9 @@ class AircraftPainter {
     canvas.drawOval(
       Rect.fromCenter(center: hub, width: 2.2, height: h * 2.8),
       Paint()
-        ..shader = RadialGradient(colors: const [Color(0x88D8E2EE), Color(0x22D8E2EE)])
-            .createShader(Rect.fromCenter(center: hub, width: 2.2, height: h * 2.8)),
+        ..shader = RadialGradient(
+          colors: const [Color(0x88D8E2EE), Color(0x22D8E2EE)],
+        ).createShader(Rect.fromCenter(center: hub, width: 2.2, height: h * 2.8)),
     );
     final blade = Paint()
       ..color = const Color(0xCC2A2F38)

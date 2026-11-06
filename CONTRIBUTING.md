@@ -178,7 +178,23 @@ Le nombre de missions réussies est gardé sur le téléphone et donne le grade 
 - Chaque escale coûte **1 000 de droits** (`landingFee`) plus le kérosène (`fuelPrice` = 8 par point). Pas assez d'argent pour faire le plein : plein partiel. Pas assez pour les droits : les points sont convertis en argent, sinon la tour demande de continuer.
 - La monnaie suit l'histoire (`currencyAt(year)` dans `archive.dart`) : **franc** (1960), **zaïre** (24 juin 1967), **nouveau zaïre** (22 octobre 1993), **franc congolais** (30 juin 1998). Un bandeau annonce chaque changement.
 
-### 4.10 Les points de reprise
+### 4.10 La musique et la cabine qui parle
+
+- **Les chansons des moments** (`momentSongs`) : un extrait monte en fondu jusqu'à son niveau (`level`, 0,75 par défaut : la musique ne couvre jamais le vol), dure `seconds`, puis s'éteint. Entre deux chansons, le silence laisse le vol au calme.
+- **La louange** (`louange`) accompagne les moments difficiles (orages, entrée en guerre) : très douce, elle monte en 6 secondes, et ne revient pas avant 75 secondes.
+- **La cabine parle** (`lib/data/cabin_talk.dart`) : à la guerre, à l'orage, au volcan, à la paix, au repas, des passagers et l'équipage échangent deux ou trois répliques, en lingala avec la traduction. Les bulles sortent de l'avion, l'une après l'autre.
+
+### 4.11 La dernière ligne droite et l'arrivée
+
+1. **Octobre 2026** (`_finaleFrom`) : *Kitisa Moto* d'Alain Moloto commence bas. Le pilote automatique prend les commandes, les mois défilent en grand avec le compte à rebours (« J-120 avant le 30 juin 2027 »).
+2. **Quand la chanson remonte** (9 s), trois murs d'orages arrivent avec un seul passage : l'avion dévie au dernier moment, au ralenti, sans perdre de vie.
+3. **Le calme** (31 s) : le ciel s'ouvre, la cabine se rassure.
+4. **Début juin 2027** (40 s) : *Indépendance Cha Cha* prend le relais et l'avion descend seul, calmement, vers N'djili.
+5. **Posé le 30 juin 2027** : les années d'indépendance comptent jusqu'à 67, le message au pays s'écrit lettre par lettre, puis les « Vive… » éclatent avec les confettis. Le bilan suit : badges, score, historique des vols (`flights` dans `app_state.dart`), et « Recommencer en 1960 ».
+
+Pour tester : `?demo=1&annee=2026.74`, et `&avance=56` pour arriver directement à la fête.
+
+### 4.12 Les points de reprise
 
 `game/checkpoint.dart` garde l'année, le score et les médaillons à chaque décennie et à l'entrée et à la sortie de chaque zone. Après un atterrissage d'urgence, on redécolle de là.
 

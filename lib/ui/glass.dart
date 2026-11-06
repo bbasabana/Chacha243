@@ -39,7 +39,11 @@ class Glass extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color.lerp(tint, Colors.white, 0.25)!, tint, tint.withValues(alpha: tint.a * 0.6)],
+                colors: [
+                  Color.lerp(tint, Colors.white, 0.25)!,
+                  tint,
+                  tint.withValues(alpha: tint.a * 0.6),
+                ],
               ),
               border: Border.all(color: ChachaColors.glassEdge, width: 1.2),
             ),

@@ -11,7 +11,9 @@ import '../game/checkpoint.dart';
 import '../game/music.dart';
 import '../painting/flag_painter.dart';
 import '../theme/chacha_colors.dart';
+import '../app_state.dart';
 import 'cockpit_panel.dart';
+import 'finale.dart';
 import 'glass.dart';
 import 'timeline_screen.dart';
 
@@ -44,9 +46,11 @@ class _GameScreenState extends State<GameScreen> {
       ..startMedals = from?.medals ?? 0
       ..quizNow = q['quiz'] == '1'
       ..showcase = q['montrer']
-      // « Indépendance Cha Cha » au 30 juin 2027 ; les chansons des moments quand leur fichier licencié est là.
-      ..onFinale = (() => Music.instance.play('chacha'))
-      ..onSong = ((key) => Music.instance.play(key));
+      // « Indépendance Cha Cha » pour l'arrivée du 30 juin 2027, en boucle pendant la fête ;
+      // les chansons des moments quand leur fichier est là.
+      ..onFinale = (() => Music.instance.play('chacha', loop: true, level: 0.95))
+      ..onSong = ((key) => Music.instance.play(key))
+      ..onSwell = Music.instance.swell;
   }
 
   final _focus = FocusNode();
@@ -108,9 +112,13 @@ class _GameScreenState extends State<GameScreen> {
               onPanCancel: () => _game.touchTarget = null,
               child: GameWidget(key: ObjectKey(_game), game: _game),
             ),
+            IgnorePointer(
+              child: TalkBubbles(key: ObjectKey(_game), game: _game),
+            ),
             ValueListenableBuilder(
               valueListenable: _game.hud,
-              builder: (_, hud, _) => hud == null ? const SizedBox.shrink() : _Hud(game: _game, hud: hud, onRestart: _restart),
+              builder: (_, hud, _) =>
+                  hud == null ? const SizedBox.shrink() : _Hud(game: _game, hud: hud, onRestart: _restart),
             ),
           ],
         ),
@@ -128,7 +136,8 @@ class _Hud extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final flying = hud.phase == FlightPhase.cruising || hud.phase == FlightPhase.climbing || hud.phase == FlightPhase.approach;
+    final flying =
+        hud.phase == FlightPhase.cruising || hud.phase == FlightPhase.climbing || hud.phase == FlightPhase.approach;
     final wide = MediaQuery.sizeOf(context).width >= 1000;
     final ended = hud.phase == FlightPhase.crashed || hud.phase == FlightPhase.finished;
     return SafeArea(
@@ -136,8 +145,14 @@ class _Hud extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Stack(
           children: [
-            Align(alignment: Alignment.topLeft, child: _YearPanel(hud: hud, onClose: () => Navigator.of(context).pop())),
-            Align(alignment: Alignment.topRight, child: _StatusPanel(hud: hud)),
+            Align(
+              alignment: Alignment.topLeft,
+              child: _YearPanel(hud: hud, onClose: () => Navigator.of(context).pop()),
+            ),
+            Align(
+              alignment: Alignment.topRight,
+              child: _StatusPanel(hud: hud),
+            ),
             Align(
               alignment: Alignment.topLeft,
               child: Padding(
@@ -252,7 +267,9 @@ class _Hud extends StatelessWidget {
                     duration: const Duration(milliseconds: 350),
                     transitionBuilder: _slide,
                     layoutBuilder: (current, _) => current ?? const SizedBox.shrink(),
-                    child: c == null ? const SizedBox.shrink() : _CabinView(key: ValueKey(c.mode), cabin: c, game: game),
+                    child: c == null
+                        ? const SizedBox.shrink()
+                        : _CabinView(key: ValueKey(c.mode), cabin: c, game: game),
                   ),
                 ),
               ),
@@ -267,11 +284,39 @@ class _Hud extends StatelessWidget {
                 ),
               ),
             ),
-            if (hud.phase == FlightPhase.ready) Align(alignment: const Alignment(0, -0.25), child: _TakeoffPanel(hud: hud)),
-            if (flying || hud.phase == FlightPhase.ready || hud.phase == FlightPhase.rolling)
-              Align(alignment: Alignment.bottomRight, child: _Controls(game: game, hud: hud)),
-            if (!ended) Align(alignment: Alignment.bottomLeft, child: CockpitPanel(hud: hud)),
-            if (ended) Center(child: _EndPanel(hud: hud, game: game, checkpoint: game.checkpoint.value, onRestart: onRestart)),
+            if (hud.phase == FlightPhase.ready)
+              Align(
+                alignment: const Alignment(0, -0.25),
+                child: _TakeoffPanel(hud: hud),
+              ),
+            if (hud.finale)
+              Align(
+                alignment: const Alignment(0, -0.58),
+                child: FinaleCountdown(hud: hud),
+              ),
+            if (!hud.finale && (flying || hud.phase == FlightPhase.ready || hud.phase == FlightPhase.rolling))
+              Align(
+                alignment: Alignment.bottomRight,
+                child: _Controls(game: game, hud: hud),
+              ),
+            if (!ended)
+              Align(
+                alignment: Alignment.bottomLeft,
+                child: CockpitPanel(hud: hud),
+              ),
+            if (ended && game.homecoming.value)
+              Positioned.fill(
+                child: FinaleView(
+                  game: game,
+                  bilan: (_) => Center(
+                    child: _EndPanel(hud: hud, game: game, checkpoint: null, onRestart: onRestart),
+                  ),
+                ),
+              )
+            else if (ended)
+              Center(
+                child: _EndPanel(hud: hud, game: game, checkpoint: game.checkpoint.value, onRestart: onRestart),
+              ),
           ],
         ),
       ),
@@ -280,20 +325,24 @@ class _Hud extends StatelessWidget {
 
   /// La fiche avion glisse depuis la droite, comme un avion qui entre dans le hangar.
   static Widget _fromSide(Widget child, Animation<double> a) => SlideTransition(
-        position: Tween(begin: const Offset(1.3, 0), end: Offset.zero)
-            .animate(CurvedAnimation(parent: a, curve: Curves.easeOutBack)),
-        child: child,
-      );
+    position: Tween(
+      begin: const Offset(1.3, 0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: a, curve: Curves.easeOutBack)),
+    child: child,
+  );
 
   // Pas de fondu : un flou de verre dans un fondu blanchit tout l'écran sur le web.
   static Widget _slide(Widget child, Animation<double> a) => ScaleTransition(
-        scale: CurvedAnimation(parent: a, curve: Curves.easeOutBack),
-        child: SlideTransition(
-          position: Tween(begin: const Offset(0, -0.3), end: Offset.zero)
-              .animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
-          child: child,
-        ),
-      );
+    scale: CurvedAnimation(parent: a, curve: Curves.easeOutBack),
+    child: SlideTransition(
+      position: Tween(
+        begin: const Offset(0, -0.3),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: a, curve: Curves.easeOutCubic)),
+      child: child,
+    ),
+  );
 }
 
 class _YearPanel extends StatelessWidget {
@@ -336,8 +385,10 @@ class _YearPanel extends StatelessWidget {
                       fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),
-                  Text(hud.airline,
-                      style: const TextStyle(color: ChachaColors.yellow, fontSize: 12, fontWeight: FontWeight.w800)),
+                  Text(
+                    hud.airline,
+                    style: const TextStyle(color: ChachaColors.yellow, fontSize: 12, fontWeight: FontWeight.w800),
+                  ),
                 ],
               ),
             ],
@@ -366,15 +417,32 @@ class _StatusPanel extends StatelessWidget {
               child: Icon(Icons.favorite_rounded, size: 14, color: ChachaColors.yellow),
             ),
           const SizedBox(width: 10),
-          Text('${hud.score}',
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, fontFeatures: [FontFeature.tabularFigures()])),
-          Container(width: 1, height: 22, margin: const EdgeInsets.symmetric(horizontal: 12), color: const Color(0x44FFFFFF)),
+          Text(
+            '${hud.score}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 22,
+            margin: const EdgeInsets.symmetric(horizontal: 12),
+            color: const Color(0x44FFFFFF),
+          ),
           _MiniNote(currency: hud.currency),
           const SizedBox(width: 6),
-          Text('${_money(hud.money)} ${hud.currency}',
-              style: const TextStyle(
-                  color: Color(0xFF9CF0B8), fontSize: 15, fontWeight: FontWeight.w900, fontFeatures: [FontFeature.tabularFigures()])),
+          Text(
+            '${_money(hud.money)} ${hud.currency}',
+            style: const TextStyle(
+              color: Color(0xFF9CF0B8),
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
         ],
       ),
     );
@@ -403,12 +471,22 @@ class _RadioView extends StatelessWidget {
               children: [
                 const Icon(Icons.headset_mic_rounded, color: ChachaColors.skyLight, size: 16),
                 const SizedBox(width: 6),
-                Text(call.speaker.toUpperCase(),
-                    style: const TextStyle(color: ChachaColors.skyLight, fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                Text(
+                  call.speaker.toUpperCase(),
+                  style: const TextStyle(
+                    color: ChachaColors.skyLight,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
-            Text(call.lingala, style: const TextStyle(color: ChachaColors.yellow, fontSize: 18, fontWeight: FontWeight.w900)),
+            Text(
+              call.lingala,
+              style: const TextStyle(color: ChachaColors.yellow, fontSize: 18, fontWeight: FontWeight.w900),
+            ),
             Text(call.french, style: const TextStyle(color: Colors.white, fontSize: 13)),
             if (call.offer != null) ...[
               const SizedBox(height: 10),
@@ -419,11 +497,14 @@ class _RadioView extends StatelessWidget {
                     onTap: game.acceptStopover,
                     tint: const Color(0x557CF0A6),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.flight_land_rounded, color: Colors.white, size: 18),
-                      const SizedBox(width: 6),
-                      Text('Descendre à ${call.offer}', style: const TextStyle(fontSize: 14)),
-                    ]),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.flight_land_rounded, color: Colors.white, size: 18),
+                        const SizedBox(width: 6),
+                        Text('Descendre à ${call.offer}', style: const TextStyle(fontSize: 14)),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 8),
                   GlassButton(
@@ -451,28 +532,38 @@ class _StopoverView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget row(IconData icon, String label, double v, Color color) => Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(v >= 1 ? Icons.check_circle_rounded : icon, size: 18, color: v >= 1 ? const Color(0xFF7CF0A6) : Colors.white),
-              const SizedBox(width: 8),
-              SizedBox(width: 118, child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700))),
-              SizedBox(
-                width: 150,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(5),
-                  child: LinearProgressIndicator(
-                    value: v,
-                    minHeight: 8,
-                    backgroundColor: const Color(0x33FFFFFF),
-                    valueColor: AlwaysStoppedAnimation(color),
-                  ),
-                ),
-              ),
-            ],
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            v >= 1 ? Icons.check_circle_rounded : icon,
+            size: 18,
+            color: v >= 1 ? const Color(0xFF7CF0A6) : Colors.white,
           ),
-        );
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 118,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+            ),
+          ),
+          SizedBox(
+            width: 150,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: LinearProgressIndicator(
+                value: v,
+                minHeight: 8,
+                backgroundColor: const Color(0x33FFFFFF),
+                valueColor: AlwaysStoppedAnimation(color),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
     return Glass(
       tint: const Color(0x55001A40),
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
@@ -480,14 +571,25 @@ class _StopoverView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('ESCALE · ${stop.airport.toUpperCase()}',
-              style: const TextStyle(color: ChachaColors.yellow, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.3)),
+          Text(
+            'ESCALE · ${stop.airport.toUpperCase()}',
+            style: const TextStyle(
+              color: ChachaColors.yellow,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.3,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(stop.step, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+          Text(
+            stop.step,
+            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+          ),
           row(Icons.local_gas_station_rounded, 'Kérosène', stop.fuel, ChachaColors.yellow),
           row(Icons.build_rounded, 'Entretien', stop.repair, const Color(0xFF7CF0A6)),
           row(Icons.fact_check_rounded, 'Contrôles', stop.checks, ChachaColors.skyLight),
-          if (stop.boarding != null) row(Icons.groups_rounded, stop.boardingLabel, stop.boarding!, const Color(0xFFFFB86B)),
+          if (stop.boarding != null)
+            row(Icons.groups_rounded, stop.boardingLabel, stop.boarding!, const Color(0xFFFFB86B)),
           if (stop.bill.isNotEmpty) ...[
             const SizedBox(height: 8),
             Row(
@@ -496,22 +598,38 @@ class _StopoverView extends StatelessWidget {
                 if (noteFor(ChachaGame.landingFee, game.year) case final Banknote n when kDebugMode) ...[
                   ClipRRect(
                     borderRadius: BorderRadius.circular(2),
-                    child: Image.asset(n.asset,
-                        width: 44, height: 22, fit: BoxFit.cover, cacheWidth: 120, errorBuilder: (_, _, _) => const SizedBox.shrink()),
+                    child: Image.asset(
+                      n.asset,
+                      width: 44,
+                      height: 22,
+                      fit: BoxFit.cover,
+                      cacheWidth: 120,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
                   ),
                   const SizedBox(width: 8),
                 ] else ...[
                   const Icon(Icons.payments_rounded, size: 18, color: Color(0xFF9CF0B8)),
                   const SizedBox(width: 8),
                 ],
-                Text(stop.bill, style: const TextStyle(color: Color(0xFF9CF0B8), fontSize: 12.5, fontWeight: FontWeight.w700)),
+                Text(
+                  stop.bill,
+                  style: const TextStyle(color: Color(0xFF9CF0B8), fontSize: 12.5, fontWeight: FontWeight.w700),
+                ),
               ],
             ),
           ],
           if (stop.fleet.length > 1 && !stop.rescue) ...[
             const SizedBox(height: 10),
-            Text('AVIONS DE L\'ÉPOQUE',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+            Text(
+              'AVIONS DE L\'ÉPOQUE',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 9.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+              ),
+            ),
             const SizedBox(height: 4),
             Wrap(
               spacing: 6,
@@ -527,8 +645,10 @@ class _StopoverView extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: t == stop.current ? ChachaColors.yellow : const Color(0x33FFFFFF)),
                       ),
-                      child: Text('${t.name} · ${t.seats}',
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
+                      child: Text(
+                        '${t.name} · ${t.seats}',
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+                      ),
                     ),
                   ),
               ],
@@ -553,7 +673,10 @@ class _BannerView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(banner.title, style: TextStyle(color: banner.color, fontSize: 20, fontWeight: FontWeight.w900)),
+          Text(
+            banner.title,
+            style: TextStyle(color: banner.color, fontSize: 20, fontWeight: FontWeight.w900),
+          ),
           Text(banner.subtitle, style: const TextStyle(color: Colors.white, fontSize: 13)),
         ],
       ),
@@ -589,14 +712,26 @@ class _StoryCardView extends StatelessWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: color.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(8)),
-                  child: Text(tag, style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    tag,
+                    style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: 1.2),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text('${e.date} · ${e.city}',
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    '${e.date} · ${e.city}',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -608,7 +743,10 @@ class _StoryCardView extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(e.title, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+                      Text(
+                        e.title,
+                        style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900),
+                      ),
                       const SizedBox(height: 2),
                       Text(e.text, style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13.5)),
                       if (e.song != null) _SongLine(songKey: e.song!),
@@ -641,14 +779,25 @@ class _TakeoffPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(hud.firstFlight ? "LÉOPOLDVILLE · AÉROPORT DE N'DJILI" : 'AÉROPORT · ${hud.airport.toUpperCase()}',
-              style: const TextStyle(color: ChachaColors.yellow, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1.4)),
+          Text(
+            hud.firstFlight ? "LÉOPOLDVILLE · AÉROPORT DE N'DJILI" : 'AÉROPORT · ${hud.airport.toUpperCase()}',
+            style: const TextStyle(
+              color: ChachaColors.yellow,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.4,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(hud.firstFlight ? '30 juin 1960 · prêt au décollage' : '${hud.year.floor()} · prêt au décollage',
-              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+          Text(
+            hud.firstFlight ? '30 juin 1960 · prêt au décollage' : '${hud.year.floor()} · prêt au décollage',
+            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
+          ),
           const SizedBox(height: 4),
-          Text('Maintiens TURBO pour prendre de la vitesse sur la piste',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.85))),
+          Text(
+            'Maintiens TURBO pour prendre de la vitesse sur la piste',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.85)),
+          ),
           const SizedBox(height: 2),
           Text(
             hud.tiltAvailable
@@ -757,8 +906,10 @@ class _ZonePanel extends StatelessWidget {
             children: [
               const Icon(Icons.warning_amber_rounded, color: red, size: 16),
               const SizedBox(width: 6),
-              Text('ZONE DE TURBULENCE · ${z.name.toUpperCase()}',
-                  style: const TextStyle(color: red, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+              Text(
+                'ZONE DE TURBULENCE · ${z.name.toUpperCase()}',
+                style: const TextStyle(color: red, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.1),
+              ),
             ],
           ),
           const SizedBox(height: 4),
@@ -775,13 +926,15 @@ class _ZonePanel extends StatelessWidget {
                     color: i < zone.wave || (i == zone.wave && !zone.active && zone.progress >= 1)
                         ? const Color(0xFF7CF0A6)
                         : i == zone.wave
-                            ? red
-                            : const Color(0x33FFFFFF),
+                        ? red
+                        : const Color(0x33FFFFFF),
                   ),
                 ),
               const SizedBox(width: 10),
               Text(
-                zone.active ? 'Vague ${zone.wave} / ${z.waves} · ${zone.wave} avion${zone.wave > 1 ? 's' : ''}' : 'Makasi ! Vague suivante…',
+                zone.active
+                    ? 'Vague ${zone.wave} / ${z.waves} · ${zone.wave} avion${zone.wave > 1 ? 's' : ''}'
+                    : 'Makasi ! Vague suivante…',
                 style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800),
               ),
             ],
@@ -793,28 +946,31 @@ class _ZonePanel extends StatelessWidget {
 }
 
 Widget _gift(IconData icon, String title, String subtitle) => Container(
-      padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
-      decoration: BoxDecoration(
-        color: const Color(0x33F7D618),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0x66F7D618)),
-      ),
-      child: Row(
+  padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+  decoration: BoxDecoration(
+    color: const Color(0x33F7D618),
+    borderRadius: BorderRadius.circular(14),
+    border: Border.all(color: const Color(0x66F7D618)),
+  ),
+  child: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, color: ChachaColors.yellow, size: 22),
+      const SizedBox(width: 8),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: ChachaColors.yellow, size: 22),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
-              Text(subtitle, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11)),
-            ],
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13),
           ),
+          Text(subtitle, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11)),
         ],
       ),
-    );
+    ],
+  ),
+);
 
 class _EndPanel extends StatelessWidget {
   const _EndPanel({required this.hud, required this.game, required this.checkpoint, required this.onRestart});
@@ -827,67 +983,144 @@ class _EndPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final win = hud.phase == FlightPhase.finished;
-    return Glass(
-      tint: const Color(0x55001433),
-      padding: const EdgeInsets.all(26),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(win ? 'Moment de gloire !' : "Atterrissage d'urgence",
-              style: TextStyle(color: win ? ChachaColors.yellow : Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 6),
-          Text(
-            win
-                ? 'Tu as piloté du 30 juin 1960 au 30 juin 2027.'
-                : checkpoint == null
-                    ? 'Ton vol s\'arrête en ${hud.year.floor()}.'
-                    : 'Ton vol s\'arrête en ${hud.year.floor()}. Tu peux reprendre là où tu étais.',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 15),
-          ),
-          const SizedBox(height: 14),
-          Text('${hud.medals} médaillons · ${hud.score} points',
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
-          if (win) ...[
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                _gift(Icons.workspace_premium_rounded, hud.medals >= 30 ? 'Badge d\'or' : hud.medals >= 15 ? 'Badge d\'argent' : 'Badge de bronze',
-                    'Pilote de Dipanda'),
-                _gift(Icons.school_rounded, 'Diplôme', 'Histoire du Congo 1960 – 2027'),
-                _gift(Icons.flight_rounded, 'Avion offert', 'Tous les avions du hangar'),
-              ],
-            ),
-          ],
-          const SizedBox(height: 18),
-          Row(
+    final past = flights.value.take(5).toList();
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 40, maxWidth: 640),
+      child: SingleChildScrollView(
+        child: Glass(
+          tint: const Color(0x55001433),
+          padding: const EdgeInsets.all(26),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              GlassButton(
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => TimelineScreen(caught: {...game.caught}))),
-                tint: const Color(0x557CF0A6),
-                child: const Text('Les dates à retenir'),
-              ),
-              const SizedBox(width: 12),
-              if (!win && checkpoint != null) ...[
-                GlassButton(
-                  onTap: () => onRestart(checkpoint),
-                  tint: const Color(0x55CE1021),
-                  child: Text('Reprendre en ${checkpoint!.year.floor()}'),
+              Text(
+                win ? 'Moment de gloire !' : "Atterrissage d'urgence",
+                style: TextStyle(
+                  color: win ? ChachaColors.yellow : Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
                 ),
-                const SizedBox(width: 12),
-              ],
-              GlassButton(
-                onTap: () => onRestart(null),
-                tint: !win && checkpoint != null ? ChachaColors.glassFill : const Color(0x55CE1021),
-                child: const Text('Recommencer en 1960'),
               ),
-              const SizedBox(width: 12),
-              GlassButton(onTap: () => Navigator.of(context).pop(), child: const Text('Accueil')),
+              const SizedBox(height: 6),
+              Text(
+                win
+                    ? 'Tu as piloté du 30 juin 1960 au 30 juin 2027.'
+                    : checkpoint == null
+                    ? 'Ton vol s\'arrête en ${hud.year.floor()}.'
+                    : 'Ton vol s\'arrête en ${hud.year.floor()}. Tu peux reprendre là où tu étais.',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 15),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '${hud.medals} médaillons · ${hud.score} points · ${hud.money} ${hud.currency}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              if (hud.score > 0 && hud.score >= bestScore)
+                const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: Text(
+                    'Nouveau record !',
+                    style: TextStyle(color: ChachaColors.yellow, fontSize: 13, fontWeight: FontWeight.w900),
+                  ),
+                ),
+              if (win) ...[
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _gift(
+                      Icons.workspace_premium_rounded,
+                      hud.medals >= 30
+                          ? 'Badge d\'or'
+                          : hud.medals >= 15
+                          ? 'Badge d\'argent'
+                          : 'Badge de bronze',
+                      'Pilote de Dipanda',
+                    ),
+                    _gift(Icons.school_rounded, 'Diplôme', 'Histoire du Congo 1960 – 2027'),
+                    _gift(Icons.flight_rounded, 'Avion offert', 'Tous les avions du hangar'),
+                  ],
+                ),
+              ],
+              if (past.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'TES VOLS · MEILLEUR SCORE ${_points(bestScore)}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                for (final f in past) _FlightRow(flight: f),
+              ],
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 12,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: [
+                  GlassButton(
+                    onTap: () => Navigator.of(
+                      context,
+                    ).push(MaterialPageRoute<void>(builder: (_) => TimelineScreen(caught: {...game.caught}))),
+                    tint: const Color(0x557CF0A6),
+                    child: const Text('Les dates à retenir'),
+                  ),
+                  if (!win && checkpoint != null)
+                    GlassButton(
+                      onTap: () => onRestart(checkpoint),
+                      tint: const Color(0x55CE1021),
+                      child: Text('Reprendre en ${checkpoint!.year.floor()}'),
+                    ),
+                  GlassButton(
+                    onTap: () => onRestart(null),
+                    tint: !win && checkpoint != null ? ChachaColors.glassFill : const Color(0x55CE1021),
+                    child: const Text('Recommencer en 1960'),
+                  ),
+                  GlassButton(onTap: () => Navigator.of(context).pop(), child: const Text('Accueil')),
+                ],
+              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _points(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ' ');
+
+/// Une ligne de l'historique : la date, jusqu'où le vol est allé, le score.
+class _FlightRow extends StatelessWidget {
+  const _FlightRow({required this.flight});
+
+  final FlightRecord flight;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = flight.date;
+    final day = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            flight.won ? Icons.flag_rounded : Icons.flight_land_rounded,
+            size: 15,
+            color: flight.won ? ChachaColors.yellow : Colors.white.withValues(alpha: 0.6),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '$day · ${flight.won ? 'Arrivé le 30 juin 2027' : 'Arrêté en ${flight.year.floor()}'} · '
+            '${_points(flight.score)} pts · ${flight.medals} médaillons',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: 12.5),
           ),
         ],
       ),
@@ -911,18 +1144,22 @@ class _Thumb extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.asset(photo.asset,
-                width: width,
-                height: width * 1.25,
-                fit: BoxFit.cover,
-                cacheWidth: (width * 2.5).round(),
-                errorBuilder: (_, _, _) => const SizedBox.shrink()),
+            child: Image.asset(
+              photo.asset,
+              width: width,
+              height: width * 1.25,
+              fit: BoxFit.cover,
+              cacheWidth: (width * 2.5).round(),
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            ),
           ),
           const SizedBox(height: 2),
-          Text(photo.credit,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 8)),
+          Text(
+            photo.credit,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 8),
+          ),
         ],
       ),
     );
@@ -945,8 +1182,10 @@ class _SongLine extends StatelessWidget {
           ? const SizedBox.shrink()
           : Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text('♪ ${song.title} — ${song.artist}',
-                  style: const TextStyle(color: ChachaColors.yellow, fontSize: 12, fontWeight: FontWeight.w700)),
+              child: Text(
+                '♪ ${song.title} — ${song.artist}',
+                style: const TextStyle(color: ChachaColors.yellow, fontSize: 12, fontWeight: FontWeight.w700),
+              ),
             ),
     );
   }
@@ -971,17 +1210,29 @@ class _PlaneCardView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(card.title.toUpperCase(),
-                style: const TextStyle(color: ChachaColors.yellow, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.3)),
-            Text('${t.maker} ${t.name}', style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+            Text(
+              card.title.toUpperCase(),
+              style: const TextStyle(
+                color: ChachaColors.yellow,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.3,
+              ),
+            ),
+            Text(
+              '${t.maker} ${t.name}',
+              style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900),
+            ),
             Text(card.airline, style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12)),
             const SizedBox(height: 8),
             Row(
               children: [
                 const Icon(Icons.airline_seat_recline_normal_rounded, color: Colors.white, size: 16),
                 const SizedBox(width: 6),
-                Text('${card.passengers} / ${t.seats} passagers',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+                Text(
+                  '${card.passengers} / ${t.seats} passagers',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -1000,8 +1251,10 @@ class _PlaneCardView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            Text('En service ${t.from.floor()} – ${t.to >= 2027 ? 'aujourd\'hui' : t.to.floor()}',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11)),
+            Text(
+              'En service ${t.from.floor()} – ${t.to >= 2027 ? 'aujourd\'hui' : t.to.floor()}',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
+            ),
           ],
         ),
       ),
@@ -1033,15 +1286,22 @@ class _MissionChip extends StatelessWidget {
               const Icon(Icons.groups_rounded, color: Color(0xFFFFB86B), size: 16),
               const SizedBox(width: 6),
               Text(
-                  m.boarded
-                      ? '${m.count} passagers → ${m.to.cityAt(y)}'
-                      : '${m.count} passagers attendent à ${m.from.cityAt(y)}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12.5)),
+                m.boarded
+                    ? '${m.count} passagers → ${m.to.cityAt(y)}'
+                    : '${m.count} passagers attendent à ${m.from.cityAt(y)}',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12.5),
+              ),
             ],
           ),
           if (m.boarded)
-            Text('${'★' * m.stars}${'☆' * (3 - m.stars)}  ${m.why.isNotEmpty ? m.why : 'Protège tes passagers'}',
-                style: TextStyle(color: m.why.isNotEmpty ? const Color(0xFFFF9A9A) : ChachaColors.yellow, fontSize: 11, fontWeight: FontWeight.w700)),
+            Text(
+              '${'★' * m.stars}${'☆' * (3 - m.stars)}  ${m.why.isNotEmpty ? m.why : 'Protège tes passagers'}',
+              style: TextStyle(
+                color: m.why.isNotEmpty ? const Color(0xFFFF9A9A) : ChachaColors.yellow,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
         ],
       ),
     );
@@ -1073,11 +1333,17 @@ class _TurningPointView extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ClipRRect(borderRadius: BorderRadius.circular(6), child: CustomPaint(painter: FlagPainter(point.before))),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: CustomPaint(painter: FlagPainter(point.before)),
+                  ),
                   // Le nouveau drapeau monte comme une vague.
                   ClipRect(
                     clipper: _Rise(v),
-                    child: ClipRRect(borderRadius: BorderRadius.circular(6), child: CustomPaint(painter: FlagPainter(point.after))),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: CustomPaint(painter: FlagPainter(point.after)),
+                    ),
                   ),
                 ],
               ),
@@ -1090,10 +1356,23 @@ class _TurningPointView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('UN GRAND TOURNANT',
-                    style: TextStyle(color: ChachaColors.yellow, fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: 1.4)),
-                Text(e.title, style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900)),
-                Text('${e.date} · ${e.city}', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12.5)),
+                const Text(
+                  'UN GRAND TOURNANT',
+                  style: TextStyle(
+                    color: ChachaColors.yellow,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+                Text(
+                  e.title,
+                  style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900),
+                ),
+                Text(
+                  '${e.date} · ${e.city}',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12.5),
+                ),
               ],
             ),
           ),
@@ -1137,12 +1416,22 @@ class _QuizView extends StatelessWidget {
               children: [
                 Icon(Icons.local_gas_station_rounded, color: ChachaColors.yellow, size: 18),
                 SizedBox(width: 6),
-                Text('PLUS DE KÉROSÈNE · RÉPONDS POUR LE PLEIN',
-                    style: TextStyle(color: ChachaColors.yellow, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                Text(
+                  'PLUS DE KÉROSÈNE · RÉPONDS POUR LE PLEIN',
+                  style: TextStyle(
+                    color: ChachaColors.yellow,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
-            Text(quiz.question, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+            Text(
+              quiz.question,
+              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 12),
             for (var i = 0; i < quiz.options.length; i++)
               Padding(
@@ -1197,7 +1486,10 @@ class _MiniNote extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1),
       ),
       alignment: Alignment.center,
-      child: Text(currency, style: const TextStyle(color: Colors.white, fontSize: 7.5, fontWeight: FontWeight.w900)),
+      child: Text(
+        currency,
+        style: const TextStyle(color: Colors.white, fontSize: 7.5, fontWeight: FontWeight.w900),
+      ),
     );
   }
 }
@@ -1231,13 +1523,20 @@ class _CabinView extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(c.title,
-                          style: TextStyle(
-                              color: done ? const Color(0xFF7CF0A6) : ChachaColors.yellow, fontSize: 15, fontWeight: FontWeight.w900)),
-                      Text(c.detail,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 11.5)),
+                      Text(
+                        c.title,
+                        style: TextStyle(
+                          color: done ? const Color(0xFF7CF0A6) : ChachaColors.yellow,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        c.detail,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 11.5),
+                      ),
                     ],
                   ),
                 ),
@@ -1299,12 +1598,11 @@ class _PulseButton extends StatelessWidget {
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFB86B),
-            borderRadius: BorderRadius.circular(12),
+          decoration: BoxDecoration(color: const Color(0xFFFFB86B), borderRadius: BorderRadius.circular(12)),
+          child: const Text(
+            'Allumer le signal',
+            style: TextStyle(color: Color(0xFF2A1600), fontSize: 13, fontWeight: FontWeight.w900),
           ),
-          child: const Text('Allumer le signal',
-              style: TextStyle(color: Color(0xFF2A1600), fontSize: 13, fontWeight: FontWeight.w900)),
         ),
       ),
     );
@@ -1365,16 +1663,22 @@ class _CabinPainter extends CustomPainter {
         if (mode == CabinMode.beltsFastening || mode == CabinMode.beltsDone) {
           final k = ((progress - order * 0.8) * 5).clamp(0.0, 1.0);
           if (k > 0.5) {
-            c.drawLine(Offset(rr.left + 1, rr.center.dy), Offset(rr.right - 1, rr.center.dy), Paint()
-              ..color = const Color(0xFF1C3B2A)
-              ..strokeWidth = 1.4);
+            c.drawLine(
+              Offset(rr.left + 1, rr.center.dy),
+              Offset(rr.right - 1, rr.center.dy),
+              Paint()
+                ..color = const Color(0xFF1C3B2A)
+                ..strokeWidth = 1.4,
+            );
           }
         }
         if ((mode == CabinMode.serving || mode == CabinMode.served) && order < progress) {
           // Un plateau : l'assiette et la bouteille
           c.drawCircle(rr.center.translate(-1.5, 0), rr.height * 0.28, Paint()..color = Colors.white);
-          c.drawRect(Rect.fromCenter(center: rr.center.translate(rr.width * 0.3, 0), width: 2, height: rr.height * 0.6),
-              Paint()..color = const Color(0xFF8A4B1E));
+          c.drawRect(
+            Rect.fromCenter(center: rr.center.translate(rr.width * 0.3, 0), width: 2, height: rr.height * 0.6),
+            Paint()..color = const Color(0xFF8A4B1E),
+          );
         }
       }
     }
@@ -1413,56 +1717,71 @@ class _MealViewState extends State<_MealView> {
   final _drinks = <String>{'Primus', 'Fanta'};
 
   Widget _drinkChips(List<String> items) => _chips(items, '', (v) {
-        if (!_drinks.remove(v)) _drinks.add(v);
-      }, drinks: true);
+    if (!_drinks.remove(v)) _drinks.add(v);
+  }, drinks: true);
 
   Widget _chips(List<String> items, String selected, void Function(String) pick, {bool drinks = false}) => Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: [
-          for (final it in items)
-            GestureDetector(
-              onTap: () => setState(() => pick(it)),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                decoration: BoxDecoration(
-                  color: it == selected || (drinks && _drinks.contains(it)) ? const Color(0x55F7D618) : const Color(0x22FFFFFF),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: it == selected || (drinks && _drinks.contains(it)) ? ChachaColors.yellow : const Color(0x33FFFFFF)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (drinks) ...[
-                      SizedBox(width: 7, height: 16, child: CustomPaint(painter: _BottlePainter(_bottleColor(it)))),
-                      const SizedBox(width: 5),
-                    ],
-                    Text(it, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800)),
-                  ],
-                ),
+    spacing: 6,
+    runSpacing: 6,
+    children: [
+      for (final it in items)
+        GestureDetector(
+          onTap: () => setState(() => pick(it)),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              color: it == selected || (drinks && _drinks.contains(it))
+                  ? const Color(0x55F7D618)
+                  : const Color(0x22FFFFFF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: it == selected || (drinks && _drinks.contains(it))
+                    ? ChachaColors.yellow
+                    : const Color(0x33FFFFFF),
               ),
             ),
-        ],
-      );
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (drinks) ...[
+                  SizedBox(width: 7, height: 16, child: CustomPaint(painter: _BottlePainter(_bottleColor(it)))),
+                  const SizedBox(width: 5),
+                ],
+                Text(
+                  it,
+                  style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+          ),
+        ),
+    ],
+  );
 
   static Color _bottleColor(String drink) => switch (drink) {
-        'Fanta' => const Color(0xFFFF8A1E),
-        'Coca-Cola' => const Color(0xFF7A1010),
-        'Vitalo' => const Color(0xFFE8C21A),
-        'Eau' => const Color(0xFF8FD3FF),
-        'Turbo King' => const Color(0xFF2B1A10),
-        'Chivas' => const Color(0xFFC8862A),
-        'Red Label' => const Color(0xFFB0301E),
-        'Jameson' => const Color(0xFF2E6B3A),
-        _ => const Color(0xFF8A4B1E),
-      };
+    'Fanta' => const Color(0xFFFF8A1E),
+    'Coca-Cola' => const Color(0xFF7A1010),
+    'Vitalo' => const Color(0xFFE8C21A),
+    'Eau' => const Color(0xFF8FD3FF),
+    'Turbo King' => const Color(0xFF2B1A10),
+    'Chivas' => const Color(0xFFC8862A),
+    'Red Label' => const Color(0xFFB0301E),
+    'Jameson' => const Color(0xFF2E6B3A),
+    _ => const Color(0xFF8A4B1E),
+  };
 
   @override
   Widget build(BuildContext context) {
-    Text label(String t) => Text(t,
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.2));
+    Text label(String t) => Text(
+      t,
+      style: TextStyle(
+        color: Colors.white.withValues(alpha: 0.6),
+        fontSize: 10,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 1.2,
+      ),
+    );
     return Glass(
       tint: const Color(0x66001A40),
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
@@ -1476,14 +1795,26 @@ class _MealViewState extends State<_MealView> {
               children: [
                 const Icon(Icons.restaurant_rounded, color: ChachaColors.yellow, size: 18),
                 const SizedBox(width: 6),
-                Text('REPAS À BORD · ${widget.offer.passengers} PASSAGERS',
-                    style: const TextStyle(color: ChachaColors.yellow, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                Text(
+                  'REPAS À BORD · ${widget.offer.passengers} PASSAGERS',
+                  style: const TextStyle(
+                    color: ChachaColors.yellow,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
-            const Text('Le plat du jour', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
-            Text('Le même plat pour tout le monde ; pour boire, chacun choisit sur le chariot.',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12)),
+            const Text(
+              'Le plat du jour',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+            ),
+            Text(
+              'Le même plat pour tout le monde ; pour boire, chacun choisit sur le chariot.',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
+            ),
             const SizedBox(height: 10),
             label('ACCOMPAGNEMENT'),
             const SizedBox(height: 4),
@@ -1508,8 +1839,14 @@ class _MealViewState extends State<_MealView> {
             Row(
               children: [
                 Expanded(
-                  child: Text('$_base et $_dish pour ${widget.offer.passengers} · ${_drinks.length} boisson${_drinks.length > 1 ? 's' : ''} sur le chariot',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13, fontWeight: FontWeight.w700)),
+                  child: Text(
+                    '$_base et $_dish pour ${widget.offer.passengers} · ${_drinks.length} boisson${_drinks.length > 1 ? 's' : ''} sur le chariot',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
                 GlassButton(
                   onTap: _drinks.isEmpty
@@ -1519,11 +1856,14 @@ class _MealViewState extends State<_MealView> {
                           widget.game.serveMeal(_base, _dish, _drinks.toList());
                         },
                   tint: const Color(0x55CE1021),
-                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.room_service_rounded, color: Colors.white, size: 18),
-                    SizedBox(width: 8),
-                    Text('Servir', style: TextStyle(fontSize: 15)),
-                  ]),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.room_service_rounded, color: Colors.white, size: 18),
+                      SizedBox(width: 8),
+                      Text('Servir', style: TextStyle(fontSize: 15)),
+                    ],
+                  ),
                 ),
               ],
             ),

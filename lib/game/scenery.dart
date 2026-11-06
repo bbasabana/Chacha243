@@ -37,14 +37,18 @@ class Scenery {
     c.drawCircle(
       at,
       r * 3.2,
-      Paint()..shader = RadialGradient(colors: [color.withValues(alpha: 0.45), color.withValues(alpha: 0)])
-          .createShader(Rect.fromCircle(center: at, radius: r * 3.2)),
+      Paint()
+        ..shader = RadialGradient(
+          colors: [color.withValues(alpha: 0.45), color.withValues(alpha: 0)],
+        ).createShader(Rect.fromCircle(center: at, radius: r * 3.2)),
     );
     c.drawCircle(at, r, Paint()..color = color);
   }
 
   static double _ridge(double x, double seed) =>
-      math.sin(x * 0.0031 + seed) * 0.55 + math.sin(x * 0.0083 + seed * 2.1) * 0.3 + math.sin(x * 0.019 + seed * 3.7) * 0.15;
+      math.sin(x * 0.0031 + seed) * 0.55 +
+      math.sin(x * 0.0083 + seed * 2.1) * 0.3 +
+      math.sin(x * 0.019 + seed * 3.7) * 0.15;
 
   static void hills(Canvas c, Size s, double scroll, double baseY, double height, Color color, double seed) {
     final p = Path()..moveTo(0, s.height + 10);
@@ -100,9 +104,12 @@ class Scenery {
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
     final top = base + Offset(size * 0.12, -size);
-    c.drawPath(Path()
-      ..moveTo(base.dx, base.dy)
-      ..quadraticBezierTo(base.dx + size * 0.2, base.dy - size * 0.5, top.dx, top.dy), trunk);
+    c.drawPath(
+      Path()
+        ..moveTo(base.dx, base.dy)
+        ..quadraticBezierTo(base.dx + size * 0.2, base.dy - size * 0.5, top.dx, top.dy),
+      trunk,
+    );
     final leaf = Paint()..color = color;
     for (var i = 0; i < 6; i++) {
       final a = -math.pi * 0.95 + i * math.pi / 5.5;
@@ -132,8 +139,10 @@ class Scenery {
     c.drawCircle(
       at,
       r * 4,
-      Paint()..shader = RadialGradient(colors: [color.withValues(alpha: 0.55), color.withValues(alpha: 0)])
-          .createShader(Rect.fromCircle(center: at, radius: r * 4)),
+      Paint()
+        ..shader = RadialGradient(
+          colors: [color.withValues(alpha: 0.55), color.withValues(alpha: 0)],
+        ).createShader(Rect.fromCircle(center: at, radius: r * 4)),
     );
     c.drawCircle(at, r, Paint()..color = Color.lerp(color, Colors.white, 0.6)!);
   }
@@ -166,7 +175,10 @@ class Scenery {
     }
     // Seuil de piste : bandes blanches
     for (var i = 0; i < 8; i++) {
-      c.drawRect(Rect.fromLTWH(x0 + 20 * unit + i * 9 * unit, top + 5 * unit, 5 * unit, bottom - top - 10 * unit), dash);
+      c.drawRect(
+        Rect.fromLTWH(x0 + 20 * unit + i * 9 * unit, top + 5 * unit, 5 * unit, bottom - top - 10 * unit),
+        dash,
+      );
     }
 
     // Feux de bord : blancs, petits au loin, gros devant
@@ -199,8 +211,13 @@ class Scenery {
   static void cloud(Canvas c, Offset at, double r, {bool storm = false, double flash = 0}) {
     final base = storm ? const Color(0xFF3A3F55) : Colors.white;
     final puffs = [
-      const Offset(0, 0), const Offset(-0.9, 0.25), const Offset(0.95, 0.2),
-      const Offset(-0.4, -0.45), const Offset(0.45, -0.4), const Offset(1.6, 0.35), const Offset(-1.6, 0.4),
+      const Offset(0, 0),
+      const Offset(-0.9, 0.25),
+      const Offset(0.95, 0.2),
+      const Offset(-0.4, -0.45),
+      const Offset(0.45, -0.4),
+      const Offset(1.6, 0.35),
+      const Offset(-1.6, 0.4),
     ];
     final sizes = [1.0, 0.75, 0.8, 0.7, 0.75, 0.5, 0.5];
     for (var i = 0; i < puffs.length; i++) {
@@ -242,10 +259,13 @@ class Scenery {
     c.drawCircle(
       at,
       r * 2.2 * pulse,
-      Paint()..shader = RadialGradient(colors: [
-        (glory ? const Color(0xFFFFE066) : const Color(0xFFFFD34D)).withValues(alpha: 0.6),
-        const Color(0x00FFD34D),
-      ]).createShader(Rect.fromCircle(center: at, radius: r * 2.2 * pulse)),
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            (glory ? const Color(0xFFFFE066) : const Color(0xFFFFD34D)).withValues(alpha: 0.6),
+            const Color(0x00FFD34D),
+          ],
+        ).createShader(Rect.fromCircle(center: at, radius: r * 2.2 * pulse)),
     );
     final rect = Rect.fromCircle(center: at, radius: r);
     c.drawCircle(
@@ -258,36 +278,70 @@ class Scenery {
           colors: [Color(0xFFFFF3B0), Color(0xFFF7C71A), Color(0xFFB8860B)],
         ).createShader(rect),
     );
-    c.drawCircle(at, r * 0.8, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = r * 0.07
-      ..color = const Color(0xAAFFFFFF));
+    c.drawCircle(
+      at,
+      r * 0.8,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r * 0.07
+        ..color = const Color(0xAAFFFFFF),
+    );
     if (glory) {
       c.drawPath(FlagPainter.starPath(at + Offset(0, -r * 0.55), r * 0.22), Paint()..color = ChachaColors.red);
     }
     label.paint(c, at - Offset(label.width / 2, label.height / 2 - (glory ? r * 0.12 : 0)));
     // Reflet de verre
-    c.drawArc(rect.deflate(r * 0.12), math.pi * 1.1, math.pi * 0.5, false, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = r * 0.12
-      ..strokeCap = StrokeCap.round
-      ..color = const Color(0x99FFFFFF));
+    c.drawArc(
+      rect.deflate(r * 0.12),
+      math.pi * 1.1,
+      math.pi * 0.5,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = r * 0.12
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0x99FFFFFF),
+    );
   }
 
   static void fuelCan(Canvas c, Offset at, double r) {
-    final body = RRect.fromRectAndRadius(Rect.fromCenter(center: at, width: r * 1.5, height: r * 1.9), Radius.circular(r * 0.25));
-    c.drawCircle(at, r * 2, Paint()..shader = RadialGradient(colors: const [Color(0x66FF5A4A), Color(0x00FF5A4A)])
-        .createShader(Rect.fromCircle(center: at, radius: r * 2)));
-    c.drawRRect(body, Paint()
-      ..shader = const LinearGradient(colors: [Color(0xFFFF6A57), Color(0xFFCE1021), Color(0xFF8E0A16)])
-          .createShader(body.outerRect));
-    c.drawRect(Rect.fromLTWH(at.dx + r * 0.2, at.dy - r * 1.25, r * 0.4, r * 0.35), Paint()..color = const Color(0xFFF7D618));
-    c.drawLine(at + Offset(-r * 0.4, -r * 0.4), at + Offset(r * 0.4, r * 0.5), Paint()
-      ..color = const Color(0xCCFFFFFF)
-      ..strokeWidth = r * 0.14);
-    c.drawLine(at + Offset(r * 0.4, -r * 0.4), at + Offset(-r * 0.4, r * 0.5), Paint()
-      ..color = const Color(0xCCFFFFFF)
-      ..strokeWidth = r * 0.14);
+    final body = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: at, width: r * 1.5, height: r * 1.9),
+      Radius.circular(r * 0.25),
+    );
+    c.drawCircle(
+      at,
+      r * 2,
+      Paint()
+        ..shader = RadialGradient(
+          colors: const [Color(0x66FF5A4A), Color(0x00FF5A4A)],
+        ).createShader(Rect.fromCircle(center: at, radius: r * 2)),
+    );
+    c.drawRRect(
+      body,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFFFF6A57), Color(0xFFCE1021), Color(0xFF8E0A16)],
+        ).createShader(body.outerRect),
+    );
+    c.drawRect(
+      Rect.fromLTWH(at.dx + r * 0.2, at.dy - r * 1.25, r * 0.4, r * 0.35),
+      Paint()..color = const Color(0xFFF7D618),
+    );
+    c.drawLine(
+      at + Offset(-r * 0.4, -r * 0.4),
+      at + Offset(r * 0.4, r * 0.5),
+      Paint()
+        ..color = const Color(0xCCFFFFFF)
+        ..strokeWidth = r * 0.14,
+    );
+    c.drawLine(
+      at + Offset(r * 0.4, -r * 0.4),
+      at + Offset(-r * 0.4, r * 0.5),
+      Paint()
+        ..color = const Color(0xCCFFFFFF)
+        ..strokeWidth = r * 0.14,
+    );
   }
 
   /// Le volcan vu de loin, sous l'avion : cône sombre, cratère rouge, coulées de lave.
@@ -308,8 +362,9 @@ class Scenery {
       top,
       width * 0.5,
       Paint()
-        ..shader = RadialGradient(colors: [Color.fromRGBO(255, 90, 30, 0.45 * fury), const Color(0x00FF5A1E)])
-            .createShader(Rect.fromCircle(center: top, radius: width * 0.5)),
+        ..shader = RadialGradient(
+          colors: [Color.fromRGBO(255, 90, 30, 0.45 * fury), const Color(0x00FF5A1E)],
+        ).createShader(Rect.fromCircle(center: top, radius: width * 0.5)),
     );
     c.drawPath(
       cone,
@@ -358,7 +413,12 @@ class Scenery {
     c.restore();
     // Le cratère en fusion
     final mouth = Rect.fromCenter(center: top, width: crater * 2.2, height: crater * 0.6);
-    c.drawOval(mouth.inflate(crater * 0.4), Paint()..color = Color.fromRGBO(255, 110, 30, 0.6 * fury)..maskFilter = MaskFilter.blur(BlurStyle.normal, crater * 0.4));
+    c.drawOval(
+      mouth.inflate(crater * 0.4),
+      Paint()
+        ..color = Color.fromRGBO(255, 110, 30, 0.6 * fury)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, crater * 0.4),
+    );
     c.drawOval(mouth, Paint()..color = Color.lerp(const Color(0xFF5A1A10), const Color(0xFFFFC24A), fury)!);
   }
 
@@ -367,13 +427,23 @@ class Scenery {
     final u = unit;
     final chassis = Rect.fromLTWH(base.dx - 70 * u, base.dy - 16 * u, 140 * u, 7 * u);
     c.drawRect(chassis, Paint()..color = const Color(0xFF2A2E36));
-    final cab = RRect.fromRectAndCorners(Rect.fromLTWH(base.dx - 70 * u, base.dy - 46 * u, 34 * u, 32 * u),
-        topLeft: Radius.circular(10 * u), topRight: Radius.circular(3 * u));
+    final cab = RRect.fromRectAndCorners(
+      Rect.fromLTWH(base.dx - 70 * u, base.dy - 46 * u, 34 * u, 32 * u),
+      topLeft: Radius.circular(10 * u),
+      topRight: Radius.circular(3 * u),
+    );
     c.drawRRect(cab, Paint()..color = const Color(0xFFF7D618));
     c.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(base.dx - 64 * u, base.dy - 41 * u, 18 * u, 12 * u), Radius.circular(3 * u)),
-        Paint()..color = const Color(0xFF2B4A6E));
-    final tank = RRect.fromRectAndRadius(Rect.fromLTWH(base.dx - 32 * u, base.dy - 44 * u, 100 * u, 29 * u), Radius.circular(14 * u));
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(base.dx - 64 * u, base.dy - 41 * u, 18 * u, 12 * u),
+        Radius.circular(3 * u),
+      ),
+      Paint()..color = const Color(0xFF2B4A6E),
+    );
+    final tank = RRect.fromRectAndRadius(
+      Rect.fromLTWH(base.dx - 32 * u, base.dy - 44 * u, 100 * u, 29 * u),
+      Radius.circular(14 * u),
+    );
     c.drawRRect(
       tank,
       Paint()
@@ -408,17 +478,29 @@ class Scenery {
   /// Le camion des pompiers qui vient après un atterrissage raté.
   static void fireTruck(Canvas c, Offset base, double unit, double t) {
     final u = unit;
-    final body = RRect.fromRectAndCorners(Rect.fromLTWH(base.dx - 60 * u, base.dy - 42 * u, 120 * u, 30 * u),
-        topLeft: Radius.circular(10 * u), topRight: Radius.circular(4 * u));
+    final body = RRect.fromRectAndCorners(
+      Rect.fromLTWH(base.dx - 60 * u, base.dy - 42 * u, 120 * u, 30 * u),
+      topLeft: Radius.circular(10 * u),
+      topRight: Radius.circular(4 * u),
+    );
     c.drawRRect(body, Paint()..color = const Color(0xFFD7262E));
     c.drawRect(Rect.fromLTWH(base.dx - 60 * u, base.dy - 26 * u, 120 * u, 3 * u), Paint()..color = Colors.white);
     c.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(base.dx - 54 * u, base.dy - 38 * u, 20 * u, 11 * u), Radius.circular(3 * u)),
-        Paint()..color = const Color(0xFF2B4A6E));
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(base.dx - 54 * u, base.dy - 38 * u, 20 * u, 11 * u),
+        Radius.circular(3 * u),
+      ),
+      Paint()..color = const Color(0xFF2B4A6E),
+    );
     for (final x in [-38.0, 38.0]) {
       c.drawCircle(Offset(base.dx + x * u, base.dy - 8 * u), 8 * u, Paint()..color = const Color(0xFF15171C));
     }
-    glow(c, Offset(base.dx - 40 * u, base.dy - 46 * u), 3 * u, (t * 4) % 1 < 0.5 ? const Color(0xFF3B8BFF) : const Color(0xFFFF3B3B));
+    glow(
+      c,
+      Offset(base.dx - 40 * u, base.dy - 46 * u),
+      3 * u,
+      (t * 4) % 1 < 0.5 ? const Color(0xFF3B8BFF) : const Color(0xFFFF3B3B),
+    );
   }
 
   /// Un membre de l'équipe au sol, gilet orange et casque blanc.
@@ -431,22 +513,46 @@ class Scenery {
       ..strokeCap = StrokeCap.round;
     c.drawLine(feet.translate(-3 * u, 0), feet.translate(-1 * u, -14 * u), legs);
     c.drawLine(feet.translate(3 * u, 0), feet.translate(1 * u, -14 * u), legs);
-    final torso = RRect.fromRectAndRadius(Rect.fromCenter(center: feet.translate(0, -21 * u), width: 11 * u, height: 15 * u), Radius.circular(4 * u));
+    final torso = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: feet.translate(0, -21 * u), width: 11 * u, height: 15 * u),
+      Radius.circular(4 * u),
+    );
     c.drawRRect(torso, Paint()..color = vest);
-    c.drawRect(Rect.fromCenter(center: feet.translate(0, -20 * u), width: 11 * u, height: 2 * u), Paint()..color = const Color(0xFFF4F6F9));
+    c.drawRect(
+      Rect.fromCenter(center: feet.translate(0, -20 * u), width: 11 * u, height: 2 * u),
+      Paint()..color = const Color(0xFFF4F6F9),
+    );
     final shoulder = feet.translate(4 * u, -26 * u);
     final a = -1.2 + math.sin(wave) * 0.6;
     c.drawLine(shoulder, shoulder.translate(math.cos(a) * 11 * u, math.sin(a) * 11 * u), legs..color = vest);
     c.drawCircle(feet.translate(0, -33 * u), 5 * u, Paint()..color = const Color(0xFF6B4630));
-    c.drawArc(Rect.fromCircle(center: feet.translate(0, -34 * u), radius: 5.5 * u), math.pi, math.pi, true, Paint()..color = Colors.white);
+    c.drawArc(
+      Rect.fromCircle(center: feet.translate(0, -34 * u), radius: 5.5 * u),
+      math.pi,
+      math.pi,
+      true,
+      Paint()..color = Colors.white,
+    );
   }
 
   /// Le kit d'entretien à attraper en vol : une clé dans une bulle verte.
   static void repairKit(Canvas c, Offset at, double r, double t) {
-    c.drawCircle(at, r * 2, Paint()..shader = RadialGradient(colors: const [Color(0x667CF0A6), Color(0x007CF0A6)])
-        .createShader(Rect.fromCircle(center: at, radius: r * 2)));
-    c.drawCircle(at, r, Paint()..shader = const LinearGradient(colors: [Color(0xFF9CF7BE), Color(0xFF1C9E5A)])
-        .createShader(Rect.fromCircle(center: at, radius: r)));
+    c.drawCircle(
+      at,
+      r * 2,
+      Paint()
+        ..shader = RadialGradient(
+          colors: const [Color(0x667CF0A6), Color(0x007CF0A6)],
+        ).createShader(Rect.fromCircle(center: at, radius: r * 2)),
+    );
+    c.drawCircle(
+      at,
+      r,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFF9CF7BE), Color(0xFF1C9E5A)],
+        ).createShader(Rect.fromCircle(center: at, radius: r)),
+    );
     c.save();
     c.translate(at.dx, at.dy);
     c.rotate(-0.7 + math.sin(t * 2) * 0.15);
@@ -455,8 +561,13 @@ class Scenery {
       ..strokeWidth = r * 0.24
       ..strokeCap = StrokeCap.round;
     c.drawLine(Offset(0, -r * 0.45), Offset(0, r * 0.5), p);
-    c.drawArc(Rect.fromCircle(center: Offset(0, -r * 0.5), radius: r * 0.28), math.pi * 0.1, math.pi * 1.8, false,
-        p..style = PaintingStyle.stroke);
+    c.drawArc(
+      Rect.fromCircle(center: Offset(0, -r * 0.5), radius: r * 0.28),
+      math.pi * 0.1,
+      math.pi * 1.8,
+      false,
+      p..style = PaintingStyle.stroke,
+    );
     c.restore();
   }
 
@@ -467,11 +578,13 @@ class Scenery {
     c.rotate(rot);
     final box = Rect.fromCenter(center: Offset.zero, width: r * 2, height: r * 1.7);
     c.drawRRect(RRect.fromRectAndRadius(box, Radius.circular(r * 0.2)), Paint()..color = ChachaColors.sky);
-    c.drawRect(Rect.fromCenter(center: Offset.zero, width: r * 0.4, height: r * 1.7), Paint()..color = ChachaColors.yellow);
+    c.drawRect(
+      Rect.fromCenter(center: Offset.zero, width: r * 0.4, height: r * 1.7),
+      Paint()..color = ChachaColors.yellow,
+    );
     c.drawRect(Rect.fromCenter(center: Offset.zero, width: r * 2, height: r * 0.4), Paint()..color = ChachaColors.red);
     c.drawCircle(Offset(-r * 0.3, -r * 1.0), r * 0.32, Paint()..color = ChachaColors.red);
     c.drawCircle(Offset(r * 0.3, -r * 1.0), r * 0.32, Paint()..color = ChachaColors.red);
     c.restore();
   }
 }
-

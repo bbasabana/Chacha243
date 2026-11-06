@@ -33,7 +33,11 @@ const archivePhotos = <String, ArchivePhoto>{
   'bcc': ArchivePhoto('logo-banque-centrale.png', 'Banque centrale du Congo', credit: 'Logo BCC'),
   'bcdc': ArchivePhoto('logo-banque-commerciale.png', 'Banque commerciale du Congo', credit: 'Logo BCDC'),
   'billet1f': ArchivePhoto('notes/billet-1-franc-1997.jpg', 'Billet de 1 franc congolais', credit: 'BCC, 1997'),
-  'billetnz': ArchivePhoto('notes/billet-1-nouveau-zaire-1993.jpg', 'Billet de 1 nouveau zaïre', credit: 'Banque du Zaïre, 1993'),
+  'billetnz': ArchivePhoto(
+    'notes/billet-1-nouveau-zaire-1993.jpg',
+    'Billet de 1 nouveau zaïre',
+    credit: 'Banque du Zaïre, 1993',
+  ),
 };
 
 /// Les billets du jour : le plus récent déjà émis s'affiche, tout petit, pour payer.
@@ -56,7 +60,10 @@ const banknotes = <Banknote>[
 
 /// Le billet qui paie [amount] cette année-là (le plus petit qui suffit, sinon le plus grand), ou null.
 Banknote? noteFor(int amount, double year) {
-  final out = [for (final b in banknotes) if (b.from <= year) b]..sort((a, b) => a.value.compareTo(b.value));
+  final out = [
+    for (final b in banknotes)
+      if (b.from <= year) b,
+  ]..sort((a, b) => a.value.compareTo(b.value));
   if (out.isEmpty) return null;
   return out.firstWhere((b) => b.value >= amount, orElse: () => out.last);
 }
@@ -65,10 +72,10 @@ Banknote? noteFor(int amount, double year) {
 String currencyAt(double year) => year < 1967.48
     ? 'F'
     : year < 1993.8
-        ? 'Z'
-        : year < 1998.49
-            ? 'NZ'
-            : 'FC';
+    ? 'Z'
+    : year < 1998.49
+    ? 'NZ'
+    : 'FC';
 
 /// Les cartes postales des escales : une petite photo à l'atterrissage dans certaines villes.
 const airportPostcards = <String, (String, String)>{
@@ -78,7 +85,17 @@ const airportPostcards = <String, (String, String)>{
 
 /// Le repas à bord : un accompagnement, un plat, une boisson.
 const mealBases = ['Fufu', 'Chikwangue', 'Loso (riz)'];
-const mealDishes = ['Madesu', 'Fumbwa', 'Pondu', 'Makayabu (poisson salé)', 'Poisson grillé', 'Poulet mayo', 'Dindon', 'Ntaba', 'Liboke'];
+const mealDishes = [
+  'Madesu',
+  'Fumbwa',
+  'Pondu',
+  'Makayabu (poisson salé)',
+  'Poisson grillé',
+  'Poulet mayo',
+  'Dindon',
+  'Ntaba',
+  'Liboke',
+];
 const mealBeers = ['Primus', 'Turbo King', 'Castel', 'Nkoyi', 'Tembo'];
 const mealSodas = ['Vitalo', 'Fanta', 'Coca-Cola', 'Eau'];
 const mealSpirits = ['Chivas', 'Red Label', 'Jameson'];
@@ -89,10 +106,19 @@ int drinkPrice(String drink) => mealSpirits.contains(drink) ? 60 : (mealBeers.co
 /// Les chansons des moments : le jeu joue le fichier s'il est dans assets/audio,
 /// une fois les droits obtenus. Sans fichier, le moment reste silencieux.
 ///
-/// En vol, on n'entend qu'un extrait : la chanson part de [start], monte en douceur,
-/// dure [seconds], puis s'éteint en fondu. À l'accueil, elle tourne en boucle.
+/// En vol, on n'entend qu'un extrait : la chanson part de [start], monte en douceur
+/// pendant [fadeIn] jusqu'à [level] (une part du volume réglé), dure [seconds],
+/// puis s'éteint en fondu. Entre deux chansons, le silence laisse le vol au calme.
 class MomentSong {
-  const MomentSong(this.file, this.title, this.artist, {this.start = 0, this.seconds = 40});
+  const MomentSong(
+    this.file,
+    this.title,
+    this.artist, {
+    this.start = 0,
+    this.seconds = 40,
+    this.level = 0.75,
+    this.fadeIn = 1.5,
+  });
 
   final String file;
   final String title;
@@ -103,14 +129,42 @@ class MomentSong {
 
   /// La durée de l'extrait en vol, fondu de fin compris.
   final double seconds;
+
+  /// Le volume de la chanson, de 0 à 1 : une chanson ne couvre jamais le vol.
+  final double level;
+
+  /// La montée du début, en secondes.
+  final double fadeIn;
 }
 
 const momentSongs = <String, MomentSong>{
-  'chacha': MomentSong('independance-cha-cha.mp3', 'Indépendance Cha Cha', 'Grand Kallé et l\'African Jazz', seconds: 50),
-  'okjazz': MomentSong('franco-ok-jazz.mp3', 'Une rumba de l\'OK Jazz', 'Franco Luambo Makiadi'),
-  'bomaye': MomentSong('ali-bomaye.mp3', '« Ali, bomaye ! »', 'le chant du stade du 20-Mai'),
-  'viva': MomentSong('viva-la-musica.mp3', 'Une chanson de Viva la Musica', 'Papa Wemba'),
+  'chacha': MomentSong(
+    'independance-cha-cha.mp3',
+    'Indépendance Cha Cha',
+    'Grand Kallé et l\'African Jazz',
+    seconds: 50,
+  ),
+  'okjazz': MomentSong('franco-chicotte.mp3', 'Chicotte (1964)', 'Franco et l\'OK Jazz'),
+  'bomaye': MomentSong('ali-bomaye.mp3', '« Ali, bomaye ! »', 'Kinshasa, 1974'),
+  'viva': MomentSong('viva-pole-position.mp3', 'Pole Position', 'Papa Wemba et Viva la Musica'),
   'wenge': MomentSong('wenge-musica.mp3', 'Une chanson de Wenge Musica', 'Wenge Musica 4×4'),
   'kester': MomentSong('victoria-eleison.mp3', 'Une chanson de Victoria Eleison', 'Kester Emeneya'),
-  'reveil': MomentSong('chant-de-reveil.mp3', 'Un chant des églises de réveil', 'chorale'),
+  'reveil': MomentSong(
+    'louange-kumama.mp3',
+    'Kumama',
+    'Grace Lokwa, Moses Bliss et Prinx Emmanuel',
+    level: 0.6,
+    fadeIn: 5,
+  ),
+  // La louange des moments difficiles : douce, elle réconforte sans couvrir le vol.
+  'louange': MomentSong(
+    'louange-kumama.mp3',
+    'Kumama',
+    'Grace Lokwa, Moses Bliss et Prinx Emmanuel',
+    seconds: 45,
+    level: 0.55,
+    fadeIn: 6,
+  ),
+  // La dernière ligne droite, jusqu'au 30 juin 2027 : elle commence bas, puis remonte.
+  'moloto': MomentSong('moloto-kitisa-moto.mp3', 'Kitisa Moto', 'Alain Moloto', seconds: 90, level: 0.4, fadeIn: 3),
 };

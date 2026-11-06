@@ -39,7 +39,10 @@ class FlagPainter extends CustomPainter {
         }
       case FlagStyle.diagonal1963:
       case FlagStyle.current2006:
-        canvas.drawRect(r, Paint()..color = style == FlagStyle.diagonal1963 ? const Color(0xFF0B5CC9) : ChachaColors.sky);
+        canvas.drawRect(
+          r,
+          Paint()..color = style == FlagStyle.diagonal1963 ? const Color(0xFF0B5CC9) : ChachaColors.sky,
+        );
         canvas.save();
         canvas.translate(r.center.dx, r.center.dy);
         canvas.rotate(-math.atan2(r.height, r.width));
@@ -50,20 +53,20 @@ class FlagPainter extends CustomPainter {
           Paint()..color = ChachaColors.red,
         );
         canvas.restore();
-        canvas.drawPath(
-          starPath(Offset(r.left + r.width * 0.18, r.top + r.height * 0.27), r.height * 0.2),
-          yellow,
-        );
+        canvas.drawPath(starPath(Offset(r.left + r.width * 0.18, r.top + r.height * 0.27), r.height * 0.2), yellow);
       case FlagStyle.zaire1971:
         canvas.drawRect(r, Paint()..color = ChachaColors.zaireGreen);
         canvas.drawCircle(r.center, r.height * 0.3, yellow);
         final c = r.center;
         final s = r.height * 0.3;
-        canvas.drawLine(c + Offset(s * 0.35, s * 0.6), c + Offset(-s * 0.05, -s * 0.15),
-            Paint()
-              ..color = const Color(0xFF6B3E1E)
-              ..strokeWidth = s * 0.16
-              ..strokeCap = StrokeCap.round);
+        canvas.drawLine(
+          c + Offset(s * 0.35, s * 0.6),
+          c + Offset(-s * 0.05, -s * 0.15),
+          Paint()
+            ..color = const Color(0xFF6B3E1E)
+            ..strokeWidth = s * 0.16
+            ..strokeCap = StrokeCap.round,
+        );
         canvas.drawPath(
           Path()
             ..moveTo(c.dx - s * 0.1, c.dy - s * 0.75)

@@ -12,8 +12,14 @@ class TimelineScreen extends StatelessWidget {
 
   final Set<String> caught;
 
-  static const _finale = HistoryEvent(2027.5, EventKind.glory, '30 juin 2027', 'Tout le pays', '67 ans d\'indépendance',
-      'Le vol s\'achève : le Congo fête ses 67 ans au son d\'« Indépendance Cha Cha ».');
+  static const _finale = HistoryEvent(
+    2027.5,
+    EventKind.glory,
+    '30 juin 2027',
+    'Tout le pays',
+    '67 ans d\'indépendance',
+    'Le vol s\'achève : le Congo fête ses 67 ans au son d\'« Indépendance Cha Cha ».',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -47,12 +53,16 @@ class TimelineScreen extends StatelessWidget {
                     ),
                     const SizedBox(width: 14),
                     const Expanded(
-                      child: Text('Les dates à retenir · 1960 – 2027',
-                          style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                      child: Text(
+                        'Les dates à retenir · 1960 – 2027',
+                        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
+                      ),
                     ),
                     if (caught.isNotEmpty)
-                      Text('${caught.length} médaillons attrapés',
-                          style: const TextStyle(color: ChachaColors.yellow, fontWeight: FontWeight.w800)),
+                      Text(
+                        '${caught.length} médaillons attrapés',
+                        style: const TextStyle(color: ChachaColors.yellow, fontWeight: FontWeight.w800),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -63,9 +73,15 @@ class TimelineScreen extends StatelessWidget {
                       for (final MapEntry(key: decade, value: list) in decades.entries) ...[
                         Padding(
                           padding: const EdgeInsets.fromLTRB(4, 14, 0, 8),
-                          child: Text('Années $decade',
-                              style: const TextStyle(
-                                  color: ChachaColors.yellow, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1.4)),
+                          child: Text(
+                            'Années $decade',
+                            style: const TextStyle(
+                              color: ChachaColors.yellow,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.4,
+                            ),
+                          ),
                         ),
                         for (final e in list) _Row(event: e, caught: caught.contains(e.title)),
                       ],
@@ -108,7 +124,10 @@ class _Row extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(e.date, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+                  Text(
+                    e.date,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14),
+                  ),
                   Text(e.city, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
                 ],
               ),
@@ -119,7 +138,10 @@ class _Row extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(e.title, style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 15)),
+                  Text(
+                    e.title,
+                    style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 15),
+                  ),
                   Text(e.text, style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13)),
                 ],
               ),

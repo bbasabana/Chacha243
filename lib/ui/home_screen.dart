@@ -39,7 +39,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _askName() async {
-    final name = await showDialog<String>(context: context, barrierDismissible: false, builder: (_) => const _NameDialog());
+    final name = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _NameDialog(),
+    );
     if (name != null && name.isNotEmpty) await savePilotName(name);
   }
 
@@ -67,13 +71,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void _hangar() => Navigator.of(context).push(_fade(const HangarScreen()));
 
   static PageRoute<void> _fade(Widget page) => PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 600),
-        pageBuilder: (_, _, _) => page,
-        transitionsBuilder: (_, a, _, child) => FadeTransition(
-          opacity: CurvedAnimation(parent: a, curve: Curves.easeOut),
-          child: ScaleTransition(scale: Tween(begin: 1.04, end: 1.0).animate(a), child: child),
-        ),
-      );
+    transitionDuration: const Duration(milliseconds: 600),
+    pageBuilder: (_, _, _) => page,
+    transitionsBuilder: (_, a, _, child) => FadeTransition(
+      opacity: CurvedAnimation(parent: a, curve: Curves.easeOut),
+      child: ScaleTransition(scale: Tween(begin: 1.04, end: 1.0).animate(a), child: child),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -110,12 +114,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                     child: Glass(
                                       radius: 14,
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                        const Icon(Icons.badge_rounded, color: ChachaColors.yellow, size: 18),
-                                        const SizedBox(width: 8),
-                                        Text('Commandant $name · ${pilotRank(missionsDone.value)}',
-                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-                                      ]),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.badge_rounded, color: ChachaColors.yellow, size: 18),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Commandant $name · ${pilotRank(missionsDone.value)}',
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -140,51 +149,69 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               GlassButton(
                                 onTap: () => _play(from: cp),
                                 tint: const Color(0x55CE1021),
-                                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                  const Icon(Icons.play_arrow_rounded, color: Colors.white),
-                                  const SizedBox(width: 10),
-                                  Text('Continuer · ${cp.year.floor()}'),
-                                ]),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.play_arrow_rounded, color: Colors.white),
+                                    const SizedBox(width: 10),
+                                    Text('Continuer · ${cp.year.floor()}'),
+                                  ],
+                                ),
                               ),
                             GlassButton(
                               onTap: _play,
                               tint: _saved == null ? const Color(0x55CE1021) : ChachaColors.glassFill,
-                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                const Icon(Icons.flight_takeoff_rounded, color: Colors.white),
-                                const SizedBox(width: 10),
-                                Text(_saved == null ? 'Décoller · 1960' : 'Recommencer · 1960'),
-                              ]),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.flight_takeoff_rounded, color: Colors.white),
+                                  const SizedBox(width: 10),
+                                  Text(_saved == null ? 'Décoller · 1960' : 'Recommencer · 1960'),
+                                ],
+                              ),
                             ),
                             GlassButton(
                               onTap: _hangar,
-                              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(Icons.warehouse_rounded, color: Colors.white),
-                                SizedBox(width: 10),
-                                Text('Hangar'),
-                              ]),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.warehouse_rounded, color: Colors.white),
+                                  SizedBox(width: 10),
+                                  Text('Hangar'),
+                                ],
+                              ),
                             ),
                             GlassButton(
                               onTap: () => Navigator.of(context).push(_fade(const TimelineScreen())),
-                              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(Icons.menu_book_rounded, color: Colors.white),
-                                SizedBox(width: 10),
-                                Text('Les dates'),
-                              ]),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.menu_book_rounded, color: Colors.white),
+                                  SizedBox(width: 10),
+                                  Text('Les dates'),
+                                ],
+                              ),
                             ),
                             GlassButton(
                               onTap: () => Navigator.of(context).push(_fade(const AboutScreen())),
-                              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(Icons.favorite_rounded, color: Colors.white),
-                                SizedBox(width: 10),
-                                Text('À propos · Soutenir'),
-                              ]),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.favorite_rounded, color: Colors.white),
+                                  SizedBox(width: 10),
+                                  Text('À propos · Soutenir'),
+                                ],
+                              ),
                             ),
                             GlassButton(
                               onTap: _volume,
                               padding: const EdgeInsets.all(14),
                               child: ValueListenableBuilder(
                                 valueListenable: musicVolume,
-                                builder: (_, v, _) => Icon(v == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded, color: Colors.white),
+                                builder: (_, v, _) => Icon(
+                                  v == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ],
@@ -201,9 +228,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         children: [
                           Text('TON AVION', style: _label),
                           const SizedBox(height: 4),
-                          Text('${type.maker} ${type.name}',
-                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
-                          Text('Au Congo : ${type.inCongo}', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
+                          Text(
+                            '${type.maker} ${type.name}',
+                            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+                          ),
+                          Text(
+                            'Au Congo : ${type.inCongo}',
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
+                          ),
                           Text('${type.seats} passagers', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
                         ],
                       ),
@@ -294,15 +326,23 @@ class _HomeSky extends CustomPainter {
     final angle = -math.atan2(h * 0.62, w * 0.7);
     final from = Offset(plane.dx - w * 0.9, plane.dy + w * 0.9 * math.tan(-angle));
     for (final (color, width) in [(ChachaColors.yellow, h * 0.2), (ChachaColors.red, h * 0.15)]) {
-      canvas.drawLine(from, plane, Paint()
-        ..color = color
-        ..strokeWidth = width
-        ..strokeCap = StrokeCap.round);
+      canvas.drawLine(
+        from,
+        plane,
+        Paint()
+          ..color = color
+          ..strokeWidth = width
+          ..strokeCap = StrokeCap.round,
+      );
     }
-    canvas.drawLine(from + Offset(0, -h * 0.045), plane + Offset(-h * 0.08, -h * 0.045), Paint()
-      ..color = const Color(0x40FFFFFF)
-      ..strokeWidth = h * 0.025
-      ..strokeCap = StrokeCap.round);
+    canvas.drawLine(
+      from + Offset(0, -h * 0.045),
+      plane + Offset(-h * 0.08, -h * 0.045),
+      Paint()
+        ..color = const Color(0x40FFFFFF)
+        ..strokeWidth = h * 0.025
+        ..strokeCap = StrokeCap.round,
+    );
 
     final len = math.min(w * 0.36, h * 0.8);
     canvas.save();
@@ -363,11 +403,15 @@ class _NameDialogState extends State<_NameDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Mbote ! Comment t\'appelles-tu, commandant ?',
-                  style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+              const Text(
+                'Mbote ! Comment t\'appelles-tu, commandant ?',
+                style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900),
+              ),
               const SizedBox(height: 4),
-              Text('Ton nom est gardé sur ce téléphone : pas besoin de le retaper.',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
+              Text(
+                'Ton nom est gardé sur ce téléphone : pas besoin de le retaper.',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: _field,
@@ -414,11 +458,16 @@ class _VolumeDialog extends StatelessWidget {
             builder: (_, v, _) => Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Volume de la musique', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900)),
+                const Text(
+                  'Volume de la musique',
+                  style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900),
+                ),
                 Row(
                   children: [
                     const Icon(Icons.volume_mute_rounded, color: Colors.white),
-                    Expanded(child: Slider(value: v, onChanged: saveVolume, activeColor: ChachaColors.yellow)),
+                    Expanded(
+                      child: Slider(value: v, onChanged: saveVolume, activeColor: ChachaColors.yellow),
+                    ),
                     const Icon(Icons.volume_up_rounded, color: Colors.white),
                   ],
                 ),

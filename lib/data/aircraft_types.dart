@@ -53,8 +53,7 @@ class AircraftType {
   final bool hump;
   final bool highWing;
 
-  bool get hasPropellers =>
-      layout == EngineLayout.twinProps || layout == EngineLayout.fourProps;
+  bool get hasPropellers => layout == EngineLayout.twinProps || layout == EngineLayout.fourProps;
 }
 
 const aircraftTypes = <AircraftType>[
@@ -222,8 +221,10 @@ const aircraftTypes = <AircraftType>[
   ),
 ];
 
-AircraftType aircraftById(String id) =>
-    aircraftTypes.firstWhere((t) => t.id == id, orElse: () => aircraftTypes.first);
+AircraftType aircraftById(String id) => aircraftTypes.firstWhere((t) => t.id == id, orElse: () => aircraftTypes.first);
 
 /// Les avions qui volent pour le Congo cette année-là.
-List<AircraftType> fleetAt(double year) => [for (final t in aircraftTypes) if (t.fliesIn(year)) t];
+List<AircraftType> fleetAt(double year) => [
+  for (final t in aircraftTypes)
+    if (t.fliesIn(year)) t,
+];

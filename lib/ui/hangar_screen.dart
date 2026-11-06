@@ -30,10 +30,7 @@ const _showcaseYear = {
 };
 
 class _HangarScreenState extends State<HangarScreen> with SingleTickerProviderStateMixin {
-  late final _page = PageController(
-    viewportFraction: 0.62,
-    initialPage: aircraftTypes.indexOf(selectedAircraft.value),
-  );
+  late final _page = PageController(viewportFraction: 0.62, initialPage: aircraftTypes.indexOf(selectedAircraft.value));
   late final _spin = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat();
   late int _index = aircraftTypes.indexOf(selectedAircraft.value);
 
@@ -71,10 +68,15 @@ class _HangarScreenState extends State<HangarScreen> with SingleTickerProviderSt
                       child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
                     ),
                     const SizedBox(width: 16),
-                    const Text('Hangar', style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900)),
+                    const Text(
+                      'Hangar',
+                      style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900),
+                    ),
                     const Spacer(),
-                    Text('${_index + 1} / ${aircraftTypes.length}',
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontWeight: FontWeight.w700)),
+                    Text(
+                      '${_index + 1} / ${aircraftTypes.length}',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontWeight: FontWeight.w700),
+                    ),
                   ],
                 ),
               ),
@@ -89,15 +91,15 @@ class _HangarScreenState extends State<HangarScreen> with SingleTickerProviderSt
                     return AnimatedBuilder(
                       animation: Listenable.merge([_page, _spin]),
                       builder: (_, _) {
-                        final page = _page.hasClients && _page.position.haveDimensions ? _page.page ?? i.toDouble() : _index.toDouble();
+                        final page = _page.hasClients && _page.position.haveDimensions
+                            ? _page.page ?? i.toDouble()
+                            : _index.toDouble();
                         final d = (page - i).abs().clamp(0.0, 1.0);
                         return Transform.scale(
                           scale: 1 - d * 0.25,
                           child: Opacity(
                             opacity: 1 - d * 0.55,
-                            child: CustomPaint(
-                              painter: AircraftView(t, livery, propPhase: _spin.value * 40, gear: 1),
-                            ),
+                            child: CustomPaint(painter: AircraftView(t, livery, propPhase: _spin.value * 40, gear: 1)),
                           ),
                         );
                       },
@@ -116,16 +118,22 @@ class _HangarScreenState extends State<HangarScreen> with SingleTickerProviderSt
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('${type.maker} ${type.name}',
-                                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                            Text(
+                              '${type.maker} ${type.name}',
+                              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
+                            ),
                             const SizedBox(height: 2),
-                            Text('Au Congo : ${type.inCongo} · livrée ${era.name}',
-                                style: const TextStyle(color: ChachaColors.yellow, fontWeight: FontWeight.w700)),
+                            Text(
+                              'Au Congo : ${type.inCongo} · livrée ${era.name}',
+                              style: const TextStyle(color: ChachaColors.yellow, fontWeight: FontWeight.w700),
+                            ),
                             const SizedBox(height: 6),
                             Text(type.story, style: TextStyle(color: Colors.white.withValues(alpha: 0.85))),
                             const SizedBox(height: 4),
-                            Text('${type.seats} passagers · au Congo ${type.inCongo}',
-                                style: const TextStyle(color: ChachaColors.yellow, fontWeight: FontWeight.w800)),
+                            Text(
+                              '${type.seats} passagers · au Congo ${type.inCongo}',
+                              style: const TextStyle(color: ChachaColors.yellow, fontWeight: FontWeight.w800),
+                            ),
                           ],
                         ),
                       ),
@@ -151,12 +159,17 @@ class _HangarScreenState extends State<HangarScreen> with SingleTickerProviderSt
                           if (!type.fliesIn(1960.5)) {
                             return Glass(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                                const Icon(Icons.lock_clock_rounded, color: Colors.white70),
-                                Text('Arrive en vol\nen ${type.from.floor()}',
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.lock_clock_rounded, color: Colors.white70),
+                                  Text(
+                                    'Arrive en vol\nen ${type.from.floor()}',
                                     textAlign: TextAlign.center,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-                              ]),
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                                  ),
+                                ],
+                              ),
                             );
                           }
                           return GlassButton(

@@ -31,8 +31,9 @@
 | <img src=".github/icons/missions.svg" width="18" height="18" align="top" alt=""> **Les missions** | La tour de contrôle confie des passagers à embarquer, à protéger, puis à déposer, parfois dans une ville difficile (Goma, Kananga, Matadi). Le grade monte, d'*Élève pilote* à *Très bon pilote*. |
 | <img src=".github/icons/quiz.svg" width="18" height="18" align="top" alt=""> **Le quiz du kérosène** | À court de carburant, une question d'histoire remplit le réservoir. |
 | <img src=".github/icons/drapeau.svg" width="18" height="18" align="top" alt=""> **Les grands tournants** | 1965, 1997, 2006, 2019 : le ciel bout et le drapeau change sous les yeux du joueur. |
-| <img src=".github/icons/cabine.svg" width="18" height="18" align="top" alt=""> **La cabine** | Le signal *« Attachez vos ceintures »* avant la turbulence, puis le **plat du jour** (fufu, chikwangue ou loso ; madesu, pondu, liboke…) et le chariot des boissons (Primus, Turbo King, Vitalo…). |
+| <img src=".github/icons/cabine.svg" width="18" height="18" align="top" alt=""> **La cabine** | Le signal *« Attachez vos ceintures »* avant la turbulence, puis le **plat du jour** (fufu, chikwangue ou loso ; madesu, pondu, liboke…) et le chariot des boissons (Primus, Turbo King, Vitalo…). Les passagers parlent, en lingala et en français, quand vient la guerre, l'orage ou la paix. |
 | <img src=".github/icons/argent.svg" width="18" height="18" align="top" alt=""> **L'argent du pays** | On gagne en volant et en servant la cabine ; chaque escale coûte 1 000 de droits plus le kérosène. La monnaie suit l'histoire : **franc → zaïre → nouveau zaïre → franc congolais**. |
+| <img src=".github/icons/drapeau.svg" width="18" height="18" align="top" alt=""> **L'arrivée du 30 juin 2027** | D'octobre 2026 à juin 2027, les mois défilent sur *Kitisa Moto* d'Alain Moloto : le pilote automatique traverse les derniers orages, puis l'avion se pose calmement à N'djili sur *Indépendance Cha Cha*. Le message au pays s'écrit lettre par lettre, suivi des « Vive le Congo ! », du bilan et de l'historique des vols. |
 
 Un vol complet de 1960 à 2027 dure de 10 à 12 minutes. Un point de reprise est posé à chaque décennie et à l'entrée et à la sortie de chaque zone de guerre : après un atterrissage d'urgence, on repart de là.
 
@@ -108,7 +109,7 @@ Douze ans plus tard, le jeu renaît : nouveaux avions, nouvelles époques, et to
 
 - **Médias hors du dépôt.** Les photos d'archives, les billets et les chansons (`assets/photos/`, `assets/notes/`, `assets/audio/`) ne sont pas publiés : leurs droits sont réglés à part. Le jeu fonctionne sans eux ; voir le `LISEZMOI.txt` de chaque dossier.
 - **Avions et livrées.** Les avions sont dessinés en vecteurs avec un ombrage qui donne du volume, nets en 4K. Les livrées s'inspirent des couleurs de chaque époque, sans les logos des compagnies.
-- **Musique.** *Indépendance Cha Cha*, OK Jazz, Viva la Musica, Wenge Musica… ne sont jouées que si le fichier sous licence est présent ; sinon le jeu reste silencieux.
+- **Musique.** Chaque moment a sa chanson (Grand Kallé, Franco, Papa Wemba…), une louange douce accompagne les moments difficiles et Alain Moloto la dernière ligne droite. Les extraits montent et s'éteignent en fondu, avec du silence entre eux. Les fichiers ne sont joués que s'ils sont présents dans `assets/audio/` ; sinon le jeu reste silencieux.
 - **Relecture.** Les dates sont relues par des historiens et les phrases en lingala par des locuteurs avant chaque version.
 
 ## Sources

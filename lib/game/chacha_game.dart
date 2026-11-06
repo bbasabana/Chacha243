@@ -8,6 +8,7 @@ import '../data/aircraft_types.dart';
 import '../app_state.dart';
 import '../data/airports.dart';
 import '../data/archive.dart';
+import '../data/cabin_talk.dart';
 import '../data/eras.dart';
 import '../data/history_events.dart';
 import '../data/war_zones.dart';
@@ -43,6 +44,7 @@ class HudState {
     required this.seats,
     required this.money,
     required this.currency,
+    this.finale = false,
   });
 
   final FlightPhase phase;
@@ -74,6 +76,16 @@ class HudState {
   /// L'argent gagné en vol, dans la monnaie de l'époque (F, Z, NZ, FC).
   final int money;
   final String currency;
+
+  /// La dernière ligne droite : les mois défilent jusqu'au 30 juin 2027.
+  final bool finale;
+}
+
+/// Une conversation dans la cabine : deux ou trois répliques, en lingala et en français.
+class CabinTalk {
+  const CabinTalk(this.lines);
+
+  final List<TalkLine> lines;
 }
 
 /// La fiche de l'avion, glissée à l'écran au départ et à chaque changement d'avion.
@@ -154,8 +166,19 @@ class RadioCall {
 
 /// L'escale au sol : le plein, l'entretien, les contrôles.
 class StopoverHud {
-  const StopoverHud(this.airport, this.fuel, this.repair, this.checks, this.step,
-      {this.rescue = false, this.boarding, this.boardingLabel = '', this.fleet = const [], this.current, this.bill = ''});
+  const StopoverHud(
+    this.airport,
+    this.fuel,
+    this.repair,
+    this.checks,
+    this.step, {
+    this.rescue = false,
+    this.boarding,
+    this.boardingLabel = '',
+    this.fleet = const [],
+    this.current,
+    this.bill = '',
+  });
 
   final String airport;
   final double fuel, repair, checks;
@@ -227,7 +250,12 @@ class _Pickup {
   final TextPainter? label;
   bool taken = false;
 
-  double get radius => switch (kind) { _PickupKind.medal => 34, _PickupKind.star => 18, _PickupKind.fuel => 20, _PickupKind.repair => 26 };
+  double get radius => switch (kind) {
+    _PickupKind.medal => 34,
+    _PickupKind.star => 18,
+    _PickupKind.fuel => 20,
+    _PickupKind.repair => 26,
+  };
 }
 
 class _Cloud {
@@ -281,6 +309,13 @@ class ChachaGame extends FlameGame {
   final turningPoint = ValueNotifier<TurningPoint?>(null);
   final cabin = ValueNotifier<CabinHud?>(null);
   final meal = ValueNotifier<MealOffer?>(null);
+  final talk = ValueNotifier<CabinTalk?>(null);
+
+  /// Vrai une fois l'avion posé à Kinshasa le 30 juin 2027 : l'écran joue la fête.
+  final homecoming = ValueNotifier<bool>(false);
+
+  /// Fait monter ou baisser la chanson en cours (niveau de 0 à 1, en secondes).
+  void Function(double level, double seconds)? onSwell;
 
   /// Les droits d'escale, toujours 1 000 dans la monnaie du moment ; le kérosène se paie en plus.
   static const landingFee = 1000;
@@ -355,7 +390,12 @@ class ChachaGame extends FlameGame {
   // Escales
   double condition = 100;
   double _runwayOrigin = 0, _radioTimer = 0, _offerAt = 0, _nextOffer = 0, _nextKit = 6;
-  bool _offerPending = false, _wrecked = false, _rescue = false, _cueGear = false, _cueRunway = false, _lowFuelSaid = false;
+  bool _offerPending = false,
+      _wrecked = false,
+      _rescue = false,
+      _cueGear = false,
+      _cueRunway = false,
+      _lowFuelSaid = false;
   Airport? _airport;
   int _airportIndex = 0, _takeoffs = 0;
   double _approachT = 0, _approachY0 = 0, _approachSpeed = 0, _prevShift = 0, _climbFrom = 0;
@@ -370,7 +410,13 @@ class ChachaGame extends FlameGame {
   final _askedQuiz = <String>{};
 
   // Cabine : ceintures, repas, argent
-  double _nextBelts = 40, _nextMeal = 75, _cabinT = 0, _beltsDeadline = 0, _turbulence = 0, _moneyAcc = 0, _mealWait = 0;
+  double _nextBelts = 40,
+      _nextMeal = 75,
+      _cabinT = 0,
+      _beltsDeadline = 0,
+      _turbulence = 0,
+      _moneyAcc = 0,
+      _mealWait = 0;
   double _fuelTarget = 100;
   String _lastCurrency = 'F', _bill = '';
   String _menu = '';
@@ -381,6 +427,19 @@ class ChachaGame extends FlameGame {
 
   // Finale
   final _gifts = <_Particle>[];
+
+  /// La dernière ligne droite commence en octobre 2026 et dure [_finaleLength] secondes,
+  /// le temps d'« Alain Moloto » : les mois défilent, l'avion se pilote seul et dévie
+  /// des orages, puis il descend vers Kinshasa pour le 30 juin 2027.
+  static const _finaleFrom = 2026.75;
+  static const _finaleLength = 40.0;
+  static const _homeYear = 2027.44;
+  double _finaleT = -1, _finaleYear0 = 0, _gapY = 0, _wallX = -1e9;
+  int _finaleStep = 0;
+  bool _homeApproach = false;
+
+  // Cabine qui parle, louange des moments difficiles
+  double _talkTimer = 0, _nextTalk = 0, _nextComfort = 0;
 
   static const _runwayStart = -400.0;
   static const _runwayEnd = 3600.0;
@@ -432,8 +491,14 @@ class ChachaGame extends FlameGame {
       _nextZone++;
     }
     for (var i = 0; i < 9; i++) {
-      _clouds.add(_Cloud(_rng.nextDouble() * _w * 1.4, _h * (0.08 + _rng.nextDouble() * 0.4),
-          _unit * (18 + _rng.nextDouble() * 26), 0.2 + _rng.nextDouble() * 0.5));
+      _clouds.add(
+        _Cloud(
+          _rng.nextDouble() * _w * 1.4,
+          _h * (0.08 + _rng.nextDouble() * 0.4),
+          _unit * (18 + _rng.nextDouble() * 26),
+          0.2 + _rng.nextDouble() * 0.5,
+        ),
+      );
     }
     tilt.start();
   }
@@ -489,6 +554,9 @@ class ChachaGame extends FlameGame {
   }
 
   void _setPhase(FlightPhase p) {
+    if (p == FlightPhase.crashed && phase != p && !autopilot) {
+      saveFlight(FlightRecord(DateTime.now(), score, medals, money, currencyAt(year), false, year));
+    }
     phase = p;
     phaseTime = 0;
     _pushHud();
@@ -540,7 +608,7 @@ class ChachaGame extends FlameGame {
   }
 
   void _loseLife() {
-    if (invulnerable > 0 || phase != FlightPhase.cruising) return;
+    if (invulnerable > 0 || phase != FlightPhase.cruising || _finaleT >= 0) return;
     lives -= 1;
     condition = math.max(0, condition - 20);
     invulnerable = 2;
@@ -566,37 +634,48 @@ class ChachaGame extends FlameGame {
     for (var i = 0; i < n; i++) {
       final a = _rng.nextDouble() * math.pi * 2;
       final v = speed * (0.3 + _rng.nextDouble()) * _unit;
-      _particles.add(_Particle(x, y, math.cos(a) * v, math.sin(a) * v, 0.6 + _rng.nextDouble() * 0.8,
-          colors[_rng.nextInt(colors.length)], size * _unit * (0.6 + _rng.nextDouble())));
+      _particles.add(
+        _Particle(
+          x,
+          y,
+          math.cos(a) * v,
+          math.sin(a) * v,
+          0.6 + _rng.nextDouble() * 0.8,
+          colors[_rng.nextInt(colors.length)],
+          size * _unit * (0.6 + _rng.nextDouble()),
+        ),
+      );
     }
   }
 
   void _confetti() {
     for (var i = 0; i < 90; i++) {
-      _particles.add(_Particle(
-        _rng.nextDouble() * _w,
-        -20 - _rng.nextDouble() * _h * 0.3,
-        (-40 + _rng.nextDouble() * 80) * _unit,
-        (120 + _rng.nextDouble() * 160) * _unit,
-        2.4 + _rng.nextDouble(),
-        const [ChachaColors.sky, ChachaColors.red, ChachaColors.yellow, Colors.white][_rng.nextInt(4)],
-        5 * _unit,
-      )..rot = _rng.nextDouble() * 6);
+      _particles.add(
+        _Particle(
+          _rng.nextDouble() * _w,
+          -20 - _rng.nextDouble() * _h * 0.3,
+          (-40 + _rng.nextDouble() * 80) * _unit,
+          (120 + _rng.nextDouble() * 160) * _unit,
+          2.4 + _rng.nextDouble(),
+          const [ChachaColors.sky, ChachaColors.red, ChachaColors.yellow, Colors.white][_rng.nextInt(4)],
+          5 * _unit,
+        )..rot = _rng.nextDouble() * 6,
+      );
     }
   }
 
   TextPainter _label(String text, double size) => TextPainter(
-        text: TextSpan(
-          text: text,
-          style: TextStyle(
-            color: const Color(0xFF5A3A00),
-            fontSize: size,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
+    text: TextSpan(
+      text: text,
+      style: TextStyle(
+        color: const Color(0xFF5A3A00),
+        fontSize: size,
+        fontWeight: FontWeight.w900,
+        letterSpacing: -0.5,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
 
   // ----------------------------------------------------------------- boucle
 
@@ -615,8 +694,10 @@ class ChachaGame extends FlameGame {
     }
     if (meal.value != null) {
       if (autopilot && showcase != 'repas' && (_mealWait += dt) > 1.2) {
-        serveMeal(mealBases[_rng.nextInt(mealBases.length)], mealDishes[_rng.nextInt(mealDishes.length)],
-            [mealBeers[_rng.nextInt(mealBeers.length)], mealSodas[_rng.nextInt(mealSodas.length)]]);
+        serveMeal(mealBases[_rng.nextInt(mealBases.length)], mealDishes[_rng.nextInt(mealDishes.length)], [
+          mealBeers[_rng.nextInt(mealBeers.length)],
+          mealSodas[_rng.nextInt(mealSodas.length)],
+        ]);
       }
       return;
     }
@@ -643,6 +724,7 @@ class ChachaGame extends FlameGame {
     magnetCooldown = math.max(0, magnetCooldown - dt);
     _boil = math.max(0, _boil - dt);
     if (planeCard.value != null && (_planeCardTimer -= dt) <= 0) planeCard.value = null;
+    if (talk.value != null && (_talkTimer -= dt) <= 0) talk.value = null;
     if (turningPoint.value != null && (_turningTimer -= dt) <= 0) turningPoint.value = null;
 
     switch (phase) {
@@ -671,14 +753,30 @@ class ChachaGame extends FlameGame {
           _smoke(dt);
         }
       case FlightPhase.finished:
-        worldX += groundSpeed * dt;
-        planeX += (_w * 0.5 - planeX) * dt;
-        planeY += (_h * 0.45 - planeY) * dt;
+        if (homecoming.value) {
+          // Posé à N'djili : l'avion freine sur la piste pendant que la fête commence.
+          groundSpeed = math.max(0, groundSpeed - _unit * 180 * dt);
+          worldX += groundSpeed * dt;
+          planeY = _planeOnGroundY + _groundShift;
+          pitch += (0 - pitch) * math.min(1, dt * 4);
+        } else {
+          worldX += groundSpeed * dt;
+          planeX += (_w * 0.5 - planeX) * dt;
+          planeY += (_h * 0.45 - planeY) * dt;
+        }
         if (phaseTime % 1.6 < dt) _confetti();
         if (phaseTime % 0.3 < dt) {
-          _gifts.add(_Particle(_rng.nextDouble() * _w, -30, 0, (90 + _rng.nextDouble() * 80) * _unit, 9, Colors.white,
-              (14 + _rng.nextDouble() * 10) * _unit)
-            ..rot = _rng.nextDouble());
+          _gifts.add(
+            _Particle(
+              _rng.nextDouble() * _w,
+              -30,
+              0,
+              (90 + _rng.nextDouble() * 80) * _unit,
+              9,
+              Colors.white,
+              (14 + _rng.nextDouble() * 10) * _unit,
+            )..rot = _rng.nextDouble(),
+          );
         }
     }
 
@@ -721,7 +819,8 @@ class ChachaGame extends FlameGame {
     _Pickup? goal;
     for (final p in _pickups) {
       if (p.x < planeX - 10) continue;
-      final better = goal == null ||
+      final better =
+          goal == null ||
           (p.kind == _PickupKind.medal && goal.kind != _PickupKind.medal) ||
           (p.kind == goal.kind && p.x < goal.x) ||
           (p.kind == _PickupKind.fuel && fuel < 55 && goal.kind == _PickupKind.star);
@@ -788,15 +887,29 @@ class ChachaGame extends FlameGame {
       _setPhase(FlightPhase.cruising);
       _nextOffer = t + 20;
       if (_takeoffs++ == 0) {
-        _queueBanner(const FlightBanner('${Lingala.tokende} Bon vol !', '« Allons-y ! » Attrape les médaillons des moments marquants'));
-        _say('Tour de Léopoldville', Lingala.elonga,
-            'Bravo ! Incline le téléphone, glisse le doigt ou utilise ▲ ▼ pour monter et descendre. Évite les orages.',
-            seconds: 7);
+        _queueBanner(
+          const FlightBanner(
+            '${Lingala.tokende} Bon vol !',
+            '« Allons-y ! » Attrape les médaillons des moments marquants',
+          ),
+        );
+        _say(
+          'Tour de Léopoldville',
+          Lingala.elonga,
+          'Bravo ! Incline le téléphone, glisse le doigt ou utilise ▲ ▼ pour monter et descendre. Évite les orages.',
+          seconds: 7,
+        );
         _showPlaneCard('Ton avion');
       } else if (_airport != null) {
         final m = mission.value;
-        _queueBanner(FlightBanner('${Lingala.tokende} De retour en vol',
-            m != null && m.boarded ? '$passengers passagers à bord · cap sur ${m.to.cityAt(year)}' : 'Plein fait à ${_airport!.cityAt(year)} · avion révisé'));
+        _queueBanner(
+          FlightBanner(
+            '${Lingala.tokende} De retour en vol',
+            m != null && m.boarded
+                ? '$passengers passagers à bord · cap sur ${m.to.cityAt(year)}'
+                : 'Plein fait à ${_airport!.cityAt(year)} · avion révisé',
+          ),
+        );
         if (m != null && m.boarded) _missionSince = t;
       }
     }
@@ -805,6 +918,7 @@ class ChachaGame extends FlameGame {
   double get _scroll => _unit * 520 * (boost ? 1.6 : 1) * (0.8 + type.speed * 0.4);
 
   void _cruise(double dt, double ts) {
+    if (_finaleT >= 0) return _cruiseFinale(dt, ts);
     final scroll = _scroll * ts;
     worldX += scroll * dt;
     groundSpeed = scroll;
@@ -815,8 +929,10 @@ class ChachaGame extends FlameGame {
       _updateZone(dt * ts);
     }
     _checkZone();
+    if (_zone == null && year >= _finaleFrom && year < _homeYear) return _startFinale();
+    _steer(dt);
 
-    // Pilotage : doigt, inclinaison ou flèches
+    // Carburant
     final maxVy = _h * (0.7 + type.handling * 0.6);
     double targetVy, targetVx;
     if (touchTarget != null) {
@@ -832,9 +948,6 @@ class ChachaGame extends FlameGame {
     vx += (targetVx - vx) * math.min(1, dt * 6);
     planeY = (planeY + vy * dt).clamp(_h * 0.12, _h * 0.88);
     planeX = (planeX + vx * dt).clamp(_w * 0.1, _w * 0.45);
-    pitch += ((vy / maxVy) * 0.28 - pitch) * math.min(1, dt * 6);
-
-    // Carburant
     // En guerre, le kérosène part bien plus vite.
     fuel -= dt * ts * (1.15 + (boost ? 1.3 : 0)) * (1.35 - type.tank * 0.6) * (_zone != null ? 1.8 : 1);
     condition = math.max(0, condition - dt * ts * 0.3);
@@ -853,7 +966,9 @@ class ChachaGame extends FlameGame {
     if (t >= _nextKit && (fuel < 55 || condition < 55)) _spawnKit();
     if (fuel <= 0) {
       fuel = 45;
-      _queueBanner(const FlightBanner('Panne sèche !', "Ravitaillement d'urgence : une vie en moins", color: ChachaColors.red));
+      _queueBanner(
+        const FlightBanner('Panne sèche !', "Ravitaillement d'urgence : une vie en moins", color: ChachaColors.red),
+      );
       _loseLife();
     }
 
@@ -864,12 +979,215 @@ class ChachaGame extends FlameGame {
     if (year >= _endYear) {
       year = _endYear;
       _setPhase(FlightPhase.finished);
-      if (!autopilot) Checkpoint.clear();
-      _queueBanner(const FlightBanner('${Lingala.dipanda} 30 juin 2027', '67 ans d\'indépendance · Indépendance Cha Cha'));
+      if (!autopilot) {
+        Checkpoint.clear();
+        saveFlight(FlightRecord(DateTime.now(), score, medals, money, currencyAt(year), true, year));
+      }
+      _queueBanner(
+        const FlightBanner('${Lingala.dipanda} 30 juin 2027', '67 ans d\'indépendance · Indépendance Cha Cha'),
+      );
       _queueBanner(const FlightBanner('Des cadeaux pour toi !', 'Le Congo t\'a raconté son histoire, de 1960 à 2027'));
       _confetti();
       onFinale?.call();
     }
+  }
+
+  /// Pilotage : doigt, inclinaison ou flèches.
+  void _steer(double dt) {
+    final maxVy = _h * (0.7 + type.handling * 0.6);
+    double targetVy, targetVx;
+    if (touchTarget != null) {
+      targetVy = ((touchTarget!.dy - planeY) * 5).clamp(-maxVy, maxVy);
+      targetVx = ((touchTarget!.dx.clamp(_w * 0.1, _w * 0.45) - planeX) * 3).clamp(-_w, _w);
+    } else {
+      final iy = (keyY + tilt.vertical).clamp(-1.0, 1.0);
+      final ix = (keyX + tilt.horizontal).clamp(-1.0, 1.0);
+      targetVy = iy * maxVy;
+      targetVx = ix * _w * 0.4;
+    }
+    vy += (targetVy - vy) * math.min(1, dt * 8);
+    vx += (targetVx - vx) * math.min(1, dt * 6);
+    planeY = (planeY + vy * dt).clamp(_h * 0.12, _h * 0.88);
+    planeX = (planeX + vx * dt).clamp(_w * 0.1, _w * 0.45);
+    pitch += ((vy / maxVy) * 0.28 - pitch) * math.min(1, dt * 6);
+  }
+
+  // ------------------------------------------------------------- finale
+
+  void _startFinale() {
+    _finaleT = 0;
+    _finaleStep = 0;
+    _finaleYear0 = year;
+    boost = false;
+    mission.value = null;
+    cabin.value = null;
+    _offerPending = false;
+    radio.value = null;
+    if (passengers == 0) passengers = (type.seats * 0.8).round();
+    onSong?.call('moloto');
+    _queueBanner(
+      const FlightBanner('La dernière ligne droite', 'Le pilote automatique te ramène à Kinshasa pour le 30 juin 2027'),
+    );
+    _say(
+      'Tour de Kinshasa',
+      'Tokokoma !',
+      '« Nous allons arriver ! » On prend les commandes avec toi : regarde, et tiens bon.',
+      seconds: 6,
+    );
+    _talk(TalkMoment.finaleStart, force: true);
+    _pushHud();
+  }
+
+  /// Un mur d'orages avec un seul passage : le pilote automatique dévie au dernier moment.
+  void _stormWall() {
+    final gaps = [_h * 0.25, _h * 0.5, _h * 0.72]..remove(_gapY);
+    _gapY = gaps[_rng.nextInt(gaps.length)];
+    _wallX = _w + 140 * _unit;
+    for (var y = _h * 0.12; y <= _h * 0.9; y += _h * 0.13) {
+      if ((y - _gapY).abs() < _h * 0.15) continue;
+      _clouds.add(
+        _Cloud(
+          _wallX + (_rng.nextDouble() - 0.5) * 40 * _unit,
+          y,
+          _unit * (30 + _rng.nextDouble() * 12),
+          1,
+          storm: true,
+        ),
+      );
+    }
+  }
+
+  void _cruiseFinale(double dt, double ts) {
+    _finaleT += dt;
+    final scroll = _scroll * ts;
+    worldX += scroll * dt;
+    groundSpeed = scroll;
+    _wallX -= scroll * dt;
+    final k = (_finaleT / _finaleLength).clamp(0.0, 1.0);
+    year = _finaleYear0 + (_homeYear - _finaleYear0) * k;
+    fuel = math.min(100, fuel + dt * 4);
+
+    // L'avion se pilote seul : il garde le cap, puis plonge vers le passage du mur d'orages.
+    final wallAhead = _wallX > planeX - 60 * _unit && _wallX < planeX + 520 * _unit;
+    final cruiseY = _h * (0.45 + 0.08 * math.sin(_finaleT * 0.7));
+    touchTarget = Offset(_w * (wallAhead ? 0.3 : 0.24), wallAhead ? _gapY : cruiseY);
+    _steer(dt);
+
+    switch (_finaleStep) {
+      case 0 when _finaleT >= 9:
+        // Le son très doux remonte : quelque chose arrive.
+        onSwell?.call(1, 5);
+        _queueBanner(
+          const FlightBanner('Orages droit devant', 'Le pilote automatique cherche un passage', color: _warRed),
+        );
+        _finaleStep++;
+      case 1 when _finaleT >= 11:
+        _stormWall();
+        _talk(TalkMoment.finaleStorm, force: true);
+        _finaleStep++;
+      case 2 when _finaleT >= 13.5:
+        slowMo = 1.6;
+        shake = 0.35;
+        HapticFeedback.heavyImpact();
+        _finaleStep++;
+      case 3 when _finaleT >= 18:
+        _stormWall();
+        flash = 0.5;
+        _finaleStep++;
+      case 4 when _finaleT >= 20.5:
+        slowMo = 1.4;
+        shake = 0.45;
+        HapticFeedback.heavyImpact();
+        _talk(TalkMoment.finaleStorm, force: true);
+        _finaleStep++;
+      case 5 when _finaleT >= 25:
+        _stormWall();
+        _finaleStep++;
+      case 6 when _finaleT >= 27.5:
+        slowMo = 1.2;
+        shake = 0.3;
+        _finaleStep++;
+      case 7 when _finaleT >= 31:
+        // Le calme après la tempête.
+        _peace = 6;
+        _confetti();
+        _queueBanner(
+          const FlightBanner('Le calme après la tempête', 'Le ciel s\'ouvre au-dessus du pays', color: _peaceGreen),
+        );
+        _talk(TalkMoment.finaleCalm, force: true);
+        HapticFeedback.mediumImpact();
+        _finaleStep++;
+      case 8 when _finaleT >= _finaleLength:
+        _beginHomecoming();
+        _finaleStep++;
+    }
+
+    _spawnHistory();
+    _spawnAmbient();
+    _checkEras();
+  }
+
+  /// Début juin 2027 : « Indépendance Cha Cha » prend le relais et l'avion descend vers N'djili.
+  void _beginHomecoming() {
+    _homeApproach = true;
+    _airport = airports.first;
+    _stopPurpose = 0;
+    _gusty = false;
+    touchTarget = null;
+    onFinale?.call();
+    _talk(TalkMoment.approachHome, force: true);
+    _startApproach();
+    _say(
+      'Tour de Kinshasa',
+      Lingala.kitaMalembe,
+      '« Descends doucement. » Bienvenue à la maison : le pays t\'attend pour le 30 juin.',
+      seconds: 7,
+    );
+  }
+
+  void _arriveHome() {
+    year = _endYear;
+    vy = 0;
+    pitch = 0;
+    _setPhase(FlightPhase.finished);
+    homecoming.value = true;
+    if (!autopilot) Checkpoint.clear();
+    if (!autopilot) saveFlight(FlightRecord(DateTime.now(), score, medals, money, currencyAt(year), true, year));
+    _confetti();
+    HapticFeedback.heavyImpact();
+    _burst(
+      planeX - planeLength * 0.1,
+      planeY + planeLength * 0.08,
+      14,
+      const [Color(0xFFB8B8B8), Color(0xFFE0E0E0)],
+      speed: 120,
+      size: 5,
+    );
+    _talk(TalkMoment.arrival, force: true, seconds: 9);
+  }
+
+  /// Une fête : des confettis aux couleurs du drapeau, appelée par l'écran à chaque « Vive… ».
+  void cheer() {
+    _confetti();
+    HapticFeedback.lightImpact();
+  }
+
+  /// Les gens de la cabine parlent : une conversation tirée au hasard pour ce moment.
+  void _talk(TalkMoment m, {bool force = false, double? seconds}) {
+    if (!force && (t < _nextTalk || _finaleT >= 0)) return;
+    final options = cabinTalks[m];
+    if (options == null || options.isEmpty) return;
+    final lines = options[_rng.nextInt(options.length)];
+    talk.value = CabinTalk(lines);
+    _talkTimer = seconds ?? 2.2 + lines.length * 1.6;
+    _nextTalk = t + 14;
+  }
+
+  /// Un moment difficile : une louange douce réconforte, sans revenir trop souvent.
+  void _comfort() {
+    if (t < _nextComfort || _finaleT >= 0) return;
+    _nextComfort = t + 75;
+    onSong?.call('louange');
   }
 
   void _spawnHistory() {
@@ -881,19 +1199,22 @@ class ChachaGame extends FlameGame {
         case EventKind.life:
         case EventKind.glory:
           final y = _h * (0.18 + _rng.nextDouble() * 0.64);
-          _pickups.add(_Pickup(_PickupKind.medal, _w + 60, y,
-              event: e, label: _label('${e.yearLabel}', 15 * _unit)));
+          _pickups.add(_Pickup(_PickupKind.medal, _w + 60, y, event: e, label: _label('${e.yearLabel}', 15 * _unit)));
         case EventKind.obstacle:
           // Les guerres se traversent en vagues d'avions de chasse, les autres épreuves en orages.
           if (!e.war) {
             stormUntil = math.max(stormUntil, e.year + lead + 0.9);
             _nextStorm = t + secondsToPlane * 0.2;
+            _talk(e.volcano ? TalkMoment.volcano : TalkMoment.storm);
+            _comfort();
           }
           if (e.volcano) {
             _volcanoX = _w * 1.05;
             _volcanoUntil = t + 18;
             _nextBomb = t + 2.5;
-            _queueBanner(FlightBanner(e.title, '${e.date} · évite la lave et les cendres', color: const Color(0xFFFFA24A)));
+            _queueBanner(
+              FlightBanner(e.title, '${e.date} · évite la lave et les cendres', color: const Color(0xFFFFA24A)),
+            );
           }
           _showCard(e);
         case EventKind.memory:
@@ -920,8 +1241,14 @@ class ChachaGame extends FlameGame {
     }
     final decor = _clouds.where((c) => !c.storm).length;
     if (decor < 10 && _rng.nextDouble() < 0.04) {
-      _clouds.add(_Cloud(_w + 80, _h * (0.06 + _rng.nextDouble() * 0.85), _unit * (16 + _rng.nextDouble() * 30),
-          0.2 + _rng.nextDouble() * 0.9));
+      _clouds.add(
+        _Cloud(
+          _w + 80,
+          _h * (0.06 + _rng.nextDouble() * 0.85),
+          _unit * (16 + _rng.nextDouble() * 30),
+          0.2 + _rng.nextDouble() * 0.9,
+        ),
+      );
     }
   }
 
@@ -933,7 +1260,10 @@ class ChachaGame extends FlameGame {
   }
 
   void _offerStopover() {
-    final open = [for (final a in airports) if (a.openAt(year)) a];
+    final open = [
+      for (final a in airports)
+        if (a.openAt(year)) a,
+    ];
     _airport = open[_airportIndex++ % open.length];
     _stopPurpose = 0;
     _gusty = false;
@@ -942,9 +1272,13 @@ class ChachaGame extends FlameGame {
     _nextKit = math.max(_nextKit, t + 20);
     final km = 20 + _rng.nextInt(40);
     final why = fuel < 35 ? 'Kérosène bas' : "L'avion a besoin d'entretien";
-    _say('Tour de ${_airport!.cityAt(year)}', '${Lingala.mbote} ${Lingala.tokende}',
-        '$why. Aéroport le plus proche : ${_airport!.titleAt(year)}, à $km km.',
-        offer: _airport!.cityAt(year), seconds: 10);
+    _say(
+      'Tour de ${_airport!.cityAt(year)}',
+      '${Lingala.mbote} ${Lingala.tokende}',
+      '$why. Aéroport le plus proche : ${_airport!.titleAt(year)}, à $km km.',
+      offer: _airport!.cityAt(year),
+      seconds: 10,
+    );
     HapticFeedback.selectionClick();
   }
 
@@ -957,16 +1291,35 @@ class ChachaGame extends FlameGame {
       if (score >= missing) {
         score -= missing;
         money += missing;
-        _queueBanner(FlightBanner('Points convertis', '${_fmt(missing)} points → ${_fmt(missing)} ${currencyAt(year)} pour les droits d\'escale',
-            color: ChachaColors.yellow));
+        _queueBanner(
+          FlightBanner(
+            'Points convertis',
+            '${_fmt(missing)} points → ${_fmt(missing)} ${currencyAt(year)} pour les droits d\'escale',
+            color: ChachaColors.yellow,
+          ),
+        );
       } else {
         _offerPending = false;
         _nextOffer = t + 14;
-        _say('Tour de ${_airport!.cityAt(year)}', Lingala.zelaMoke,
-            'Les droits d\'escale coûtent ${_fmt(landingFee)} ${currencyAt(year)}. Tu n\'as que ${_fmt(money)} : continue et gagne encore un peu.');
+        _say(
+          'Tour de ${_airport!.cityAt(year)}',
+          Lingala.zelaMoke,
+          'Les droits d\'escale coûtent ${_fmt(landingFee)} ${currencyAt(year)}. Tu n\'as que ${_fmt(money)} : continue et gagne encore un peu.',
+        );
         return;
       }
     }
+    _startApproach();
+    _say(
+      'Tour de ${_airport!.cityAt(year)}',
+      Lingala.zelaMoke,
+      _gusty
+          ? 'Vent fort et turbulences : garde le couloir jaune, on te guide.'
+          : 'Suis le couloir jaune, on te guide jusqu\'à la piste.',
+    );
+  }
+
+  void _startApproach() {
     _offerPending = false;
     cabin.value = null;
     _approachT = 0;
@@ -977,8 +1330,6 @@ class ChachaGame extends FlameGame {
     // La piste commence sous l'avion juste avant la fin de la descente.
     _runwayOrigin = worldX + _approachSpeed * _approachTime * 0.84 + _w * 0.22 - _runwayStart * _unit;
     _setPhase(FlightPhase.approach);
-    _say('Tour de ${_airport!.cityAt(year)}', Lingala.zelaMoke,
-        _gusty ? 'Vent fort et turbulences : garde le couloir jaune, on te guide.' : 'Suis le couloir jaune, on te guide jusqu\'à la piste.');
   }
 
   void declineStopover() {
@@ -994,7 +1345,11 @@ class ChachaGame extends FlameGame {
     // Le kit d'abord : la tour ne propose l'escale que s'il est manqué.
     _nextOffer = math.max(_nextOffer, t + 8);
     _pickups.add(_Pickup(_PickupKind.repair, _w + 300 * _unit, _h * (0.25 + _rng.nextDouble() * 0.5)));
-    _say('Tour de contrôle', Lingala.keba, 'Un kit d\'entretien arrive devant toi. Attrape-le : pas besoin de descendre !');
+    _say(
+      'Tour de contrôle',
+      Lingala.keba,
+      'Un kit d\'entretien arrive devant toi. Attrape-le : pas besoin de descendre !',
+    );
   }
 
   /// Hauteur cible sur le couloir d'approche, [k] secondes après le début.
@@ -1013,7 +1368,9 @@ class ChachaGame extends FlameGame {
 
     // Sans toucher, l'avion suit seul le couloir ; on peut aussi piloter, et piquer trop fort.
     final maxVy = _h * (0.7 + type.handling * 0.6);
-    final manual = touchTarget != null || keyY != 0 || tilt.vertical.abs() > 0.2;
+    // Le retour à Kinshasa se fait seul, calmement : on regarde l'avion se poser.
+    final manual = !_homeApproach && (touchTarget != null || keyY != 0 || tilt.vertical.abs() > 0.2);
+    if (_homeApproach) year = _homeYear + (_endYear - 0.004 - _homeYear) * (_approachT / _approachTime).clamp(0.0, 1.0);
     double targetVy;
     if (touchTarget != null) {
       targetVy = ((touchTarget!.dy - planeY) * 5).clamp(-maxVy, maxVy);
@@ -1036,11 +1393,15 @@ class ChachaGame extends FlameGame {
 
     if (_approachT > _approachTime * 0.35 && !_cueGear) {
       _cueGear = true;
-      _say('Tour de ${_airport!.cityAt(year)}', Lingala.kitaMalembe, 'Train sorti. Descends doucement.');
+      if (!_homeApproach) {
+        _say('Tour de ${_airport!.cityAt(year)}', Lingala.kitaMalembe, 'Train sorti. Descends doucement.');
+      }
     }
     if (_approachT > _approachTime * 0.7 && !_cueRunway) {
       _cueRunway = true;
-      _say('Tour de ${_airport!.cityAt(year)}', Lingala.tokende, 'Piste en vue : tu peux te poser !');
+      _homeApproach
+          ? _say('Tour de Kinshasa', Lingala.elonga, 'Piste de N\'djili en vue. Tout le pays te regarde.')
+          : _say('Tour de ${_airport!.cityAt(year)}', Lingala.tokende, 'Piste en vue : tu peux te poser !');
     }
 
     final shift = _groundShift;
@@ -1050,7 +1411,9 @@ class ChachaGame extends FlameGame {
       final gx = worldX - _runwayOrigin;
       final onRunway = planeX > _runwayStart * _unit - gx && planeX < _runwayEnd * _unit - gx - planeLength;
       planeY = groundOnPlane;
-      if (closing > _h * 0.55 || !onRunway) {
+      if (_homeApproach) {
+        _arriveHome();
+      } else if (closing > _h * 0.55 || !onRunway) {
         _crashLanding(onRunway ? 'Descente trop rapide' : 'Hors de la piste');
       } else {
         _land();
@@ -1074,19 +1437,39 @@ class ChachaGame extends FlameGame {
     pitch = 0;
     score += 200;
     HapticFeedback.mediumImpact();
-    _burst(planeX - planeLength * 0.1, planeY + planeLength * 0.08, 14, const [Color(0xFFB8B8B8), Color(0xFFE0E0E0)], speed: 120, size: 5);
+    _burst(
+      planeX - planeLength * 0.1,
+      planeY + planeLength * 0.08,
+      14,
+      const [Color(0xFFB8B8B8), Color(0xFFE0E0E0)],
+      speed: 120,
+      size: 5,
+    );
     _queueBanner(FlightBanner('Bienvenue à ${_airport!.cityAt(year)}', _airport!.label));
     if (airportPostcards[_airport!.city] case (final photo, final text)) {
-      _showCard(HistoryEvent(year, EventKind.life, 'Escale', _airport!.cityAt(year), 'Carte postale de ${_airport!.cityAt(year)}', text,
-          photo: photo), caught: false);
+      _showCard(
+        HistoryEvent(
+          year,
+          EventKind.life,
+          'Escale',
+          _airport!.cityAt(year),
+          'Carte postale de ${_airport!.cityAt(year)}',
+          text,
+          photo: photo,
+        ),
+        caught: false,
+      );
     }
     final m = mission.value;
-    _say('Tour de ${_airport!.cityAt(year)}', Lingala.elonga,
-        _stopPurpose == 1 && m != null
-            ? 'Bel atterrissage ! Les ${m.count} passagers montent à bord.'
-            : _stopPurpose == 2
-                ? 'Bel atterrissage ! Tes passagers sont arrivés.'
-                : 'Bel atterrissage ! Zela moke : l\'équipe arrive.');
+    _say(
+      'Tour de ${_airport!.cityAt(year)}',
+      Lingala.elonga,
+      _stopPurpose == 1 && m != null
+          ? 'Bel atterrissage ! Les ${m.count} passagers montent à bord.'
+          : _stopPurpose == 2
+          ? 'Bel atterrissage ! Tes passagers sont arrivés.'
+          : 'Bel atterrissage ! Zela moke : l\'équipe arrive.',
+    );
   }
 
   void _crashLanding(String why) {
@@ -1147,9 +1530,13 @@ class ChachaGame extends FlameGame {
       _nextMission = t + 35;
       _stopPurpose = 0;
       if (!autopilot) addMission();
-      _queueBanner(FlightBanner('Mission réussie ${'★' * stars}${'☆' * (3 - stars)}',
+      _queueBanner(
+        FlightBanner(
+          'Mission réussie ${'★' * stars}${'☆' * (3 - stars)}',
           '${m.count} passagers déposés à ${m.to.cityAt(year)} · +${_fmt(m.count * 40)} ${currencyAt(year)} · ${pilotRank(missionsDone.value)}',
-          color: const Color(0xFF7CF0A6)));
+          color: const Color(0xFF7CF0A6),
+        ),
+      );
       _say('Passagers', Lingala.matondo, 'Merci commandant ${pilotName.value ?? ''} ! Nous sommes bien arrivés.');
     }
     condition = _conditionAtLanding + (100 - _conditionAtLanding) * span(2, 4.5);
@@ -1158,7 +1545,11 @@ class ChachaGame extends FlameGame {
       _particles.removeWhere((p) => p.smoke);
     }
     if (_service >= 5.5 + r && _service - dt < 5.5 + r) {
-      _say('Tour de ${_airport!.cityAt(year)}', Lingala.tokende, 'Contrôles faits. Roule jusqu\'à la piste, elle est libre.');
+      _say(
+        'Tour de ${_airport!.cityAt(year)}',
+        Lingala.tokende,
+        'Contrôles faits. Roule jusqu\'à la piste, elle est libre.',
+      );
     }
     if (_service >= 5.5 + r) groundSpeed = _unit * 90;
     // Roulage : demi-tour vers le taxiway, puis demi-tour pour s'aligner sur la piste.
@@ -1192,31 +1583,45 @@ class ChachaGame extends FlameGame {
     final step = _service < 0
         ? 'Freinage…'
         : _service < r
-            ? 'Les pompiers éteignent le feu'
-            : _service < 1.5 + r
-                ? 'Le camion de kérosène arrive'
-                : _service < 4.5 + r
-                    ? 'Plein de kérosène et entretien'
-                    : _service < 5.5 + r
-                        ? 'Contrôles avant le départ'
-                        : 'Roulage vers la piste';
+        ? 'Les pompiers éteignent le feu'
+        : _service < 1.5 + r
+        ? 'Le camion de kérosène arrive'
+        : _service < 4.5 + r
+        ? 'Plein de kérosène et entretien'
+        : _service < 5.5 + r
+        ? 'Contrôles avant le départ'
+        : 'Roulage vers la piste';
     final m = mission.value;
     final boarding = m == null || _stopPurpose == 0 ? null : span(1.5, 4.5);
-    stopover.value = StopoverHud(_airport!.titleAt(year), span(1.5, 4), span(2, 4.5), span(4.5, 5.5),
-        _service >= 5.5 + r ? 'Demi-tour et roulage vers la piste' : step,
-        rescue: r > 0,
-        boarding: boarding,
-        boardingLabel: _stopPurpose == 1 ? 'Embarquement' : 'Débarquement',
-        fleet: fleetAt(year),
-        current: type,
-        bill: _bill);
+    stopover.value = StopoverHud(
+      _airport!.titleAt(year),
+      span(1.5, 4),
+      span(2, 4.5),
+      span(4.5, 5.5),
+      _service >= 5.5 + r ? 'Demi-tour et roulage vers la piste' : step,
+      rescue: r > 0,
+      boarding: boarding,
+      boardingLabel: _stopPurpose == 1 ? 'Embarquement' : 'Débarquement',
+      fleet: fleetAt(year),
+      current: type,
+      bill: _bill,
+    );
   }
 
   void _smoke(double dt) {
     if (_rng.nextDouble() < dt * 30) {
-      _particles.add(_Particle(planeX + (_rng.nextDouble() - 0.6) * planeLength * 0.4, planeY - planeLength * 0.02, 0,
-          -40 * _unit, 1.6, _rng.nextBool() ? const Color(0xFF3A3A3A) : const Color(0xFFFF8A1E), 10 * _unit,
-          smoke: true));
+      _particles.add(
+        _Particle(
+          planeX + (_rng.nextDouble() - 0.6) * planeLength * 0.4,
+          planeY - planeLength * 0.02,
+          0,
+          -40 * _unit,
+          1.6,
+          _rng.nextBool() ? const Color(0xFF3A3A3A) : const Color(0xFFFF8A1E),
+          10 * _unit,
+          smoke: true,
+        ),
+      );
     }
   }
 
@@ -1260,9 +1665,17 @@ class ChachaGame extends FlameGame {
     final cur = currencyAt(year);
     if (cur != _lastCurrency) {
       _lastCurrency = cur;
-      _queueBanner(FlightBanner('Nouvelle monnaie',
-          'Ton portefeuille passe en ${switch (cur) { 'Z' => 'zaïres', 'NZ' => 'nouveaux zaïres', _ => 'francs congolais' }}',
-          color: ChachaColors.yellow));
+      _queueBanner(
+        FlightBanner(
+          'Nouvelle monnaie',
+          'Ton portefeuille passe en ${switch (cur) {
+            'Z' => 'zaïres',
+            'NZ' => 'nouveaux zaïres',
+            _ => 'francs congolais',
+          }}',
+          color: ChachaColors.yellow,
+        ),
+      );
     }
 
     final c = cabin.value;
@@ -1277,7 +1690,13 @@ class ChachaGame extends FlameGame {
             condition = math.max(0, condition - 10);
             final m = mission.value;
             if (m != null && m.boarded) m.hits++;
-            _queueBanner(const FlightBanner('Passagers secoués !', 'Le signal des ceintures n\'était pas allumé', color: Color(0xFFFF7A7A)));
+            _queueBanner(
+              const FlightBanner(
+                'Passagers secoués !',
+                'Le signal des ceintures n\'était pas allumé',
+                color: Color(0xFFFF7A7A),
+              ),
+            );
             HapticFeedback.heavyImpact();
             fastenBelts();
           }
@@ -1286,7 +1705,13 @@ class ChachaGame extends FlameGame {
           cabin.value = CabinHud(CabinMode.beltsFastening, p, c.seats, c.title, c.detail);
           if (p >= 1) {
             _cabinT = 0;
-            cabin.value = CabinHud(CabinMode.beltsDone, 1, c.seats, 'Ceintures attachées', 'Les ${c.seats} passagers sont bouclés');
+            cabin.value = CabinHud(
+              CabinMode.beltsDone,
+              1,
+              c.seats,
+              'Ceintures attachées',
+              'Les ${c.seats} passagers sont bouclés',
+            );
           }
         case CabinMode.serving:
           final p = math.min(1.0, _cabinT / 6);
@@ -1295,10 +1720,22 @@ class ChachaGame extends FlameGame {
             _cabinT = 0;
             score += 100;
             money += _sales;
-            cabin.value = CabinHud(CabinMode.served, 1, c.seats, 'Les ${c.seats} passagers sont servis',
-                'Boissons vendues : +${_fmt(_sales)} ${currencyAt(year)}');
-            _say('Cabine', Lingala.matondo,
-                'Le commandant ${pilotName.value ?? ''} et le copilote mangent aussi : $_menu. Bon appétit !'.replaceAll('  ', ' '));
+            _talk(TalkMoment.meal);
+            cabin.value = CabinHud(
+              CabinMode.served,
+              1,
+              c.seats,
+              'Les ${c.seats} passagers sont servis',
+              'Boissons vendues : +${_fmt(_sales)} ${currencyAt(year)}',
+            );
+            _say(
+              'Cabine',
+              Lingala.matondo,
+              'Le commandant ${pilotName.value ?? ''} et le copilote mangent aussi : $_menu. Bon appétit !'.replaceAll(
+                '  ',
+                ' ',
+              ),
+            );
           }
         case CabinMode.beltsDone:
         case CabinMode.served:
@@ -1327,7 +1764,12 @@ class ChachaGame extends FlameGame {
     _beltsDeadline = t + 6;
     final seats = passengers;
     cabin.value = CabinHud(CabinMode.beltsAsk, 0, seats, 'Attachez vos ceintures', why);
-    _say('Tour de contrôle', Lingala.mikaba, '$why : allume le signal des ceintures pour tes $seats passagers.', seconds: 6);
+    _say(
+      'Tour de contrôle',
+      Lingala.mikaba,
+      '$why : allume le signal des ceintures pour tes $seats passagers.',
+      seconds: 6,
+    );
     HapticFeedback.selectionClick();
   }
 
@@ -1336,7 +1778,13 @@ class ChachaGame extends FlameGame {
     if (c == null || c.mode != CabinMode.beltsAsk) return;
     _cabinT = 0;
     if (_zone == null) _turbulence = 8;
-    cabin.value = CabinHud(CabinMode.beltsFastening, 0, c.seats, 'Attachez vos ceintures', 'Clic, clic… les passagers se bouclent');
+    cabin.value = CabinHud(
+      CabinMode.beltsFastening,
+      0,
+      c.seats,
+      'Attachez vos ceintures',
+      'Clic, clic… les passagers se bouclent',
+    );
     HapticFeedback.mediumImpact();
   }
 
@@ -1344,7 +1792,12 @@ class ChachaGame extends FlameGame {
     _nextMeal = t + 110 + _rng.nextDouble() * 40;
     _mealWait = 0;
     meal.value = MealOffer(passengers);
-    _say('Cabine', Lingala.tolia, 'C\'est l\'heure du repas ! Choisis le plat du jour et les boissons du chariot.', seconds: 6);
+    _say(
+      'Cabine',
+      Lingala.tolia,
+      'C\'est l\'heure du repas ! Choisis le plat du jour et les boissons du chariot.',
+      seconds: 6,
+    );
     _pushHud();
   }
 
@@ -1364,11 +1817,23 @@ class ChachaGame extends FlameGame {
     for (var i = 0; i < drinks.length; i++) {
       _sales += counts[i] * drinkPrice(drinks[i]);
     }
-    final pilotDrink = drinks.firstWhere((d) => !mealSpirits.contains(d) && !mealBeers.contains(d), orElse: () => 'Eau');
-    _menu = '${base.toLowerCase()} et ${dish.toLowerCase()}, avec un verre de $pilotDrink (pas d\'alcool aux commandes)';
+    final pilotDrink = drinks.firstWhere(
+      (d) => !mealSpirits.contains(d) && !mealBeers.contains(d),
+      orElse: () => 'Eau',
+    );
+    _menu =
+        '${base.toLowerCase()} et ${dish.toLowerCase()}, avec un verre de $pilotDrink (pas d\'alcool aux commandes)';
     _cabinT = 0;
-    cabin.value = CabinHud(CabinMode.serving, 0, served, 'Plat du jour : $base et $dish',
-        [for (final i in order.take(4)) if (counts[i] > 0) '${counts[i]} ${drinks[i]}'].join(' · '));
+    cabin.value = CabinHud(
+      CabinMode.serving,
+      0,
+      served,
+      'Plat du jour : $base et $dish',
+      [
+        for (final i in order.take(4))
+          if (counts[i] > 0) '${counts[i]} ${drinks[i]}',
+      ].join(' · '),
+    );
     _pushHud();
   }
 
@@ -1392,7 +1857,13 @@ class ChachaGame extends FlameGame {
     passengers = math.min(passengers, t.seats);
     flash = 0.8;
     _burst(planeX, planeY, 30, const [Colors.white, ChachaColors.yellow], speed: 260);
-    _queueBanner(FlightBanner('Nouvel avion · ${t.maker} ${t.name}', '${t.seats} places · ${t.story}', color: ChachaColors.skyLight));
+    _queueBanner(
+      FlightBanner(
+        'Nouvel avion · ${t.maker} ${t.name}',
+        '${t.seats} places · ${t.story}',
+        color: ChachaColors.skyLight,
+      ),
+    );
     _showPlaneCard('Nouvel avion');
     if (phase == FlightPhase.ground) _pushStopover();
   }
@@ -1402,8 +1873,12 @@ class ChachaGame extends FlameGame {
     Airport city(String name) => airports.firstWhere((a) => a.city == name);
     if (year >= 2016.6 && year < 2017.9) return (city('Kananga'), 'Kasaï : violences de Kamuina Nsapu');
     if (year >= 2007.0 && year < 2008.5) return (city('Matadi'), 'Bas-Congo : affrontements de Bundu dia Kongo');
-    if ((year >= 2002.0 && year < 2002.6) || (year >= 2021.4 && year < 2021.7)) return (city('Goma'), 'Goma : le Nyiragongo en éruption');
-    if ((year >= 2012.88 && year < 2013.9) || (year >= 2021.9 && year < 2025.08)) return (city('Goma'), 'Goma : la guerre est proche');
+    if ((year >= 2002.0 && year < 2002.6) || (year >= 2021.4 && year < 2021.7)) {
+      return (city('Goma'), 'Goma : le Nyiragongo en éruption');
+    }
+    if ((year >= 2012.88 && year < 2013.9) || (year >= 2021.9 && year < 2025.08)) {
+      return (city('Goma'), 'Goma : la guerre est proche');
+    }
     return null;
   }
 
@@ -1412,7 +1887,10 @@ class ChachaGame extends FlameGame {
     if (_zone != null || _offerPending) return;
     if (m == null) {
       if (t < _nextMission) return;
-      final open = [for (final a in airports) if (a.openAt(year)) a];
+      final open = [
+        for (final a in airports)
+          if (a.openAt(year)) a,
+      ];
       final hard = _hardCity();
       final to = hard?.$1 ?? open[_rng.nextInt(open.length)];
       var from = open[_rng.nextInt(open.length)];
@@ -1429,21 +1907,30 @@ class ChachaGame extends FlameGame {
       mission.value = next;
       _airport = from;
       _stopPurpose = 1;
-      _openOffer(Lingala.mbote, 'Mission : $count passagers attendent à ${from.cityAt(year)}. Destination : ${to.cityAt(year)}.',
-          from.cityAt(year));
+      _openOffer(
+        Lingala.mbote,
+        'Mission : $count passagers attendent à ${from.cityAt(year)}. Destination : ${to.cityAt(year)}.',
+        from.cityAt(year),
+      );
     } else if (m.boarded && t - _missionSince > 22) {
       _airport = m.to;
       _stopPurpose = 2;
       _gusty = m.why.isNotEmpty;
-      _openOffer(m.why.isNotEmpty ? Lingala.keba : Lingala.tokende,
-          m.why.isNotEmpty
-              ? 'Approche de ${m.to.cityAt(year)}. ${m.why}. Tes passagers comptent sur toi.'
-              : 'Approche de ${m.to.cityAt(year)} : tes ${m.count} passagers arrivent.',
-          m.to.cityAt(year));
+      _openOffer(
+        m.why.isNotEmpty ? Lingala.keba : Lingala.tokende,
+        m.why.isNotEmpty
+            ? 'Approche de ${m.to.cityAt(year)}. ${m.why}. Tes passagers comptent sur toi.'
+            : 'Approche de ${m.to.cityAt(year)} : tes ${m.count} passagers arrivent.',
+        m.to.cityAt(year),
+      );
     } else if (!m.boarded && t >= _nextOffer) {
       _airport = m.from;
       _stopPurpose = 1;
-      _openOffer(Lingala.mbote, 'Les ${m.count} passagers attendent toujours à ${m.from.cityAt(year)}.', m.from.cityAt(year));
+      _openOffer(
+        Lingala.mbote,
+        'Les ${m.count} passagers attendent toujours à ${m.from.cityAt(year)}.',
+        m.from.cityAt(year),
+      );
     }
   }
 
@@ -1456,7 +1943,10 @@ class ChachaGame extends FlameGame {
   }
 
   void _askQuiz() {
-    final past = [for (final e in historyEvents) if (e.year < year - 0.3 && !_askedQuiz.contains(e.title)) e];
+    final past = [
+      for (final e in historyEvents)
+        if (e.year < year - 0.3 && !_askedQuiz.contains(e.title)) e,
+    ];
     if (past.length < 4) return;
     _quizCount++;
     _nextQuiz = t + 70;
@@ -1477,12 +1967,20 @@ class ChachaGame extends FlameGame {
       options = [for (final v in years.toList()..shuffle(_rng)) '$v'];
       question = 'En quelle année : ${e.title} (${e.city}) ?';
     } else {
-      final others = [for (final o in historyEvents) if (o.title != e.title && (o.year - e.year).abs() > 2) o]..shuffle(_rng);
+      final others = [
+        for (final o in historyEvents)
+          if (o.title != e.title && (o.year - e.year).abs() > 2) o,
+      ]..shuffle(_rng);
       options = [e.title, others[0].title, others[1].title]..shuffle(_rng);
       question = 'Que s\'est-il passé en ${e.date}, à ${e.city} ?';
     }
     quiz.value = Quiz(question, options, options.indexOf(byYear ? '${e.yearLabel}' : e.title), e);
-    _say('Tour de contrôle', Lingala.mafuta, 'Plus de kérosène ! Réponds juste et un ravitaillement arrive.', seconds: 6);
+    _say(
+      'Tour de contrôle',
+      Lingala.mafuta,
+      'Plus de kérosène ! Réponds juste et un ravitaillement arrive.',
+      seconds: 6,
+    );
     _pushHud();
   }
 
@@ -1498,7 +1996,11 @@ class ChachaGame extends FlameGame {
       _say('Tour de contrôle', Lingala.elonga, 'Bonne réponse ! Ravitaillement en vol : +55 % de kérosène.');
     } else {
       fuel = math.min(100, fuel + 15);
-      _say('Tour de contrôle', Lingala.makasi, 'La réponse était « ${q.options[q.answer]} ». Un petit bidon quand même.');
+      _say(
+        'Tour de contrôle',
+        Lingala.makasi,
+        'La réponse était « ${q.options[q.answer]} ». Un petit bidon quand même.',
+      );
     }
     _pushHud();
   }
@@ -1531,10 +2033,19 @@ class ChachaGame extends FlameGame {
     _saveCheckpoint(z.from + span * _wavesCleared);
     shake = 0.35;
     HapticFeedback.heavyImpact();
-    _queueBanner(FlightBanner('Zone de turbulence', 'Tu arrives dans un moment de turbulence · ${z.name}', color: _warRed));
+    _queueBanner(
+      FlightBanner('Zone de turbulence', 'Tu arrives dans un moment de turbulence · ${z.name}', color: _warRed),
+    );
     if (passengers > 0) _askBelts('Zone de guerre droit devant');
-    _queueBanner(const FlightBanner(Lingala.keba, '« Attention ! Le désordre est devant » · évite les avions de chasse',
-        color: _warRed));
+    _talk(TalkMoment.war, force: true);
+    _comfort();
+    _queueBanner(
+      const FlightBanner(
+        Lingala.keba,
+        '« Attention ! Le désordre est devant » · évite les avions de chasse',
+        color: _warRed,
+      ),
+    );
   }
 
   void _updateZone(double dt) {
@@ -1593,8 +2104,17 @@ class ChachaGame extends FlameGame {
     _confetti();
     HapticFeedback.mediumImpact();
     _saveCheckpoint(z.to);
-    _queueBanner(FlightBanner('${Lingala.kimia} · ${z.peaceTitle}', '« La paix est revenue » · ${z.peaceText}', color: _peaceGreen));
-    _queueBanner(const FlightBanner('Étape de paix', '+1 vie · +500 points · la réconciliation continue', color: _peaceGreen));
+    _queueBanner(
+      FlightBanner(
+        '${Lingala.kimia} · ${z.peaceTitle}',
+        '« La paix est revenue » · ${z.peaceText}',
+        color: _peaceGreen,
+      ),
+    );
+    _talk(TalkMoment.peace, force: true);
+    _queueBanner(
+      const FlightBanner('Étape de paix', '+1 vie · +500 points · la réconciliation continue', color: _peaceGreen),
+    );
     _pushHud();
   }
 
@@ -1659,8 +2179,17 @@ class ChachaGame extends FlameGame {
     if (t < _volcanoUntil && t >= _nextBomb && _volcanoX < _w * 1.05 && _volcanoX > _w * 0.2) {
       _nextBomb = t + 0.45 + _rng.nextDouble() * 0.4;
       final crater = _volcanoCrater;
-      _bombs.add(_Particle(crater.dx, crater.dy, (-140 - _rng.nextDouble() * 260) * _unit, -_h * (1.05 + _rng.nextDouble() * 0.5),
-          6, const Color(0xFFFF7A1E), (7 + _rng.nextDouble() * 6) * _unit));
+      _bombs.add(
+        _Particle(
+          crater.dx,
+          crater.dy,
+          (-140 - _rng.nextDouble() * 260) * _unit,
+          -_h * (1.05 + _rng.nextDouble() * 0.5),
+          6,
+          const Color(0xFFFF7A1E),
+          (7 + _rng.nextDouble() * 6) * _unit,
+        ),
+      );
     }
     for (final b in _bombs) {
       b.age += dt;
@@ -1753,7 +2282,10 @@ class ChachaGame extends FlameGame {
         caught.add(e.title);
         _showCard(e);
         _burst(p.x, p.y, 30, const [ChachaColors.yellow, Colors.white, Color(0xFFFFE9A0)], speed: 300);
-        if (glory) _confetti();
+        if (glory) {
+          _confetti();
+          _talk(TalkMoment.glory);
+        }
         HapticFeedback.lightImpact();
       case _PickupKind.star:
         score += 10;
@@ -1788,7 +2320,11 @@ class ChachaGame extends FlameGame {
       tiltAvailable: tilt.available,
       altitude: phase == FlightPhase.ground || phase == FlightPhase.ready || phase == FlightPhase.rolling
           ? 0
-          : math.max(0, math.pow(climb, 1.4) * 30000 + (groundY - planeY - (type.bodyHeight / 2 + 7.7) * planeLength / 100) / _h * 4000),
+          : math.max(
+              0,
+              math.pow(climb, 1.4) * 30000 +
+                  (groundY - planeY - (type.bodyHeight / 2 + 7.7) * planeLength / 100) / _h * 4000,
+            ),
       // Le TURBO pousse l'avion, sans dépasser une vitesse de ligne crédible.
       speedKmh: () {
         final r = groundSpeed / (_unit * 560);
@@ -1803,12 +2339,17 @@ class ChachaGame extends FlameGame {
       seats: type.seats,
       money: money,
       currency: currencyAt(year),
+      finale: _finaleT >= 0 && phase != FlightPhase.finished,
     );
     final z = _zone;
     zoneHud.value = z == null
         ? null
-        : ZoneHud(z, _waveActive ? _wave : math.min(z.waves, _wavesCleared + 1), _waveActive,
-            ((year - z.from) / (z.to - z.from)).clamp(0.0, 1.0));
+        : ZoneHud(
+            z,
+            _waveActive ? _wave : math.min(z.waves, _wavesCleared + 1),
+            _waveActive,
+            ((year - z.from) / (z.to - z.from)).clamp(0.0, 1.0),
+          );
   }
 
   // ----------------------------------------------------------------- dessin
@@ -1819,9 +2360,7 @@ class ChachaGame extends FlameGame {
     canvas.save();
     if (shake > 0) canvas.translate((_rng.nextDouble() - 0.5) * 14 * shake, (_rng.nextDouble() - 0.5) * 14 * shake);
 
-    final day = (phase.index >= FlightPhase.cruising.index || _takeoffs > 0)
-        ? 1.0
-        : climb * 0.9;
+    final day = (phase.index >= FlightPhase.cruising.index || _takeoffs > 0) ? 1.0 : climb * 0.9;
     final stormy = math.max(year < stormUntil && phase == FlightPhase.cruising ? 1.0 : 0.0, _zoneFade * 0.75);
     Scenery.sky(canvas, s, day, stormy, slowMo > 0 ? math.min(1, slowMo) : 0);
     if (_zoneFade > 0) {
@@ -1849,10 +2388,24 @@ class ChachaGame extends FlameGame {
     }
 
     final hillBase = _groundY0 + _groundShift * 0.55;
-    Scenery.hills(canvas, s, worldX * 0.15, hillBase - 10 * _unit, 90 * _unit,
-        Color.lerp(const Color(0xFF6A5A9A), const Color(0xFF7FA6D6), day)!, 1.3);
-    Scenery.hills(canvas, s, worldX * 0.3, hillBase + 4 * _unit, 60 * _unit,
-        Color.lerp(const Color(0xFF43406E), const Color(0xFF5C8A6E), day)!, 4.1);
+    Scenery.hills(
+      canvas,
+      s,
+      worldX * 0.15,
+      hillBase - 10 * _unit,
+      90 * _unit,
+      Color.lerp(const Color(0xFF6A5A9A), const Color(0xFF7FA6D6), day)!,
+      1.3,
+    );
+    Scenery.hills(
+      canvas,
+      s,
+      worldX * 0.3,
+      hillBase + 4 * _unit,
+      60 * _unit,
+      Color.lerp(const Color(0xFF43406E), const Color(0xFF5C8A6E), day)!,
+      4.1,
+    );
 
     if (_volcanoX > -_w) {
       final fury = t < _volcanoUntil ? 1.0 : math.max(0.3, 1 - (t - _volcanoUntil) / 4);
@@ -1878,7 +2431,11 @@ class ChachaGame extends FlameGame {
       final alt = (groundY - planeY) / _h;
       if (alt < 1.2) {
         canvas.drawOval(
-          Rect.fromCenter(center: Offset(planeX, groundY + 10 * _unit), width: planeLength * (0.9 - alt * 0.4), height: 10 * _unit),
+          Rect.fromCenter(
+            center: Offset(planeX, groundY + 10 * _unit),
+            width: planeLength * (0.9 - alt * 0.4),
+            height: 10 * _unit,
+          ),
           Paint()
             ..color = Color.fromRGBO(0, 0, 0, (0.45 - alt * 0.35).clamp(0, 1))
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
@@ -1929,15 +2486,22 @@ class ChachaGame extends FlameGame {
     for (final p in _particles) {
       final a = (1 - p.age / p.life).clamp(0.0, 1.0);
       if (p.smoke) {
-        canvas.drawCircle(Offset(p.x, p.y), p.size * (1 + p.age * 1.6),
-            Paint()..color = p.color.withValues(alpha: a * 0.45)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+        canvas.drawCircle(
+          Offset(p.x, p.y),
+          p.size * (1 + p.age * 1.6),
+          Paint()
+            ..color = p.color.withValues(alpha: a * 0.45)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+        );
         continue;
       }
       canvas.save();
       canvas.translate(p.x, p.y);
       canvas.rotate(p.rot);
-      canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.6),
-          Paint()..color = p.color.withValues(alpha: a));
+      canvas.drawRect(
+        Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.6),
+        Paint()..color = p.color.withValues(alpha: a),
+      );
       canvas.restore();
     }
 
@@ -1974,20 +2538,27 @@ class ChachaGame extends FlameGame {
     }
     path.lineTo(_tail().dx, _tail().dy);
     final b = path.getBounds();
-    Shader fade(Color c) => LinearGradient(colors: [c.withValues(alpha: 0), c])
-        .createShader(Rect.fromLTRB(b.left, b.top - 1, b.right + 1, b.bottom + 1));
-    canvas.drawPath(path, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = planeLength * 0.11
-      ..shader = fade(ChachaColors.yellow));
-    canvas.drawPath(path, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = planeLength * 0.075
-      ..shader = fade(ChachaColors.red));
+    Shader fade(Color c) => LinearGradient(
+      colors: [c.withValues(alpha: 0), c],
+    ).createShader(Rect.fromLTRB(b.left, b.top - 1, b.right + 1, b.bottom + 1));
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = planeLength * 0.11
+        ..shader = fade(ChachaColors.yellow),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = planeLength * 0.075
+        ..shader = fade(ChachaColors.red),
+    );
   }
 
   /// Ébullition : le ciel bout aux grands tournants de l'histoire.
@@ -2001,7 +2572,11 @@ class ChachaGame extends FlameGame {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = _h * 0.06
-          ..color = Color.lerp(ChachaColors.red, ChachaColors.yellow, i / 6)!.withValues(alpha: 0.18 * a * (1 - r / (_w * 0.9)))
+          ..color = Color.lerp(
+            ChachaColors.red,
+            ChachaColors.yellow,
+            i / 6,
+          )!.withValues(alpha: 0.18 * a * (1 - r / (_w * 0.9)))
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18),
       );
     }
@@ -2037,7 +2612,11 @@ class ChachaGame extends FlameGame {
       final truckX = _w + 200 * _unit + (planeX + planeLength * 0.3 - _w - 200 * _unit) * arrive + leave * _w;
       Scenery.fuelTruck(canvas, Offset(truckX, ground), _unit, hose: _service > 1.5 + r && _service < 4.2 + r ? 1 : 0);
       if (r > 0 && _service < r + 2) {
-        final fx = _w + 200 * _unit + (planeX + planeLength * 0.55 - _w - 200 * _unit) * Curves.easeOut.transform((_service / 1.2).clamp(0.0, 1.0));
+        final fx =
+            _w +
+            200 * _unit +
+            (planeX + planeLength * 0.55 - _w - 200 * _unit) *
+                Curves.easeOut.transform((_service / 1.2).clamp(0.0, 1.0));
         Scenery.fireTruck(canvas, Offset(fx, ground), _unit, t);
       }
       return;
@@ -2098,27 +2677,30 @@ class ChachaGame extends FlameGame {
     canvas.drawOval(
       Rect.fromCenter(center: Offset(l * 0.56, 0), width: l * 0.22 * flicker, height: l * 0.07),
       Paint()
-        ..shader = const RadialGradient(colors: [Color(0xFFFFF1B0), Color(0xFFFF8A1E), Color(0x00FF3B00)])
-            .createShader(Rect.fromCenter(center: Offset(l * 0.56, 0), width: l * 0.24, height: l * 0.08))
+        ..shader = const RadialGradient(
+          colors: [Color(0xFFFFF1B0), Color(0xFFFF8A1E), Color(0x00FF3B00)],
+        ).createShader(Rect.fromCenter(center: Offset(l * 0.56, 0), width: l * 0.24, height: l * 0.08))
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
     );
     // Aile lointaine, dérive, fuselage, aile proche
     canvas.drawPath(
-        Path()
-          ..moveTo(-0.02 * l, -0.01 * l)
-          ..lineTo(0.34 * l, -0.01 * l)
-          ..lineTo(0.4 * l, -0.11 * l)
-          ..lineTo(0.3 * l, -0.11 * l)
-          ..close(),
-        Paint()..color = const Color(0xFF0B0D11));
+      Path()
+        ..moveTo(-0.02 * l, -0.01 * l)
+        ..lineTo(0.34 * l, -0.01 * l)
+        ..lineTo(0.4 * l, -0.11 * l)
+        ..lineTo(0.3 * l, -0.11 * l)
+        ..close(),
+      Paint()..color = const Color(0xFF0B0D11),
+    );
     canvas.drawPath(
-        Path()
-          ..moveTo(0.26 * l, -0.035 * l)
-          ..lineTo(0.38 * l, -0.24 * l)
-          ..lineTo(0.46 * l, -0.24 * l)
-          ..lineTo(0.49 * l, -0.035 * l)
-          ..close(),
-        dark);
+      Path()
+        ..moveTo(0.26 * l, -0.035 * l)
+        ..lineTo(0.38 * l, -0.24 * l)
+        ..lineTo(0.46 * l, -0.24 * l)
+        ..lineTo(0.49 * l, -0.035 * l)
+        ..close(),
+      dark,
+    );
     final body = Path()
       ..moveTo(-0.5 * l, 0.01 * l)
       ..quadraticBezierTo(-0.36 * l, -0.05 * l, -0.18 * l, -0.05 * l)
@@ -2130,26 +2712,29 @@ class ChachaGame extends FlameGame {
       ..close();
     canvas.drawPath(body, dark);
     canvas.drawPath(
-        body,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.2
-          ..color = const Color(0x40FFFFFF));
+      body,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = const Color(0x40FFFFFF),
+    );
     // Verrière
     canvas.drawOval(
       Rect.fromCenter(center: Offset(-0.24 * l, -0.055 * l), width: 0.17 * l, height: 0.055 * l),
       Paint()
-        ..shader = const LinearGradient(colors: [Color(0xFF6E7C92), Color(0xFF1C222C)])
-            .createShader(Rect.fromCenter(center: Offset(-0.24 * l, -0.06 * l), width: 0.17 * l, height: 0.06 * l)),
+        ..shader = const LinearGradient(
+          colors: [Color(0xFF6E7C92), Color(0xFF1C222C)],
+        ).createShader(Rect.fromCenter(center: Offset(-0.24 * l, -0.06 * l), width: 0.17 * l, height: 0.06 * l)),
     );
     canvas.drawPath(
-        Path()
-          ..moveTo(-0.1 * l, 0.02 * l)
-          ..lineTo(0.3 * l, 0.02 * l)
-          ..lineTo(0.42 * l, 0.17 * l)
-          ..lineTo(0.3 * l, 0.17 * l)
-          ..close(),
-        dark);
+      Path()
+        ..moveTo(-0.1 * l, 0.02 * l)
+        ..lineTo(0.3 * l, 0.02 * l)
+        ..lineTo(0.42 * l, 0.17 * l)
+        ..lineTo(0.3 * l, 0.17 * l)
+        ..close(),
+      dark,
+    );
     // Feu clignotant rouge
     if ((t * 2 + j.y) % 1 < 0.3) {
       Scenery.glow(canvas, Offset(0.44 * l, -0.24 * l), 2 * _unit, const Color(0xFFFF3B3B));
@@ -2177,7 +2762,8 @@ class ChachaGame extends FlameGame {
       _airline.livery,
       propPhase: t * 40,
       gear: gear,
-      landingLight: phase == FlightPhase.rolling || phase == FlightPhase.ready || (phase == FlightPhase.climbing && climb < 0.5),
+      landingLight:
+          phase == FlightPhase.rolling || phase == FlightPhase.ready || (phase == FlightPhase.climbing && climb < 0.5),
       blink: t,
     );
     if (_wrecked) canvas.restore();

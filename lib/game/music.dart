@@ -15,14 +15,11 @@ import '../data/archive.dart';
 /// se soit tue.
 class Music {
   Music._() {
-    musicVolume.addListener(() {
-      if (_level == 1) _player.setVolume(musicVolume.value);
-    });
+    musicVolume.addListener(() => _player.setVolume(musicVolume.value * _level).catchError((_) {}));
   }
 
   static final instance = Music._();
 
-  static const _fadeIn = Duration(milliseconds: 1500);
   static const _fadeOut = Duration(milliseconds: 1200);
   static const _endFade = Duration(seconds: 4);
 
@@ -69,7 +66,8 @@ class Music {
   }
 
   /// Joue la chanson [key]. En vol, un extrait ; avec [loop], la chanson entière en boucle.
-  Future<bool> play(String key, {bool loop = false}) async {
+  /// [level] remplace le volume prévu pour la chanson (la finale la joue plus fort).
+  Future<bool> play(String key, {bool loop = false, double? level}) async {
     final song = momentSongs[key];
     if (song == null || _playing == key || !await _has(song.file)) return false;
     final order = ++_order;
@@ -84,9 +82,12 @@ class Music {
       current = song;
       _level = 0;
       await _player.setReleaseMode(loop ? ReleaseMode.loop : ReleaseMode.release);
-      await _player.play(AssetSource('audio/${song.file}'),
-          volume: 0, position: Duration(milliseconds: (song.start * 1000).round()));
-      unawaited(_slide(1, _fadeIn, order));
+      await _player.play(
+        AssetSource('audio/${song.file}'),
+        volume: 0,
+        position: Duration(milliseconds: (song.start * 1000).round()),
+      );
+      unawaited(_slide(level ?? song.level, Duration(milliseconds: (song.fadeIn * 1000).round()), order));
       if (!loop) {
         final fadeAt = Duration(milliseconds: (song.seconds * 1000).round()) - _endFade;
         _end = Timer(fadeAt.isNegative ? Duration.zero : fadeAt, () => _fadeAway(order));
@@ -95,6 +96,12 @@ class Music {
     } catch (_) {
       return false;
     }
+  }
+
+  /// Fait remonter (ou baisser) la chanson en cours jusqu'à [level], en [seconds] secondes.
+  void swell(double level, double seconds) {
+    if (_playing == null) return;
+    _slide(level, Duration(milliseconds: (seconds * 1000).round()), _order);
   }
 
   /// La fin de l'extrait : la chanson s'éteint doucement, puis le silence revient.

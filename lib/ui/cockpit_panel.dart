@@ -46,8 +46,15 @@ class CockpitPanel extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 5),
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(color: const Color(0x55CE1021), borderRadius: BorderRadius.circular(6)),
-                  child: const Text('ALERTE GUERRE',
-                      style: TextStyle(color: Color(0xFFFF9A9A), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  child: const Text(
+                    'ALERTE GUERRE',
+                    style: TextStyle(
+                      color: Color(0xFFFF9A9A),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1,
+                    ),
+                  ),
                 ),
               _small('VITESSE', '${hud.speedKmh.round()} km/h'),
               const SizedBox(height: 5),
@@ -63,8 +70,7 @@ class CockpitPanel extends StatelessWidget {
                     value: (hud.condition / 100).clamp(0, 1),
                     minHeight: 6,
                     backgroundColor: const Color(0x33FFFFFF),
-                    valueColor: AlwaysStoppedAnimation(
-                        hud.condition < 35 ? ChachaColors.red : const Color(0xFF7CF0A6)),
+                    valueColor: AlwaysStoppedAnimation(hud.condition < 35 ? ChachaColors.red : const Color(0xFF7CF0A6)),
                   ),
                 ),
               ),
@@ -76,20 +82,29 @@ class CockpitPanel extends StatelessWidget {
   }
 
   static Widget _small(String label, String value) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label,
-              style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6), fontSize: 8.5, fontWeight: FontWeight.w900, letterSpacing: 1)),
-          Text(value,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  fontFeatures: [FontFeature.tabularFigures()])),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        label,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.6),
+          fontSize: 8.5,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1,
+        ),
+      ),
+      Text(
+        value,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w900,
+          fontFeatures: [FontFeature.tabularFigures()],
+        ),
+      ),
+    ],
+  );
 }
 
 class _Dial extends StatelessWidget {
@@ -109,17 +124,26 @@ class _Dial extends StatelessWidget {
         children: [
           SizedBox(width: 54, height: 54, child: CustomPaint(painter: painter)),
           const SizedBox(height: 2),
-          Text(value ?? label,
-              style: TextStyle(
-                  color: alert ? const Color(0xFFFF7A7A) : Colors.white,
-                  fontSize: value == null ? 8.5 : 10.5,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: value == null ? 1 : 0,
-                  fontFeatures: const [FontFeature.tabularFigures()])),
+          Text(
+            value ?? label,
+            style: TextStyle(
+              color: alert ? const Color(0xFFFF7A7A) : Colors.white,
+              fontSize: value == null ? 8.5 : 10.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: value == null ? 1 : 0,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
           if (value != null)
-            Text(label,
-                style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6), fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 1)),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1,
+              ),
+            ),
         ],
       ),
     );
@@ -129,12 +153,13 @@ class _Dial extends StatelessWidget {
 void _bezel(Canvas c, Offset o, double r) {
   c.drawCircle(o, r, Paint()..color = const Color(0xFF0B1424));
   c.drawCircle(
-      o,
-      r,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = const Color(0x88FFFFFF));
+    o,
+    r,
+    Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = const Color(0x88FFFFFF),
+  );
 }
 
 /// L'horizon artificiel : ciel bleu, terre brune, qui basculent avec l'assiette.
@@ -154,13 +179,21 @@ class _HorizonPainter extends CustomPainter {
     final shift = (pitch * r * 1.6).clamp(-r * 0.8, r * 0.8);
     c.drawRect(Rect.fromLTRB(-r * 2, -r * 2, r * 2, shift), Paint()..color = ChachaColors.sky);
     c.drawRect(Rect.fromLTRB(-r * 2, shift, r * 2, r * 2), Paint()..color = const Color(0xFF8A5A2B));
-    c.drawLine(Offset(-r * 2, shift), Offset(r * 2, shift), Paint()
-      ..color = Colors.white
-      ..strokeWidth = 1.5);
+    c.drawLine(
+      Offset(-r * 2, shift),
+      Offset(r * 2, shift),
+      Paint()
+        ..color = Colors.white
+        ..strokeWidth = 1.5,
+    );
     for (final k in [-1, 1]) {
-      c.drawLine(Offset(-r * 0.25, shift + k * r * 0.3), Offset(r * 0.25, shift + k * r * 0.3), Paint()
-        ..color = const Color(0xAAFFFFFF)
-        ..strokeWidth = 1);
+      c.drawLine(
+        Offset(-r * 0.25, shift + k * r * 0.3),
+        Offset(r * 0.25, shift + k * r * 0.3),
+        Paint()
+          ..color = const Color(0xAAFFFFFF)
+          ..strokeWidth = 1,
+      );
     }
     c.restore();
     // La maquette de l'avion, fixe au centre
@@ -172,12 +205,13 @@ class _HorizonPainter extends CustomPainter {
     c.drawLine(o.translate(r * 0.18, 0), o.translate(r * 0.55, 0), mock);
     c.drawCircle(o, 2.5, mock);
     c.drawCircle(
-        o,
-        r,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2
-          ..color = const Color(0x88FFFFFF));
+      o,
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = const Color(0x88FFFFFF),
+    );
   }
 
   @override
@@ -197,17 +231,24 @@ class _AltimeterPainter extends CustomPainter {
     _bezel(c, o, r);
     for (var i = 0; i < 10; i++) {
       final a = -math.pi / 2 + i * math.pi / 5;
-      c.drawLine(o + Offset(math.cos(a), math.sin(a)) * r * 0.78, o + Offset(math.cos(a), math.sin(a)) * r * 0.92,
-          Paint()
-            ..color = Colors.white
-            ..strokeWidth = 1.5);
+      c.drawLine(
+        o + Offset(math.cos(a), math.sin(a)) * r * 0.78,
+        o + Offset(math.cos(a), math.sin(a)) * r * 0.92,
+        Paint()
+          ..color = Colors.white
+          ..strokeWidth = 1.5,
+      );
     }
     void hand(double turns, double len, double width, Color color) {
       final a = -math.pi / 2 + turns * math.pi * 2;
-      c.drawLine(o, o + Offset(math.cos(a), math.sin(a)) * r * len, Paint()
-        ..color = color
-        ..strokeWidth = width
-        ..strokeCap = StrokeCap.round);
+      c.drawLine(
+        o,
+        o + Offset(math.cos(a), math.sin(a)) * r * len,
+        Paint()
+          ..color = color
+          ..strokeWidth = width
+          ..strokeCap = StrokeCap.round,
+      );
     }
 
     hand(feet / 100000, 0.45, 3.5, ChachaColors.yellow);
@@ -233,29 +274,54 @@ class _FuelPainter extends CustomPainter {
     _bezel(c, o, r);
     const start = math.pi * 0.75, sweep = math.pi * 1.5;
     final arc = Rect.fromCircle(center: o, radius: r * 0.78);
-    c.drawArc(arc, start, sweep, false, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..color = const Color(0x33FFFFFF));
-    c.drawArc(arc, start, sweep * 0.25, false, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..color = ChachaColors.red);
-    c.drawArc(arc, start, sweep * level.clamp(0, 1), false, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round
-      ..color = low ? ChachaColors.red : ChachaColors.yellow);
+    c.drawArc(
+      arc,
+      start,
+      sweep,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4
+        ..color = const Color(0x33FFFFFF),
+    );
+    c.drawArc(
+      arc,
+      start,
+      sweep * 0.25,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4
+        ..color = ChachaColors.red,
+    );
+    c.drawArc(
+      arc,
+      start,
+      sweep * level.clamp(0, 1),
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4
+        ..strokeCap = StrokeCap.round
+        ..color = low ? ChachaColors.red : ChachaColors.yellow,
+    );
     final a = start + sweep * level.clamp(0, 1);
-    c.drawLine(o, o + Offset(math.cos(a), math.sin(a)) * r * 0.62, Paint()
-      ..color = low ? const Color(0xFFFF7A7A) : Colors.white
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round);
+    c.drawLine(
+      o,
+      o + Offset(math.cos(a), math.sin(a)) * r * 0.62,
+      Paint()
+        ..color = low ? const Color(0xFFFF7A7A) : Colors.white
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round,
+    );
     c.drawCircle(o, 3, Paint()..color = Colors.white);
     for (final (t, label) in [(0.0, 'V'), (1.0, 'P')]) {
       final la = start + sweep * t;
       final tp = TextPainter(
-        text: TextSpan(text: label, style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)),
+        text: TextSpan(
+          text: label,
+          style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900),
+        ),
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(c, o + Offset(math.cos(la), math.sin(la)) * r * 0.5 - Offset(tp.width / 2, tp.height / 2 - r * 0.25));
@@ -263,8 +329,13 @@ class _FuelPainter extends CustomPainter {
     // La pompe au centre bas
     final icon = TextPainter(
       text: TextSpan(
-          text: String.fromCharCode(Icons.local_gas_station_rounded.codePoint),
-          style: TextStyle(fontSize: r * 0.5, fontFamily: Icons.local_gas_station_rounded.fontFamily, color: Colors.white70)),
+        text: String.fromCharCode(Icons.local_gas_station_rounded.codePoint),
+        style: TextStyle(
+          fontSize: r * 0.5,
+          fontFamily: Icons.local_gas_station_rounded.fontFamily,
+          color: Colors.white70,
+        ),
+      ),
       textDirection: TextDirection.ltr,
     )..layout();
     icon.paint(c, o + Offset(-icon.width / 2, r * 0.3));
