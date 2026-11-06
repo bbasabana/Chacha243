@@ -18,6 +18,7 @@ import '../painting/aircraft_painter.dart';
 import '../theme/chacha_colors.dart';
 import 'checkpoint.dart';
 import 'scenery.dart';
+import 'telemetry.dart';
 import 'tilt_control.dart';
 
 enum FlightPhase { ready, rolling, climbing, cruising, approach, ground, crashed, finished }
@@ -443,6 +444,9 @@ class ChachaGame extends FlameGame {
 
   // Zones de turbulence
   WarZone? _zone;
+  String _failWhy = '';
+  bool _startSent = false;
+  int _yearSent = 0;
   int _nextZone = 0, _wave = 0, _wavesCleared = 0, _decade = 0;
   bool _waveActive = false;
   double _waveDelay = 0, _zoneFade = 0, _peace = 0;
@@ -715,7 +719,19 @@ class ChachaGame extends FlameGame {
     HapticFeedback.selectionClick();
   }
 
+  void _report(String kind, [String detail = '']) {
+    if (autopilot) return;
+    Telemetry.send(kind, year: year, score: score, stage: _zone?.name ?? _airline.name, detail: detail);
+  }
+
   void _setPhase(FlightPhase p) {
+    if (p == FlightPhase.rolling && !_startSent) {
+      _startSent = true;
+      _yearSent = year.floor();
+      _report('start');
+    }
+    if (p == FlightPhase.crashed && phase != p) _report('crash', _failWhy.isEmpty ? 'Plus de vies' : _failWhy);
+    if (p == FlightPhase.finished && phase != p) _report('win');
     if (p == FlightPhase.crashed && phase != p) {
       onBuzz?.call(700, 255);
       _impact = false;
@@ -825,8 +841,9 @@ class ChachaGame extends FlameGame {
     );
   }
 
-  void _loseLife() {
+  void _loseLife([String why = 'Touché en vol']) {
     if (invulnerable > 0 || phase != FlightPhase.cruising || _finaleT >= 0) return;
+    _failWhy = why;
     lives -= 1;
     condition = math.max(0, condition - 20);
     invulnerable = 2;
@@ -1248,6 +1265,7 @@ class ChachaGame extends FlameGame {
         first: true,
       );
       lives = 0;
+      _failWhy = 'Avion usé, sans entretien';
       _clearStage();
       _setPhase(FlightPhase.crashed);
       return;
@@ -1274,7 +1292,11 @@ class ChachaGame extends FlameGame {
       _queueBanner(
         const FlightBanner('Panne sèche !', "Ravitaillement d'urgence : une vie en moins", color: ChachaColors.red),
       );
-      _loseLife();
+      _loseLife('Panne sèche');
+    }
+    if (year.floor() > _yearSent && _startSent) {
+      _yearSent = year.floor();
+      _report('year');
     }
 
     _spawnHistory();
@@ -1986,6 +2008,7 @@ class ChachaGame extends FlameGame {
   }
 
   void _crashLanding(String why) {
+    _failWhy = why;
     lives -= 1;
     condition = 0;
     shake = 0.9;
@@ -2732,7 +2755,7 @@ class ChachaGame extends FlameGame {
       if (c.storm) {
         c.flash = math.max(0, c.flash - dt * 3);
         if (_rng.nextDouble() < dt * 0.8) c.flash = 1;
-        if (phase == FlightPhase.cruising && _hits(c.x, c.y, c.r * 1.2)) _loseLife();
+        if (phase == FlightPhase.cruising && _hits(c.x, c.y, c.r * 1.2)) _loseLife('Orage');
       }
     }
     _clouds.removeWhere((c) => c.x < -c.r * 4);
@@ -2780,7 +2803,7 @@ class ChachaGame extends FlameGame {
       j.y += j.drift * dt;
       if (!j.hit && phase == FlightPhase.cruising && _hits(j.x, j.y, _jetLength * (j.missile ? 0.09 : 0.16))) {
         j.hit = true;
-        _loseLife();
+        _loseLife(j.missile ? 'Missile' : 'Avion de chasse');
       }
     }
     _jets.removeWhere((j) => j.x < -_jetLength);
@@ -2810,7 +2833,7 @@ class ChachaGame extends FlameGame {
       b.vy += _h * 0.95 * dt;
       if (phase == FlightPhase.cruising && b.life > 0 && _hits(b.x, b.y, b.size)) {
         b.life = 0;
-        _loseLife();
+        _loseLife('Bombe');
       }
       if (_rng.nextDouble() < dt * 20) {
         _particles.add(_Particle(b.x, b.y, 0, -20 * _unit, 0.8, const Color(0xFF4A4040), b.size * 0.8, smoke: true));
