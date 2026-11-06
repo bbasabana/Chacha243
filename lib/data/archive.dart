@@ -29,6 +29,12 @@ const archivePhotos = <String, ArchivePhoto>{
   'outeniqua': ArchivePhoto('outeniqua-1997.jpg', 'Mobutu, Mandela et Kabila sur l\'Outeniqua, 1997'),
   'wagenia': ArchivePhoto('wagenia-kisangani.jpg', 'Les pêcheurs Wagenia, Kisangani'),
   'kalle': ArchivePhoto('grand-kalle.webp', 'Grand Kallé, auteur d\'« Indépendance Cha Cha »'),
+  'mulele': ArchivePhoto('pierre-mulele.jpg', 'Pierre Mulele'),
+  'etienne': ArchivePhoto('etienne-tshisekedi.jpg', 'Étienne Tshisekedi'),
+  'bemba': ArchivePhoto('jean-pierre-bemba.jpg', 'Jean-Pierre Bemba'),
+  'kamerhe': ArchivePhoto('vital-kamerhe.jpg', 'Vital Kamerhe'),
+  'gizenga': ArchivePhoto('antoine-gizenga.jpg', 'Antoine Gizenga'),
+  'mukwege': ArchivePhoto('denis-mukwege.jpg', 'Le Dr Denis Mukwege à Panzi'),
   // Logos et billets : marques et signes monétaires, à n'afficher qu'avec l'accord de la banque.
   'bcc': ArchivePhoto('logo-banque-centrale.png', 'Banque centrale du Congo', credit: 'Logo BCC'),
   'bcdc': ArchivePhoto('logo-banque-commerciale.png', 'Banque commerciale du Congo', credit: 'Logo BCDC'),

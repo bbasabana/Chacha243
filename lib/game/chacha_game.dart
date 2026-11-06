@@ -11,6 +11,7 @@ import '../data/archive.dart';
 import '../data/cabin_talk.dart';
 import '../data/eras.dart';
 import '../data/history_events.dart';
+import '../data/traffic.dart';
 import '../data/war_zones.dart';
 import '../painting/aircraft_painter.dart';
 import '../theme/chacha_colors.dart';
@@ -258,6 +259,27 @@ class _Pickup {
   };
 }
 
+/// Un avion d'une autre compagnie qui croise le nôtre, plus loin dans le ciel.
+class _Traffic {
+  _Traffic(this.airline, this.type, this.x, this.y, this.to, this.scale);
+
+  final ForeignAirline airline;
+  final AircraftType type;
+  double x, y;
+  final String to;
+  final double scale;
+  bool talked = false;
+}
+
+/// Un oiseau d'une volée : il bat des ailes et passe à côté de l'avion.
+class _Bird {
+  _Bird(this.x, this.y, this.phase);
+
+  double x, y;
+  final double phase;
+  bool hit = false;
+}
+
 class _Cloud {
   _Cloud(this.x, this.y, this.r, this.depth, {this.storm = false});
 
@@ -450,6 +472,12 @@ class ChachaGame extends FlameGame {
   /// Après une épreuve, le ciel se calme : pas d'orage isolé jusqu'à [_calmUntil].
   double _calmUntil = 0, _nextSquall = 30, _dance = 0;
 
+  // Le ciel vivant : autres avions, oiseaux, éclairs
+  final _traffic = <_Traffic>[];
+  final _birds = <_Bird>[];
+  double _nextTraffic = 40, _nextBirds = 25, _bolt = 0, _boltX = 0;
+  int _banterIndex = 0;
+
   // Le pilote automatique de la démo n'est pas parfait : il réagit avec un temps de retard
   // et se laisse parfois surprendre, comme un vrai pilote.
   double _apNext = 0, _apBlind = 0;
@@ -457,7 +485,8 @@ class ChachaGame extends FlameGame {
 
   static const _runwayStart = -400.0;
   static const _runwayEnd = 3600.0;
-  static const _yearSeconds = 6.5;
+  // Neuf secondes par année : le joueur a le temps de lire, et des moments sans rien laissent respirer le vol.
+  static const _yearSeconds = 9.0;
   static const _endYear = 2027.5;
   static const _approachTime = 9.0;
 
@@ -533,6 +562,9 @@ class ChachaGame extends FlameGame {
         _showCard(historyEvents.firstWhere((e) => e.big && e.year >= year - 0.5));
       case 'quiz':
         _askQuiz();
+      case 'trafic':
+        _nextTraffic = t;
+        _calmUntil = 0;
       case 'repas':
         _offerMeal();
       case 'ceintures':
@@ -963,6 +995,7 @@ class ChachaGame extends FlameGame {
         _burst(planeX, planeY, 6, const [ChachaColors.yellow, ChachaColors.red, ChachaColors.sky], speed: 120, size: 3);
       }
     }
+    _spawnSkyLife();
     if (_zone == null && t >= _nextChat && radio.value == null) {
       _nextChat = t + 28 + _rng.nextDouble() * 22;
       _talk(TalkMoment.chat);
@@ -1229,6 +1262,58 @@ class ChachaGame extends FlameGame {
     if (t < _nextComfort || _finaleT >= 0) return;
     _nextComfort = t + 75;
     onSong?.call('louange');
+  }
+
+  /// Le ciel n'est pas vide : un avion étranger qui salue, une volée d'oiseaux.
+  void _spawnSkyLife() {
+    if (_zone == null && t >= _nextTraffic && t >= _calmUntil - 10 && radio.value == null) {
+      _nextTraffic = t + 45 + _rng.nextDouble() * 30;
+      final open = [
+        for (final a in foreignAirlines)
+          if (year >= a.from && year <= a.to) a,
+      ];
+      final types = [
+        for (final ty in aircraftTypes)
+          if (ty.fliesIn(year)) ty,
+      ];
+      if (open.isNotEmpty && types.isNotEmpty) {
+        final a = open[_rng.nextInt(open.length)];
+        // Loin dans le ciel, au-dessus ou au-dessous de nous, il vient en face.
+        final high = planeY > _h * 0.45;
+        _traffic.add(
+          _Traffic(
+            a,
+            types[_rng.nextInt(types.length)],
+            _w + 200 * _unit,
+            _h * (high ? 0.14 + _rng.nextDouble() * 0.1 : 0.5 + _rng.nextDouble() * 0.08),
+            a.destinations[_rng.nextInt(a.destinations.length)],
+            0.5 + _rng.nextDouble() * 0.12,
+          ),
+        );
+      }
+    }
+    if (t >= _nextBirds && year >= stormUntil) {
+      _nextBirds = t + 30 + _rng.nextDouble() * 25 - 10 * _level;
+      final y0 = (planeY + (_rng.nextDouble() - 0.5) * _h * 0.5).clamp(_h * 0.15, _h * 0.85);
+      final n = 4 + _rng.nextInt(5);
+      for (var i = 0; i < n; i++) {
+        _birds.add(
+          _Bird(_w + (40 + i * 26) * _unit, y0 + ((i % 3) - 1) * 16 * _unit + i * 3 * _unit, _rng.nextDouble() * 6),
+        );
+      }
+    }
+  }
+
+  void _banter(_Traffic tr) {
+    tr.talked = true;
+    final b = pilotBanter[_banterIndex++ % pilotBanter.length];
+    _say('${tr.airline.name} · vers ${tr.to}', b.theirLingala, b.theirs, seconds: 5.5);
+    talk.value = CabinTalk([
+      TalkLine('Commandant', b.oursLingala, b.ours.replaceAll('{to}', tr.to)),
+      const TalkLine('Passagers', 'Ha ha ha !', 'Ha ha ha !'),
+    ]);
+    _talkTimer = 6.5;
+    _nextTalk = t + 12;
   }
 
   void _spawnHistory() {
@@ -2216,6 +2301,35 @@ class ChachaGame extends FlameGame {
     }
     _clouds.removeWhere((c) => c.x < -c.r * 4);
 
+    for (final tr in _traffic) {
+      tr.x -= move * 0.3 + _unit * 110 * dt;
+      if (!tr.talked && tr.x < _w * 0.85 && phase == FlightPhase.cruising) _banter(tr);
+    }
+    _traffic.removeWhere((tr) => tr.x < -planeLength);
+
+    for (final b in _birds) {
+      b.x -= move + _unit * 90 * dt;
+      b.y += math.sin(t * 3 + b.phase) * _unit * 12 * dt;
+      if (!b.hit && phase == FlightPhase.cruising && _hits(b.x, b.y, 6 * _unit)) {
+        // Un oiseau dans le moteur : l'avion s'abîme, sans perdre de vie.
+        b.hit = true;
+        condition = math.max(0, condition - 8);
+        shake = math.max(shake, 0.2);
+        _burst(b.x, b.y, 10, const [Colors.white, Color(0xFF8A7B6A)], speed: 120, size: 3);
+        HapticFeedback.lightImpact();
+      }
+    }
+    _birds.removeWhere((b) => b.x < -40 || b.hit);
+
+    // La foudre tombe dans les orages et les zones de turbulence.
+    _bolt = math.max(0, _bolt - dt * 4);
+    final stormy = (year < stormUntil && phase == FlightPhase.cruising) || _zone != null;
+    if (stormy && _bolt == 0 && _rng.nextDouble() < dt * 0.35) {
+      _bolt = 1;
+      _boltX = _w * (0.35 + _rng.nextDouble() * 0.6);
+      flash = math.max(flash, 0.25);
+    }
+
     for (final j in _jets) {
       if (j.wait > 0) {
         j.wait -= dt;
@@ -2506,8 +2620,18 @@ class ChachaGame extends FlameGame {
       }
     }
 
+    for (final tr in _traffic) {
+      _drawTraffic(canvas, tr);
+    }
+    final rain = math.max(stormy, _zoneFade);
+    if (rain > 0.2 && phase != FlightPhase.ground) _drawRain(canvas, s, rain);
+    if (_bolt > 0) _drawBolt(canvas, s);
+
     for (final c in _clouds.where((c) => c.storm)) {
       Scenery.cloud(canvas, Offset(c.x, c.y), c.r, storm: true, flash: c.flash);
+    }
+    for (final b in _birds) {
+      _drawBird(canvas, b);
     }
 
     for (final p in _pickups) {
@@ -2803,6 +2927,88 @@ class ChachaGame extends FlameGame {
       Scenery.glow(canvas, Offset(0.44 * l, -0.24 * l), 2 * _unit, const Color(0xFFFF3B3B));
     }
     canvas.restore();
+  }
+
+  void _drawTraffic(Canvas canvas, _Traffic tr) {
+    final len = planeLength * tr.scale;
+    canvas.save();
+    canvas.translate(tr.x, tr.y);
+    // Il vient en face : on le dessine tourné vers la gauche, un peu voilé par la distance.
+    canvas.scale(-1, 1);
+    canvas.translate(-len / 2, -len / 4);
+    canvas.saveLayer(null, Paint()..color = const Color(0xD9FFFFFF));
+    AircraftPainter.paint(canvas, Size(len, len / 2), tr.type, tr.airline.livery, propPhase: t * 40, blink: t);
+    canvas.restore();
+    canvas.restore();
+    final label = TextPainter(
+      text: TextSpan(
+        text: tr.airline.name,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.85),
+          fontSize: 11 * _unit,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    label.paint(canvas, Offset(tr.x - label.width / 2, tr.y + len * 0.2));
+  }
+
+  void _drawBird(Canvas canvas, _Bird b) {
+    final flap = math.sin(t * 14 + b.phase) * 5 * _unit;
+    final w = 9 * _unit;
+    final path = Path()
+      ..moveTo(b.x - w, b.y - flap)
+      ..quadraticBezierTo(b.x - w * 0.4, b.y - flap * 0.2, b.x, b.y)
+      ..quadraticBezierTo(b.x + w * 0.4, b.y - flap * 0.2, b.x + w, b.y - flap);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2 * _unit
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xFF2A2A35),
+    );
+  }
+
+  /// La pluie tombe en bas, sous les nuages d'orage.
+  void _drawRain(Canvas canvas, Size s, double amount) {
+    final paint = Paint()
+      ..strokeWidth = 1.4 * _unit
+      ..color = Color.fromRGBO(200, 215, 240, 0.35 * amount);
+    final n = (70 * amount).round();
+    for (var i = 0; i < n; i++) {
+      final seed = i * 97.31;
+      final x = ((seed * 13.7 + worldX * 0.6) % (_w + 60)) - 30;
+      final y = _h * 0.35 + ((seed * 7.9 + t * 900 * _unit) % (_h * 0.7));
+      canvas.drawLine(Offset(x, y), Offset(x - 6 * _unit, y + 18 * _unit), paint);
+    }
+  }
+
+  void _drawBolt(Canvas canvas, Size s) {
+    final r = math.Random((_boltX * 1000).round());
+    final path = Path()..moveTo(_boltX, 0);
+    var x = _boltX, y = 0.0;
+    while (y < _h * 0.85) {
+      y += _h * (0.06 + r.nextDouble() * 0.06);
+      x += (r.nextDouble() - 0.5) * 40 * _unit;
+      path.lineTo(x, y);
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 7 * _unit
+        ..color = Color.fromRGBO(170, 200, 255, 0.35 * _bolt)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2 * _unit
+        ..color = Color.fromRGBO(255, 255, 255, _bolt),
+    );
   }
 
   void _drawPlane(Canvas canvas) {

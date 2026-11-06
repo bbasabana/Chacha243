@@ -264,6 +264,38 @@ class AircraftPainter {
         ..strokeWidth = 0.5,
     );
 
+    if (l.tailBands.isNotEmpty || l.tailDots != null) {
+      canvas.save();
+      canvas.clipPath(fin);
+      final band = finH * 0.13;
+      for (var i = 0; i < l.tailBands.length; i++) {
+        // Des bandes courbes qui montent vers l'arrière de la dérive.
+        final y = -h * 0.75 - i * band * 1.15;
+        canvas.drawPath(
+          Path()
+            ..moveTo(28, y - finH * 0.55)
+            ..quadraticBezierTo(14, y - finH * 0.05, 0, y + band * 0.2)
+            ..lineTo(0, y + band * 1.2)
+            ..quadraticBezierTo(14, y - finH * 0.05 + band, 28, y - finH * 0.55 + band)
+            ..close(),
+          Paint()..color = l.tailBands[i],
+        );
+      }
+      if (l.tailDots != null) {
+        final dot = Paint()..color = l.tailDots!;
+        for (var row = 0; row < 7; row++) {
+          for (var col = 0; col < 4; col++) {
+            canvas.drawCircle(
+              Offset(5 + col * 4.2 + row * 1.6, base - finH * 0.12 - row * finH * 0.12),
+              1.1 - row * 0.06,
+              dot,
+            );
+          }
+        }
+      }
+      canvas.restore();
+    }
+
     final center = Offset(9.5, base - finH * 0.52);
     final r = finH * 0.2;
     switch (l.emblem) {
@@ -302,6 +334,9 @@ class AircraftPainter {
         canvas.drawCircle(center, r * 1.15, Paint()..color = const Color(0xFF1F6FB8));
         canvas.drawCircle(center, r * 1.05, Paint()..color = const Color(0xFF3FB6E8));
         canvas.drawPath(FlagPainter.starPath(center, r * 0.75), Paint()..color = ChachaColors.yellow);
+      case TailEmblem.disc:
+        canvas.drawCircle(center, r * 1.1, Paint()..color = Colors.white);
+        canvas.drawCircle(center, r * 0.8, Paint()..color = l.tail);
       case TailEmblem.none:
         break;
     }

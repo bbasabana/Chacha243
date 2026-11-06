@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/chacha_colors.dart';
 
 /// Ce que porte la dérive de l'avion.
-enum TailEmblem { none, star, zaire, flag, roundel }
+enum TailEmblem { none, star, zaire, flag, roundel, disc }
 
 /// Les drapeaux successifs du pays.
 enum FlagStyle { star1960, diagonal1963, zaire1971, star1997, current2006 }
@@ -19,6 +19,8 @@ class Livery {
     this.nose,
     this.engine,
     this.fuselageFlag = false,
+    this.tailBands = const [],
+    this.tailDots,
   });
 
   final Color body;
@@ -36,6 +38,12 @@ class Livery {
 
   /// Petit drapeau peint à l'arrière du fuselage.
   final bool fuselageFlag;
+
+  /// Bandes en biais sur la dérive, de bas en haut (les couleurs d'une compagnie étrangère).
+  final List<Color> tailBands;
+
+  /// Des pastilles semées sur la dérive.
+  final Color? tailDots;
 }
 
 /// Une compagnie nationale et la période où elle vole.

@@ -112,13 +112,14 @@ class _GameScreenState extends State<GameScreen> {
               onPanCancel: () => _game.touchTarget = null,
               child: GameWidget(key: ObjectKey(_game), game: _game),
             ),
-            IgnorePointer(
-              child: TalkBubbles(key: ObjectKey(_game), game: _game),
-            ),
             ValueListenableBuilder(
               valueListenable: _game.hud,
               builder: (_, hud, _) =>
                   hud == null ? const SizedBox.shrink() : _Hud(game: _game, hud: hud, onRestart: _restart),
+            ),
+            // Les bulles de la cabine passent devant le tableau de bord : on les lit toujours.
+            IgnorePointer(
+              child: TalkBubbles(key: ObjectKey(_game), game: _game),
             ),
           ],
         ),

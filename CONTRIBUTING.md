@@ -105,7 +105,7 @@ Le temps de jeu avance par pas fixes de 1/60 s : une même partie se rejoue à l
 
 ### 4.1 Le temps et l'année
 
-L'année courante est un nombre décimal : `1974.83` = fin octobre 1974. Hors zones de guerre, une année dure **6,5 secondes** de vol (`_yearSeconds`) ; le vol se termine à `2027.5`. Tout dans le jeu se déduit de l'année : l'avion disponible, la compagnie, la livrée, le drapeau, le nom des villes, la monnaie, les moments qui arrivent.
+L'année courante est un nombre décimal : `1974.83` = fin octobre 1974. Hors zones de guerre, une année dure **9 secondes** de vol (`_yearSeconds`) ; le vol se termine à `2027.5`. Tout dans le jeu se déduit de l'année : l'avion disponible, la compagnie, la livrée, le drapeau, le nom des villes, la monnaie, les moments qui arrivent.
 
 ### 4.2 Les phases de vol
 
@@ -134,6 +134,14 @@ ready → rolling → climbing → cruising ⇄ approach → ground → (rolling
 - Ramassables en vol : **médaillon** (+1 vie, +15 kérosène, +150 d'argent), **étoile** (+10 points), **bidon** (+32 kérosène), **kit d'entretien** (plein et entretien faits en vol).
 - Kérosène sous 35 ou état sous 30 % : la tour propose une **escale** à l'aéroport le plus proche.
 - Kérosène sous 14 : une **question d'histoire** (au plus **3 par vol**). Bonne réponse : réservoir rempli. Le jeu se met en pause pendant la question.
+
+### 4.3.1 La difficulté et le ciel vivant
+
+- **Le ciel durcit avec les années** (`_level`, de 0 en 1960 à 1 en 2027) : les orages se resserrent et viennent à deux, des orages isolés surgissent hors des grands moments, les avions de chasse vont plus vite et dérivent plus tôt. On ne garde jamais plus de **5 vies** : un crash reste toujours possible.
+- **Le calme après l'épreuve** (`_calmUntil`) : après une zone de guerre ou un médaillon doré, plus d'orage isolé pendant quelques secondes, et l'avion danse (`_dance`).
+- **Les autres avions** (`lib/data/traffic.dart`) : Ethiopian, Air France, Kenya Airways, Royal Air Maroc, Turkish Airlines croisent l'avion selon l'époque ; leur pilote lance une blague à la radio, notre commandant répond. Livrées inspirées des couleurs, sans logo.
+- **La météo** : pluie sous les orages, éclairs dans les zones de turbulence, volées d'oiseaux (un oiseau abîme l'avion sans retirer de vie).
+- **Le pilote automatique de la démo** réagit avec un temps de retard et se laisse parfois surprendre : la démo montre aussi des chocs et des crashs.
 
 ### 4.4 Les moments d'histoire
 
