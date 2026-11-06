@@ -105,7 +105,7 @@ Le temps de jeu avance par pas fixes de 1/60 s : une même partie se rejoue à l
 
 ### 4.1 Le temps et l'année
 
-L'année courante est un nombre décimal : `1974.83` = fin octobre 1974. Hors zones de guerre, une année dure **9 secondes** de vol (`_yearSeconds`) ; le vol se termine à `2027.5`. Tout dans le jeu se déduit de l'année : l'avion disponible, la compagnie, la livrée, le drapeau, le nom des villes, la monnaie, les moments qui arrivent.
+L'année courante est un nombre décimal : `1974.83` = fin octobre 1974. Hors zones de guerre, une année dure **18 secondes** de vol (`_yearSeconds`) ; le vol se termine à `2027.5`. Tout dans le jeu se déduit de l'année : l'avion disponible, la compagnie, la livrée, le drapeau, le nom des villes, la monnaie, les moments qui arrivent.
 
 ### 4.2 Les phases de vol
 
@@ -185,6 +185,14 @@ Le nombre de missions réussies est gardé sur le téléphone et donne le grade 
 - On part avec **3 000**. On gagne en volant (un peu par seconde, plus avec des passagers), avec les médaillons, les missions et le service à bord.
 - Chaque escale coûte **1 000 de droits** (`landingFee`) plus le kérosène (`fuelPrice` = 8 par point). Pas assez d'argent pour faire le plein : plein partiel. Pas assez pour les droits : les points sont convertis en argent, sinon la tour demande de continuer.
 - La monnaie suit l'histoire (`currencyAt(year)` dans `archive.dart`) : **franc** (1960), **zaïre** (24 juin 1967), **nouveau zaïre** (22 octobre 1993), **franc congolais** (30 juin 1998). Un bandeau annonce chaque changement.
+
+#### La régie : un message à la fois
+
+Rien ne s'affiche directement. Bannières, messages de la tour, fiches d'histoire, fiche de l'avion, conversations, ceintures, repas et questions passent par la régie (`_cue` dans `chacha_game.dart`) : un seul message à l'écran, le temps de le lire, puis un silence de `_breath` secondes avant le suivant. Un moment qui attend le joueur (ceintures, repas, question) garde la place jusqu'à ce qu'il soit fini. À l'approche et au sol, la tour parle tout de suite (`_cueNow`). Les nouveaux moments (avion étranger, bavardage, escale, repas) ne démarrent que quand la régie est libre (`_quiet`), et les vagues d'avions de chasse attendent que les messages soient lus.
+
+À l'écran, tous ces messages ont une seule place, en haut à droite sous les points (`_StageSlot`). Le tableau de bord se découvre pas à pas : l'année au décollage, les points en montée, les instruments une fois en vol ; il s'efface quand l'avion passe derrière. Tout est dessiné pour un écran de 430 points de haut puis mis à l'échelle (`_Scaled`), ce qui garde les proportions du téléphone à la tablette.
+
+Une zone de guerre est annoncée de loin : la tour prévient, les ceintures s'attachent, puis on entre. Elle compte trois fois plus de vagues que son nombre d'avions au plus fort (`_wavesOf`) : un ou deux avions d'abord, puis de plus en plus.
 
 ### 4.10 La musique et la cabine qui parle
 

@@ -114,14 +114,42 @@ class _GameScreenState extends State<GameScreen> {
             ),
             ValueListenableBuilder(
               valueListenable: _game.hud,
-              builder: (_, hud, _) =>
-                  hud == null ? const SizedBox.shrink() : _Hud(game: _game, hud: hud, onRestart: _restart),
+              builder: (_, hud, _) => hud == null
+                  ? const SizedBox.shrink()
+                  : _Scaled(
+                      child: _Hud(game: _game, hud: hud, onRestart: _restart),
+                    ),
             ),
             // Les bulles de la cabine passent devant le tableau de bord : on les lit toujours.
             IgnorePointer(
               child: TalkBubbles(key: ObjectKey(_game), game: _game),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Le tableau de bord garde les mêmes proportions sur un petit téléphone et sur une tablette :
+/// tout est dessiné pour un écran de 430 points de haut, puis agrandi ou réduit d'un bloc.
+class _Scaled extends StatelessWidget {
+  const _Scaled({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final k = (mq.size.shortestSide / 430).clamp(0.85, 1.45);
+    final size = mq.size / k;
+    return FittedBox(
+      fit: BoxFit.fill,
+      child: SizedBox.fromSize(
+        size: size,
+        child: MediaQuery(
+          data: mq.copyWith(size: size, padding: mq.padding / k, viewPadding: mq.viewPadding / k),
+          child: child,
         ),
       ),
     );
@@ -137,64 +165,47 @@ class _Hud extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final flying =
-        hud.phase == FlightPhase.cruising || hud.phase == FlightPhase.climbing || hud.phase == FlightPhase.approach;
-    final wide = MediaQuery.sizeOf(context).width >= 1000;
-    final ended = hud.phase == FlightPhase.crashed || hud.phase == FlightPhase.finished;
+    final p = hud.phase;
+    final flying = p == FlightPhase.cruising || p == FlightPhase.climbing || p == FlightPhase.approach;
+    final ended = p == FlightPhase.crashed || p == FlightPhase.finished;
+    // Pendant un repas ou une question, le vol attend : rien d'autre ne gêne le panneau.
+    final modal = game.meal.value != null || game.quiz.value != null;
+    // On découvre le tableau de bord pas à pas : l'année au décollage, les points en montée,
+    // les instruments une fois en vol.
+    final showYear = p != FlightPhase.ready || !hud.firstFlight;
+    final showStatus = p != FlightPhase.ready && p != FlightPhase.rolling;
+    final showCockpit =
+        !modal && !ended && (p == FlightPhase.cruising || p == FlightPhase.approach || p == FlightPhase.ground);
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Stack(
           children: [
             Align(
               alignment: Alignment.topLeft,
-              child: _YearPanel(hud: hud, onClose: () => Navigator.of(context).pop()),
-            ),
-            Align(
-              alignment: Alignment.topRight,
-              child: _StatusPanel(hud: hud),
-            ),
-            Align(
-              alignment: Alignment.topLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 72),
-                child: ValueListenableBuilder(
-                  valueListenable: game.radio,
-                  builder: (_, r, _) => AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    transitionBuilder: _slide,
-                    layoutBuilder: (current, _) => current ?? const SizedBox.shrink(),
-                    child: r == null ? const SizedBox.shrink() : _RadioView(key: ValueKey(r), call: r, game: game),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GlassButton(
+                    onTap: () => Navigator.of(context).pop(),
+                    padding: const EdgeInsets.all(10),
+                    radius: 16,
+                    child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
                   ),
-                ),
-              ),
-            ),
-            if (hud.phase == FlightPhase.ground)
-              Align(
-                alignment: const Alignment(0, -0.25),
-                child: ValueListenableBuilder(
-                  valueListenable: game.stopover,
-                  builder: (_, st, _) => st == null ? const SizedBox.shrink() : _StopoverView(stop: st, game: game),
-                ),
-              ),
-            Align(
-              alignment: Alignment.topCenter,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: ValueListenableBuilder(
-                  valueListenable: game.banner,
-                  builder: (_, b, _) => AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 350),
-                    transitionBuilder: _slide,
-                    layoutBuilder: (current, _) => current ?? const SizedBox.shrink(),
-                    child: b == null ? const SizedBox.shrink() : _BannerView(key: ValueKey(b), banner: b),
+                  const SizedBox(width: 10),
+                  _Reveal(
+                    visible: showYear,
+                    dim: hud.planeHigh,
+                    from: const Offset(-0.3, 0),
+                    child: _YearPanel(hud: hud),
                   ),
-                ),
+                ],
               ),
             ),
             if (flying)
               Align(
-                alignment: const Alignment(0, -0.62),
+                alignment: Alignment.topCenter,
                 child: ValueListenableBuilder(
                   valueListenable: game.zoneHud,
                   builder: (_, z, _) => AnimatedSwitcher(
@@ -205,36 +216,46 @@ class _Hud extends StatelessWidget {
                   ),
                 ),
               ),
-            Align(
-              alignment: wide ? const Alignment(0, 0.62) : const Alignment(0, 0.15),
-              child: ValueListenableBuilder(
-                valueListenable: game.card,
-                builder: (_, c, _) => AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 350),
-                  transitionBuilder: _slide,
-                  layoutBuilder: (current, _) => current ?? const SizedBox.shrink(),
-                  child: c == null ? const SizedBox.shrink() : _StoryCardView(key: ValueKey(c), card: c),
-                ),
-              ),
-            ),
-            Align(
-              alignment: const Alignment(1, -0.45),
-              child: ValueListenableBuilder(
-                valueListenable: game.planeCard,
-                builder: (_, p, _) => AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 450),
-                  transitionBuilder: _fromSide,
-                  layoutBuilder: (current, _) => current ?? const SizedBox.shrink(),
-                  child: p == null ? const SizedBox.shrink() : _PlaneCardView(key: ValueKey(p), card: p),
-                ),
-              ),
-            ),
-            if (!ended)
+            if (hud.finale)
               Align(
-                alignment: const Alignment(1, -0.72),
+                alignment: const Alignment(0, -0.58),
+                child: FinaleCountdown(hud: hud),
+              ),
+            Align(
+              alignment: Alignment.topRight,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _Reveal(
+                    visible: showStatus,
+                    from: const Offset(0.3, 0),
+                    child: _StatusPanel(hud: hud),
+                  ),
+                  if (!ended && !hud.finale)
+                    ValueListenableBuilder(
+                      valueListenable: game.mission,
+                      builder: (_, m, _) => m == null
+                          ? const SizedBox.shrink()
+                          : Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: _MissionChip(mission: m, hud: hud),
+                            ),
+                    ),
+                  if (!ended && !modal)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: _StageSlot(game: game),
+                    ),
+                ],
+              ),
+            ),
+            if (p == FlightPhase.ground)
+              Align(
+                alignment: const Alignment(0, -0.25),
                 child: ValueListenableBuilder(
-                  valueListenable: game.mission,
-                  builder: (_, m, _) => m == null ? const SizedBox.shrink() : _MissionChip(mission: m, hud: hud),
+                  valueListenable: game.stopover,
+                  builder: (_, st, _) => st == null ? const SizedBox.shrink() : _StopoverView(stop: st, game: game),
                 ),
               ),
             Center(
@@ -259,21 +280,6 @@ class _Hud extends StatelessWidget {
                 ),
               ),
             ),
-            if (!ended)
-              Align(
-                alignment: const Alignment(1, 0.08),
-                child: ValueListenableBuilder(
-                  valueListenable: game.cabin,
-                  builder: (_, c, _) => AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 350),
-                    transitionBuilder: _slide,
-                    layoutBuilder: (current, _) => current ?? const SizedBox.shrink(),
-                    child: c == null
-                        ? const SizedBox.shrink()
-                        : _CabinView(key: ValueKey(c.mode), cabin: c, game: game),
-                  ),
-                ),
-              ),
             Center(
               child: ValueListenableBuilder(
                 valueListenable: game.meal,
@@ -285,26 +291,29 @@ class _Hud extends StatelessWidget {
                 ),
               ),
             ),
-            if (hud.phase == FlightPhase.ready)
+            if (p == FlightPhase.ready)
               Align(
-                alignment: const Alignment(0, -0.25),
+                alignment: const Alignment(0, -0.3),
                 child: _TakeoffPanel(hud: hud),
               ),
-            if (hud.finale)
-              Align(
-                alignment: const Alignment(0, -0.58),
-                child: FinaleCountdown(hud: hud),
-              ),
-            if (!hud.finale && (flying || hud.phase == FlightPhase.ready || hud.phase == FlightPhase.rolling))
+            if (!modal && !hud.finale && (flying || p == FlightPhase.ready || p == FlightPhase.rolling))
               Align(
                 alignment: Alignment.bottomRight,
                 child: _Controls(game: game, hud: hud),
               ),
-            if (!ended)
-              Align(
-                alignment: Alignment.bottomLeft,
-                child: CockpitPanel(hud: hud),
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: _Reveal(
+                visible: showCockpit,
+                dim: hud.planeLow,
+                from: const Offset(0, 0.4),
+                child: Transform.scale(
+                  scale: 0.78,
+                  alignment: Alignment.bottomLeft,
+                  child: CockpitPanel(hud: hud),
+                ),
               ),
+            ),
             if (ended && game.homecoming.value)
               Positioned.fill(
                 child: FinaleView(
@@ -347,55 +356,111 @@ class _Hud extends StatelessWidget {
 }
 
 class _YearPanel extends StatelessWidget {
-  const _YearPanel({required this.hud, required this.onClose});
+  const _YearPanel({required this.hud});
 
   final HudState hud;
-  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GlassButton(
-          onTap: onClose,
-          padding: const EdgeInsets.all(10),
-          radius: 16,
-          child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 10),
-        Glass(
-          padding: const EdgeInsets.fromLTRB(14, 8, 18, 10),
-          child: Row(
+    return Glass(
+      padding: const EdgeInsets.fromLTRB(12, 7, 16, 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 42, height: 28, child: CustomPaint(painter: FlagPainter(hud.flag))),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(width: 48, height: 32, child: CustomPaint(painter: FlagPainter(hud.flag))),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${hud.year.floor()}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      height: 1,
-                      fontWeight: FontWeight.w900,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  Text(
-                    hud.airline,
-                    style: const TextStyle(color: ChachaColors.yellow, fontSize: 12, fontWeight: FontWeight.w800),
-                  ),
-                ],
+              Text(
+                '${hud.year.floor()}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 26,
+                  height: 1,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+              Text(
+                hud.airline,
+                style: const TextStyle(color: ChachaColors.yellow, fontSize: 11, fontWeight: FontWeight.w800),
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Un panneau qui entre en glissant quand son moment vient, et s'efface quand l'avion passe derrière.
+class _Reveal extends StatelessWidget {
+  const _Reveal({required this.visible, required this.from, required this.child, this.dim = false});
+
+  final bool visible, dim;
+  final Offset from;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      ignoring: !visible,
+      child: AnimatedSlide(
+        offset: visible ? Offset.zero : from,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeOutCubic,
+        child: AnimatedOpacity(
+          opacity: !visible ? 0 : (dim ? 0.3 : 1),
+          duration: const Duration(milliseconds: 400),
+          child: child,
         ),
-      ],
+      ),
+    );
+  }
+}
+
+/// La place unique des messages, sous les points : la tour, les bannières, les moments d'histoire,
+/// la fiche de l'avion et la cabine y passent un par un, jamais ensemble.
+class _StageSlot extends StatelessWidget {
+  const _StageSlot({required this.game});
+
+  final ChachaGame game;
+
+  @override
+  Widget build(BuildContext context) {
+    final g = game;
+    return ListenableBuilder(
+      listenable: Listenable.merge([g.cabin, g.radio, g.banner, g.card, g.planeCard]),
+      builder: (_, _) {
+        final Widget child;
+        if (g.cabin.value case final c?) {
+          child = _CabinView(key: ValueKey(c.mode), cabin: c, game: g);
+        } else if (g.radio.value case final r?) {
+          child = _RadioView(key: ValueKey(r), call: r, game: g);
+        } else if (g.banner.value case final b?) {
+          child = _BannerView(key: ValueKey(b), banner: b);
+        } else if (g.card.value case final c?) {
+          child = _StoryCardView(key: ValueKey(c), card: c);
+        } else if (g.planeCard.value case final pc?) {
+          child = _PlaneCardView(key: ValueKey(pc), card: pc);
+        } else {
+          child = const SizedBox.shrink();
+        }
+        return ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 450),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: _Hud._fromSide,
+            layoutBuilder: (current, previous) =>
+                Stack(alignment: Alignment.topRight, children: [...previous, ?current]),
+            child: child,
+          ),
+        );
+      },
     );
   }
 }
@@ -670,15 +735,21 @@ class _BannerView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Glass(
       tint: const Color(0x40001A40),
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
             banner.title,
-            style: TextStyle(color: banner.color, fontSize: 20, fontWeight: FontWeight.w900),
+            textAlign: TextAlign.right,
+            style: TextStyle(color: banner.color, fontSize: 16, fontWeight: FontWeight.w900),
           ),
-          Text(banner.subtitle, style: const TextStyle(color: Colors.white, fontSize: 13)),
+          Text(
+            banner.subtitle,
+            textAlign: TextAlign.right,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
         ],
       ),
     );
@@ -701,10 +772,10 @@ class _StoryCardView extends StatelessWidget {
     };
     final tag = card.caught ? label : 'MÉDAILLON MANQUÉ';
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 520),
+      constraints: const BoxConstraints(maxWidth: 360),
       child: Glass(
         tint: const Color(0x4D001433),
-        padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
+        padding: const EdgeInsets.fromLTRB(14, 9, 14, 11),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -719,7 +790,7 @@ class _StoryCardView extends StatelessWidget {
                   ),
                   child: Text(
                     tag,
-                    style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: 1.2),
+                    style: TextStyle(color: color, fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 1.1),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -729,7 +800,7 @@ class _StoryCardView extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -746,10 +817,15 @@ class _StoryCardView extends StatelessWidget {
                     children: [
                       Text(
                         e.title,
-                        style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900),
+                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 2),
-                      Text(e.text, style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13.5)),
+                      Text(
+                        e.text,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12, height: 1.3),
+                      ),
                       if (e.song != null) _SongLine(songKey: e.song!),
                     ],
                   ),
@@ -794,7 +870,30 @@ class _TakeoffPanel extends StatelessWidget {
             hud.firstFlight ? '30 juin 1960 · prêt au décollage' : '${hud.year.floor()} · prêt au décollage',
             style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
           ),
-          const SizedBox(height: 4),
+          if (hud.firstFlight) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0x33F7D618),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0x66F7D618)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.flag_rounded, color: ChachaColors.yellow, size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'Mission : arriver à Kinshasa le 30 juin 2027',
+                    style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ] else
+            const SizedBox(height: 4),
           Text(
             'Maintiens TURBO pour prendre de la vitesse sur la piste',
             style: TextStyle(color: Colors.white.withValues(alpha: 0.85)),
@@ -868,17 +967,23 @@ class _Controls extends StatelessWidget {
             ],
           ),
         const SizedBox(width: 14),
+        // TURBO est un bouton rond, à portée du pouce droit.
         GlassButton(
           onPressChanged: (down) => game.boost = down,
-          radius: 44,
+          radius: 45,
           tint: const Color(0x66CE1021),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-          child: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 22),
-              Text('TURBO', style: TextStyle(fontSize: 15, letterSpacing: 1.5)),
-            ],
+          padding: EdgeInsets.zero,
+          child: const SizedBox(
+            width: 90,
+            height: 90,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 24),
+                SizedBox(height: 2),
+                Text('TURBO', style: TextStyle(fontSize: 12, letterSpacing: 1.4)),
+              ],
+            ),
           ),
         ),
       ],
@@ -1783,60 +1888,72 @@ class _MealViewState extends State<_MealView> {
         letterSpacing: 1.2,
       ),
     );
+    // Sur un petit écran, les choix défilent ; le bouton « Servir » reste toujours visible en bas.
+    final maxHeight = MediaQuery.sizeOf(context).height - 40;
     return Glass(
       tint: const Color(0x66001A40),
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
+        constraints: BoxConstraints(maxWidth: 600, maxHeight: maxHeight),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.restaurant_rounded, color: ChachaColors.yellow, size: 18),
-                const SizedBox(width: 6),
-                Text(
-                  'REPAS À BORD · ${widget.offer.passengers} PASSAGERS',
-                  style: const TextStyle(
-                    color: ChachaColors.yellow,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                  ),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.restaurant_rounded, color: ChachaColors.yellow, size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          'REPAS À BORD · ${widget.offer.passengers} PASSAGERS',
+                          style: const TextStyle(
+                            color: ChachaColors.yellow,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Le plat du jour',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                    ),
+                    Text(
+                      'Le même plat pour tout le monde ; pour boire, chacun choisit sur le chariot.',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
+                    ),
+                    const SizedBox(height: 10),
+                    label('ACCOMPAGNEMENT'),
+                    const SizedBox(height: 4),
+                    _chips(mealBases, _base, (v) => _base = v),
+                    const SizedBox(height: 8),
+                    label('PLAT'),
+                    const SizedBox(height: 4),
+                    _chips(mealDishes, _dish, (v) => _dish = v),
+                    const SizedBox(height: 8),
+                    label('SUR LE CHARIOT · BIÈRES'),
+                    const SizedBox(height: 4),
+                    _drinkChips(mealBeers),
+                    const SizedBox(height: 6),
+                    label('SUCRÉS'),
+                    const SizedBox(height: 4),
+                    _drinkChips(mealSodas),
+                    const SizedBox(height: 6),
+                    label('LIQUEURS'),
+                    const SizedBox(height: 4),
+                    _drinkChips(mealSpirits),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Le plat du jour',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
-            ),
-            Text(
-              'Le même plat pour tout le monde ; pour boire, chacun choisit sur le chariot.',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
+              ),
             ),
             const SizedBox(height: 10),
-            label('ACCOMPAGNEMENT'),
-            const SizedBox(height: 4),
-            _chips(mealBases, _base, (v) => _base = v),
-            const SizedBox(height: 8),
-            label('PLAT'),
-            const SizedBox(height: 4),
-            _chips(mealDishes, _dish, (v) => _dish = v),
-            const SizedBox(height: 8),
-            label('SUR LE CHARIOT · BIÈRES'),
-            const SizedBox(height: 4),
-            _drinkChips(mealBeers),
-            const SizedBox(height: 6),
-            label('SUCRÉS'),
-            const SizedBox(height: 4),
-            _drinkChips(mealSodas),
-            const SizedBox(height: 6),
-            label('LIQUEURS'),
-            const SizedBox(height: 4),
-            _drinkChips(mealSpirits),
-            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(

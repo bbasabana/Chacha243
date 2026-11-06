@@ -44,11 +44,16 @@ class TalkBubbles extends StatelessWidget {
           valueListenable: game.hud,
           builder: (context, _, _) {
             final size = MediaQuery.sizeOf(context);
-            const width = 290.0;
+            const width = 260.0;
+            // Sur notre avion, ou sur l'autre avion quand c'est son pilote qui parle.
+            final at = talk.at?.call() ?? Offset(game.planeX, game.planeY);
+            final other = talk.at != null;
             // Au-dessus de l'avion quand il vole bas, en dessous quand il vole haut.
-            final above = game.planeY > size.height * 0.42;
-            final left = (game.planeX - 30).clamp(12.0, math.max(12.0, size.width - width - 12)).toDouble();
-            final gap = game.planeLength * 0.22 + 14;
+            final above = at.dy > size.height * 0.42;
+            final left = (at.dx - (other ? width / 2 : 30))
+                .clamp(12.0, math.max(12.0, size.width - width - 12))
+                .toDouble();
+            final gap = game.planeLength * (other ? 0.12 : 0.22) + 14;
             return Stack(
               children: [
                 AnimatedPositioned(
@@ -57,8 +62,8 @@ class TalkBubbles extends StatelessWidget {
                   curve: Curves.easeOutCubic,
                   left: left,
                   width: width,
-                  top: above ? null : game.planeY + gap,
-                  bottom: above ? size.height - game.planeY + gap : null,
+                  top: above ? null : at.dy + gap,
+                  bottom: above ? size.height - at.dy + gap : null,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,7 +119,7 @@ class _BubbleState extends State<_Bubble> with SingleTickerProviderStateMixin {
   IconData get _icon {
     final s = widget.line.speaker.toLowerCase();
     if (s.contains('hôtesse')) return Icons.support_agent_rounded;
-    if (s.contains('commandant') || s.contains('copilote')) return Icons.flight_rounded;
+    if (s.contains('commandant') || s.contains('copilote') || s.contains(' vers ')) return Icons.flight_rounded;
     if (s.contains('enfant')) return Icons.child_care_rounded;
     if (s == 'passagers') return Icons.groups_rounded;
     return Icons.person_rounded;
@@ -175,7 +180,7 @@ class _BubbleState extends State<_Bubble> with SingleTickerProviderStateMixin {
                       l.lingala,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                         height: 1.2,
                       ),
@@ -184,7 +189,7 @@ class _BubbleState extends State<_Bubble> with SingleTickerProviderStateMixin {
                       l.french,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.75),
-                        fontSize: 12,
+                        fontSize: 11.5,
                         fontStyle: FontStyle.italic,
                         height: 1.25,
                       ),

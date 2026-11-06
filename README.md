@@ -35,7 +35,7 @@
 | <img src=".github/icons/argent.svg" width="18" height="18" align="top" alt=""> **L'argent du pays** | On gagne en volant et en servant la cabine ; chaque escale coûte 1 000 de droits plus le kérosène. La monnaie suit l'histoire : **franc → zaïre → nouveau zaïre → franc congolais**. |
 | <img src=".github/icons/drapeau.svg" width="18" height="18" align="top" alt=""> **L'arrivée du 30 juin 2027** | D'octobre 2026 à juin 2027, les mois défilent sur *Kitisa Moto* d'Alain Moloto : le pilote automatique traverse les derniers orages, puis l'avion se pose calmement à N'djili sur *Indépendance Cha Cha*. Le message au pays s'écrit lettre par lettre, suivi des « Vive le Congo ! », du bilan et de l'historique des vols. |
 
-Un vol complet de 1960 à 2027 dure environ 15 minutes. Plus on avance, plus le ciel est dur : les orages se resserrent, les avions de chasse vont plus vite, et l'avion peut s'écraser. Entre deux épreuves, le ciel se calme : des avions étrangers saluent, des oiseaux passent, la cabine danse. Un point de reprise est posé à chaque décennie et à l'entrée et à la sortie de chaque zone de guerre : après un atterrissage d'urgence, on repart de là.
+Un vol complet de 1960 à 2027 dure environ 35 minutes : on prend le temps de lire chaque moment, un message à la fois. Plus on avance, plus le ciel est dur : les orages se resserrent, les avions de chasse vont plus vite, et l'avion peut s'écraser. Entre deux épreuves, le ciel se calme : des avions étrangers saluent, des oiseaux passent, la cabine danse. Un point de reprise est posé à chaque décennie et à l'entrée et à la sortie de chaque zone de guerre : après un atterrissage d'urgence, on repart de là.
 
 ## Lancer le projet
 
