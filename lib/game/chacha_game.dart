@@ -646,7 +646,10 @@ class ChachaGame extends FlameGame {
       textDirection: TextDirection.ltr,
     )..layout();
     // Jamais hors de l'écran ni sous les panneaux du haut.
-    _floats.add((tp, x.clamp(tp.width / 2 + 8, _w - tp.width / 2 - 8), y.clamp(_h * 0.2, _h * 0.8), 1.6));
+    // Un texte plus large que l'écran reste centré, sans faire tomber le jeu.
+    final half = tp.width / 2 + 8;
+    final fx = half * 2 >= _w ? _w / 2 : x.clamp(half, _w - half);
+    _floats.add((tp, fx, y.clamp(_h * 0.2, _h * 0.8), 1.6));
   }
 
   void Function()? onHush;
@@ -1168,11 +1171,13 @@ class ChachaGame extends FlameGame {
   /// on lit, on apprend, puis le temps reprend.
   double get _storyPace {
     // Une fiche attend alors que son année est passée : le calendrier l'attend, pour qu'elle passe dans son année.
-    if (_cues.any((c) => c.story != null && c.story! < year - 0.2)) return 0;
+    if (_storyLate) return 0;
     if (turningPoint.value != null || card.value != null) return 0.3;
     final waiting = _cues.where((c) => !c.hold).length;
     return waiting >= 3 ? 0.5 : 1;
   }
+
+  bool get _storyLate => _cues.any((c) => c.story != null && c.story! < year - 0.2);
 
   /// Le temps de lire une fiche : environ trois mots par seconde, jamais moins de 9 secondes, au plus 18.
   double _readTime(HistoryEvent e) {
@@ -2275,6 +2280,14 @@ class ChachaGame extends FlameGame {
 
   /// Le prix du plein en vol, dans la monnaie du moment.
   int get fuelBill => ((100 - fuel).clamp(0, 100) * fuelPrice).round();
+
+  /// Au sol, réservoir sous la moitié, et ni l'argent ni les points ne paient assez de kérosène pour décoller :
+  /// le voyage s'arrête là, il faut recommencer en 1960.
+  bool get stranded =>
+      phase == FlightPhase.ready &&
+      _truckT < 0 &&
+      fuel < 50 &&
+      math.max(0, money) + score < fuelPrice * (50 - fuel).clamp(5, 100);
 
   Airport _nearestAirport() {
     final open = [
@@ -3817,7 +3830,8 @@ class ChachaGame extends FlameGame {
     final waves = _wavesOf(z);
     // Les années avancent avec le temps, pas avec les vagues : une zone dure au plus cinq minutes.
     final budget = _zoneBudget(z);
-    _zoneT += dt * (boost ? 1.6 : 1);
+    // Dans une guerre aussi, une fiche en retard fait attendre les années.
+    if (!_storyLate) _zoneT += dt * (boost ? 1.6 : 1);
     year = math.max(year, z.from + (z.to - z.from) * math.min(1, _zoneT / budget));
     if (!_exitSaid && budget - _zoneT < 30) {
       _exitSaid = true;

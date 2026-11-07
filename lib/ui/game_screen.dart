@@ -404,7 +404,10 @@ class _Hud extends StatelessWidget {
                   ),
                 ),
               ),
-            if (!modal && !hud.finale && (flying || p == FlightPhase.ready || p == FlightPhase.rolling))
+            if (!modal &&
+                !hud.finale &&
+                !game.stranded &&
+                (flying || p == FlightPhase.ready || p == FlightPhase.rolling))
               Align(
                 alignment: Alignment.bottomRight,
                 child: _Controls(game: game, hud: hud),
@@ -1028,8 +1031,79 @@ class _TakeoffPanel extends StatelessWidget {
   final ChachaGame game;
   final VoidCallback onRestart;
 
+  /// Plus de quoi payer le kérosène : on montre pourquoi, et seulement le bouton pour recommencer.
+  Widget _stranded() {
+    const red = Color(0xFFFF9A9A);
+    final need = (ChachaGame.fuelPrice * (50 - hud.fuel).clamp(5, 100)).round();
+    final has = math.max(0, hud.money) + hud.score;
+    return Glass(
+      tint: const Color(0x55400008),
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'AÉROPORT · ${hud.airport.toUpperCase()}',
+            style: const TextStyle(
+              color: ChachaColors.yellow,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.4,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${hud.year.floor()} · pas moyen de continuer',
+            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _TankGauge(fuel: hud.fuel, filling: false),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Kérosène : ${hud.fuel.round()} % · il en faut au moins 50 % pour décoller',
+                    style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Le kérosène manquant coûte ${_money(need)} ${hud.currency}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    'Tu as ${_money(math.max(0, hud.money))} ${hud.currency} et ${_money(hud.score)} points · il manque ${_money(math.max(0, need - has))}',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Sans argent pour le kérosène, l\'avion ne peut plus partir. Ton voyage s\'arrête en ${hud.year.floor()}.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: red.withValues(alpha: 0.95), fontSize: 12.5, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          GlassButton(
+            onTap: onRestart,
+            tint: const Color(0x55CE1021),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            child: const Text('Recommencer en 1960', style: TextStyle(fontSize: 14)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!hud.firstFlight && game.stranded) return _stranded();
     return Glass(
       tint: const Color(0x40001A40),
       padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
@@ -1139,24 +1213,6 @@ class _TakeoffPanel extends StatelessWidget {
                 '${(100 - hud.fuel).round()} % à ${ChachaGame.fuelPrice} ${hud.currency} le pourcent · tu as ${_money(hud.money)} ${hud.currency} et ${_money(hud.score)} points',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11.5),
               ),
-            if (hud.money + hud.score < ChachaGame.fuelPrice * (50 - hud.fuel).clamp(5, 100) && hud.fuel < 50) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Plus assez d\'argent pour le kérosène : il faut recommencer depuis 1960.',
-                style: TextStyle(
-                  color: const Color(0xFFFF9A9A).withValues(alpha: 0.95),
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 6),
-              GlassButton(
-                onTap: onRestart,
-                tint: const Color(0x55CE1021),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                child: const Text('Recommencer en 1960', style: TextStyle(fontSize: 13)),
-              ),
-            ],
             const SizedBox(height: 8),
           ],
           Text(

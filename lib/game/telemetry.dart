@@ -55,6 +55,14 @@ class Telemetry {
   /// While reports wait, the phone tries again every minute: as soon as the connection is back, they leave.
   static Timer? _retry;
 
+  /// One connection kept open for every report, instead of a new one each time.
+  static final _http = http.Client();
+
+  /// Reports that waited go up together, [_batch] per request. A server that does not know batches yet
+  /// answers 400: the phone then sends them one by one, as before.
+  static const _batch = 25;
+  static bool _batches = true;
+
   static Future<void> _post(Map<String, Object?> body) async {
     try {
       final id = await _playerId();
@@ -72,12 +80,8 @@ class Telemetry {
         ...body,
       });
       final p = await SharedPreferences.getInstance();
-      final box = p.getStringList(_box) ?? [];
       // Only the latest resume point matters; the oldest reports go first when the box is full.
-      if (body['kind'] == 'save') box.removeWhere((x) => x.contains('"kind":"save"'));
-      box.add(item);
-      if (box.length > 200) box.removeRange(0, box.length - 200);
-      await p.setStringList(_box, box);
+      await p.setStringList(_box, keep(p.getStringList(_box) ?? [], item, save: body['kind'] == 'save'));
     } catch (_) {}
     await _flush();
   }
@@ -95,18 +99,25 @@ class Telemetry {
       while (true) {
         final box = p.getStringList(_box) ?? [];
         if (box.isEmpty) break;
-        final item = box.first;
-        final r = await http
-            .post(Uri.parse(_url), headers: {'content-type': 'application/json'}, body: item)
-            .timeout(const Duration(seconds: 8));
+        final items = box.take(_batches && box.length > 1 ? _batch : 1).toList();
+        final many = items.length > 1;
+        final r = await _http
+            .post(
+              Uri.parse(_url),
+              headers: {'content-type': 'application/json'},
+              body: many ? '{"batch":[${items.join(',')}]}' : items.first,
+            )
+            .timeout(Duration(seconds: many ? 15 : 8));
+        if (many && r.statusCode == 400) {
+          _batches = false;
+          continue;
+        }
         // The server is down or busy: keep it for later. A refused report (4xx) is dropped.
         if (r.statusCode >= 500 || r.statusCode == 429) {
           left = true;
           break;
         }
-        final now = p.getStringList(_box) ?? [];
-        now.remove(item);
-        await p.setStringList(_box, now);
+        await p.setStringList(_box, sent(p.getStringList(_box) ?? [], items));
       }
     } catch (_) {
       // no connection: everything stays in the box
@@ -124,6 +135,26 @@ class Telemetry {
       _again = false;
       await _flush();
     }
+  }
+
+  /// The box once [items] left: a report added meanwhile stays.
+  @visibleForTesting
+  static List<String> sent(List<String> box, List<String> items) {
+    final now = [...box];
+    for (final i in items) {
+      now.remove(i);
+    }
+    return now;
+  }
+
+  /// What goes into the box: a new resume point replaces the one waiting, and the box keeps at most 200 reports.
+  @visibleForTesting
+  static List<String> keep(List<String> box, String item, {required bool save}) {
+    final now = [...box];
+    if (save) now.removeWhere((x) => x.contains('"kind":"save"'));
+    now.add(item);
+    if (now.length > 200) now.removeRange(0, now.length - 200);
+    return now;
   }
 
   /// Called at launch and when the app comes back: sends what waited offline.
