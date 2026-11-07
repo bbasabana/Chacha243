@@ -178,9 +178,12 @@ class CabinHud {
 
 /// Le menu du repas à bord, proposé au pilote ; le vol attend son choix.
 class MealOffer {
-  const MealOffer(this.passengers);
+  const MealOffer(this.passengers, {this.canRefuse = false});
 
   final int passengers;
+
+  /// Dès le deuxième repas, le pilote peut aussi dire « Boko lia te » : aujourd'hui, pas de repas.
+  final bool canRefuse;
 }
 
 /// Un grand tournant : le drapeau d'avant, celui d'après.
@@ -3769,12 +3772,15 @@ class ChachaGame extends FlameGame {
     _pushHud();
   }
 
+  /// Le nombre de repas proposés depuis le début du vol.
+  int _mealsOffered = 0;
+
   void _offerMeal() {
     _nextMeal = t + 110 + _rng.nextDouble() * 40;
     _cue(
       () {
         _mealWait = 0;
-        meal.value = MealOffer(passengers);
+        meal.value = MealOffer(passengers, canRefuse: ++_mealsOffered >= 2);
         _pushHud();
       },
       0,
@@ -3821,6 +3827,14 @@ class ChachaGame extends FlameGame {
   }
 
   int _sales = 0;
+
+  /// « Boko lia te » : le pilote refuse le repas, le menu se ferme et personne ne mange aujourd'hui.
+  void refuseMeal() {
+    if (meal.value?.canRefuse != true) return;
+    meal.value = null;
+    _say('Hôtesse', Lingala.bokoliate, 'Aujourd\'hui, les passagers ne mangeront pas.', first: true);
+    _pushHud();
+  }
 
   // ------------------------------------------------- avion, missions, quiz
 
@@ -4087,6 +4101,14 @@ class ChachaGame extends FlameGame {
       hide: () => banner.value = null,
       first: true,
     );
+    // 1996 : la cabine n'en peut plus, une guerre de plus, et Mobutu depuis trente ans.
+    // Juste après l'annonce de la guerre, avant les fiches qui l'expliquent.
+    if (z.from == 1996.8 && passengers > 0) {
+      bool still() => _zone == z;
+      _say('Passager', Lingala.guerreLisusu, 'Encore une guerre ! Mon Dieu.', first: true, still: still);
+      _say('Passagère', Lingala.bomaMboka, 'Ça va encore détruire le pays.', first: true, still: still);
+      _say('Passager', Lingala.lembiMobutu, 'Le peuple est fatigué de Mobutu.', first: true, still: still);
+    }
     // La fiche de la crise suit : la photo et le texte qui l'expliquent.
     if (_nextEvent < historyEvents.length) {
       final e = historyEvents[_nextEvent];

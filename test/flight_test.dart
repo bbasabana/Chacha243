@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:chacha243/data/archive.dart';
 import 'package:chacha243/data/aircraft_types.dart';
 import 'package:chacha243/data/history_events.dart';
+import 'package:chacha243/data/war_zones.dart';
 import 'package:chacha243/game/chacha_game.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/services.dart';
@@ -430,5 +431,52 @@ void main() {
     expect(g.year, greaterThanOrEqualTo(1979));
     expect(meals, greaterThanOrEqualTo(2));
     expect(drinks, greaterThanOrEqualTo(1));
+  });
+
+  test('dès le deuxième repas, « Boko lia te » ferme le menu : personne ne mange aujourd\'hui', () async {
+    final g = await start(year: 1970.0, autopilot: true)
+      ..showcase = 'repas';
+    g.passengers = 80;
+    final offers = <MealOffer>[];
+    final said = <String>[];
+    g.meal.addListener(() {
+      final m = g.meal.value;
+      if (m == null) return;
+      offers.add(m);
+      if (m.canRefuse) {
+        g.refuseMeal();
+      } else {
+        g.serveMeal('Fufu', 'Poisson grillé', ['Fanta']);
+      }
+    });
+    g.radio.addListener(() => g.radio.value != null ? said.add(g.radio.value!.lingala) : null);
+    for (var i = 0; i < 60 * 60 * 15 && offers.length < 3; i++) {
+      g.lives = 5;
+      g.condition = 100;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+    }
+    for (var i = 0; i < 60 * 20; i++) {
+      g.lives = 5;
+      g.update(1 / 60);
+    }
+    expect(offers.length, greaterThanOrEqualTo(2));
+    expect(offers.first.canRefuse, isFalse, reason: 'le premier repas est toujours servi');
+    expect(offers[1].canRefuse, isTrue);
+    expect(said, contains(Lingala.bokoliate));
+  });
+
+  test('à l\'entrée de l\'AFDL, la cabine soupire : encore une guerre, et le peuple est fatigué de Mobutu', () async {
+    final g = await start(year: 1996.6, autopilot: true);
+    g.passengers = 80;
+    final said = <String>[];
+    g.radio.addListener(() => g.radio.value != null ? said.add(g.radio.value!.lingala) : null);
+    for (var i = 0; i < 60 * 120 && g.year < 1997.2; i++) {
+      g.lives = 5;
+      g.condition = 100;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+    }
+    expect(said, containsAllInOrder([Lingala.guerreLisusu, Lingala.bomaMboka, Lingala.lembiMobutu]));
   });
 }

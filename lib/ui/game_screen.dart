@@ -2900,6 +2900,14 @@ class _MealViewState extends State<_MealView> {
                     ),
                   ),
                 ),
+                if (widget.offer.canRefuse) ...[
+                  GlassButton(
+                    onTap: widget.game.refuseMeal,
+                    tint: const Color(0x33FFFFFF),
+                    child: const Text('Boko lia te', style: TextStyle(fontSize: 15)),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 GlassButton(
                   onTap: _drinks.isEmpty
                       ? null

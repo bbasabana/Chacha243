@@ -126,6 +126,18 @@ abstract final class Lingala {
   /// « Allons-y ! »
   static const tokende = 'To kende !';
 
+  /// « Aujourd'hui, les passagers ne mangeront pas. »
+  static const bokoliate = 'Lelo ba passagers bako lia teeee !';
+
+  /// « Encore une guerre ! Mon Dieu. »
+  static const guerreLisusu = 'Guerre lisusu ! Nzambe na nga';
+
+  /// « Ça va encore détruire le pays. »
+  static const bomaMboka = 'Oyo eza ko boma lisusu mboka';
+
+  /// « Le peuple est fatigué de Mobutu. »
+  static const lembiMobutu = 'Peuple a lembi pe Mobutu';
+
   /// « Bonjour ! », la tour de contrôle qui répond.
   static const mbote = 'Mbote !';
 
