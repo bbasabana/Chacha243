@@ -27,6 +27,7 @@ class HistoryEvent {
     this.war = false,
     this.volcano = false,
     this.photo,
+    this.photo2,
     this.song,
     this.big = false,
     this.medal,
@@ -50,6 +51,9 @@ class HistoryEvent {
   /// La vignette d'archive (clé de archivePhotos) et la chanson du moment (clé de momentSongs).
   final String? photo;
   final String? song;
+
+  /// Une seconde photo, qui alterne en fondu avec la première dans la fiche (le combat, après la poignée de main).
+  final String? photo2;
 
   /// Un grand tournant (prise de pouvoir, changement de pays, passation) :
   /// le ciel entre en ébullition, le drapeau change sous tes yeux.
@@ -293,6 +297,7 @@ const historyEvents = <HistoryEvent>[
     'Ali – Foreman',
     '« Ali boma ye ! » Le combat du siècle se déroule au stade du 20 Mai.',
     photo: 'ali',
+    photo2: 'aliforeman',
     song: 'bomaye',
   ),
   HistoryEvent(

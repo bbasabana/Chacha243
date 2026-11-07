@@ -3878,38 +3878,25 @@ class ChachaGame extends FlameGame {
   }
 
   void _askQuiz() {
+    // Une question sur l'année qu'on vit, jamais sur un moment déjà loin : en 1976, on ne reparle pas d'Ali.
     final past = [
       for (final e in historyEvents)
-        if (e.year < year - 0.3 && !_askedQuiz.contains(e.title)) e,
+        if (e.year.floor() == year.floor() && e.year < year && !e.war && !_askedQuiz.contains(e.title)) e,
     ];
-    if (past.length < 4) return;
+    if (past.isEmpty) return;
     _quizCount++;
     _nextQuiz = t + 70;
     _quizWait = 0;
     final e = past[_rng.nextInt(past.length)];
     _askedQuiz.add(e.title);
-    final byYear = _rng.nextBool();
-    late final List<String> options;
-    late final String question;
-    if (byYear) {
-      final y = e.yearLabel;
-      final years = <int>{y};
-      while (years.length < 3) {
-        final d = 2 + _rng.nextInt(10);
-        final c = _rng.nextBool() ? y + d : y - d;
-        if (c >= 1960 && c <= 2027) years.add(c);
-      }
-      options = [for (final v in years.toList()..shuffle(_rng)) '$v'];
-      question = 'En quelle année : ${e.title} (${e.city}) ?';
-    } else {
-      final others = [
-        for (final o in historyEvents)
-          if (o.title != e.title && (o.year - e.year).abs() > 2) o,
-      ]..shuffle(_rng);
-      options = [e.title, others[0].title, others[1].title]..shuffle(_rng);
-      question = 'Que s\'est-il passé en ${e.date}, à ${e.city} ?';
-    }
-    final q = Quiz(question, options, options.indexOf(byYear ? '${e.yearLabel}' : e.title), e);
+    // L'année en cours se lit sur l'écran : on demande donc ce qui s'est passé, pas en quelle année.
+    final others = [
+      for (final o in historyEvents)
+        if (o.title != e.title && (o.year - e.year).abs() > 2) o,
+    ]..shuffle(_rng);
+    final options = [e.title, others[0].title, others[1].title]..shuffle(_rng);
+    final question = 'Que s\'est-il passé en ${e.date}, à ${e.city} ?';
+    final q = Quiz(question, options, options.indexOf(e.title), e);
     // Le kérosène ne peut pas attendre : la question passe juste après le message en cours.
     _cue(
       () {
@@ -3935,14 +3922,20 @@ class ChachaGame extends FlameGame {
       _addFuel(55);
       score += 150;
       _confetti();
-      _song(q.event.song ?? 'chacha');
-      _say('Tour de contrôle', Lingala.elonga, 'Bonne réponse ! Ravitaillement en vol : +55 % de kérosène.');
+      if (q.event.song != null && q.event.year.floor() == year.floor()) _song(q.event.song!);
+      _queueBanner(
+        FlightBanner('Bonne réponse !', '« ${q.options[q.answer]} » · +55 % de kérosène', color: _peaceGreen),
+        first: true,
+      );
     } else {
       _addFuel(15);
-      _say(
-        'Tour de contrôle',
-        Lingala.makasi,
-        'La réponse était « ${q.options[q.answer]} ». Un petit bidon quand même.',
+      _queueBanner(
+        FlightBanner(
+          'Mauvaise réponse',
+          'C\'était « ${q.options[q.answer]} » · un petit bidon quand même : +15 %',
+          color: ChachaColors.red,
+        ),
+        first: true,
       );
       _nextFuelAlert = 0;
     }

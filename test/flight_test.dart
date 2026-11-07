@@ -354,4 +354,32 @@ void main() {
     expect(alerts.last, 'Danger : avion à 9 %');
     expect(alerts.toSet().length, alerts.length, reason: 'une alerte répétée');
   });
+
+  test('le quiz parle de l\'année qu\'on vit, et dit si la réponse est bonne', () async {
+    final g = await start(year: 1974.5, autopilot: true);
+    final asked = <String>[];
+    final wrongYear = <String>[];
+    final said = <String>[];
+    g.quiz.addListener(() {
+      final q = g.quiz.value;
+      if (q == null) return;
+      asked.add(q.event.title);
+      if (q.event.year.floor() != g.year.floor()) wrongYear.add('${q.event.title} en ${g.year.toStringAsFixed(2)}');
+    });
+    g.banner.addListener(() {
+      final b = g.banner.value;
+      if (b != null && (b.title == 'Bonne réponse !' || b.title == 'Mauvaise réponse')) said.add(b.title);
+    });
+    for (var i = 0; i < 60 * 60 * 10 && g.year < 1977; i++) {
+      g.lives = 5;
+      g.condition = 100;
+      if (i % (60 * 20) == 0) g.quizNow = true;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+    }
+    expect(asked, isNotEmpty);
+    expect(wrongYear, isEmpty);
+    expect(said, isNotEmpty);
+    expect(historyEvents.firstWhere((e) => e.title == 'Ali – Foreman').photo2, 'aliforeman');
+  });
 }

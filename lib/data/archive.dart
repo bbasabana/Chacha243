@@ -46,6 +46,7 @@ const archivePhotos = <String, ArchivePhoto>{
     'La carte d\'identité pour citoyen, République du Zaïre',
     credit: 'République du Zaïre',
   ),
+  'aliforeman': ArchivePhoto('ali-foreman-1974.jpg', 'Mohamed Ali frappe George Foreman, Kinshasa, 30 octobre 1974'),
   'ali': ArchivePhoto('mobutu-ali-1974.jpg', 'Mobutu et Mohamed Ali, Kinshasa, 1974'),
   'abala': ArchivePhoto('ayidini-abala.jpg', 'Le pasteur Ayidini Abala'),
   'ldk': ArchivePhoto('laurent-desire-kabila.jpg', 'Laurent-Désiré Kabila'),

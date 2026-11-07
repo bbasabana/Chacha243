@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flame/game.dart';
@@ -1013,7 +1014,10 @@ class _StoryCardView extends StatelessWidget {
                 ),
                 if (archivePhotos[e.photo] case final ArchivePhoto p when p.visible) ...[
                   const SizedBox(width: 12),
-                  _Thumb(photo: p),
+                  if (archivePhotos[e.photo2] case final ArchivePhoto p2? when p2.visible)
+                    _Slides(photos: [p, p2])
+                  else
+                    _Thumb(photo: p),
                 ],
               ],
             ),
@@ -2035,7 +2039,7 @@ class _FlightRow extends StatelessWidget {
 
 /// Une petite photo d'archive, discrète, avec sa légende et sa source.
 class _Thumb extends StatelessWidget {
-  const _Thumb({required this.photo});
+  const _Thumb({super.key, required this.photo});
 
   final ArchivePhoto photo;
   static const width = 64.0;
@@ -2090,6 +2094,45 @@ class _Thumb extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Deux photos d'un même moment : elles alternent toutes les quatre secondes, en fondu et avec un léger zoom.
+class _Slides extends StatefulWidget {
+  const _Slides({required this.photos});
+
+  final List<ArchivePhoto> photos;
+
+  @override
+  State<_Slides> createState() => _SlidesState();
+}
+
+class _SlidesState extends State<_Slides> {
+  late final Timer _timer;
+  var _i = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) => setState(() => _i = (_i + 1) % widget.photos.length));
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedSwitcher(
+    duration: const Duration(milliseconds: 700),
+    switchInCurve: Curves.easeOutCubic,
+    switchOutCurve: Curves.easeInCubic,
+    transitionBuilder: (child, a) => FadeTransition(
+      opacity: a,
+      child: ScaleTransition(scale: Tween(begin: 0.92, end: 1.0).animate(a), child: child),
+    ),
+    child: _Thumb(key: ValueKey(_i), photo: widget.photos[_i]),
+  );
 }
 
 /// « ♪ titre — artiste », seulement quand le fichier licencié est dans le jeu.
