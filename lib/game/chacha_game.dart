@@ -3439,7 +3439,18 @@ class ChachaGame extends FlameGame {
         case CabinMode.serving:
           final p = math.min(1.0, _cabinT / 6);
           cabin.value = CabinHud(CabinMode.serving, p, c.seats, c.title, c.detail);
-          if (p >= 1) {
+          if (p >= 1 && _drinksOnly) {
+            _cabinT = 0;
+            _drinksOnly = false;
+            score += 50;
+            cabin.value = CabinHud(
+              CabinMode.served,
+              1,
+              c.seats,
+              'Eau et café servis',
+              'Les ${c.seats} passagers se calment · +50 points',
+            );
+          } else if (p >= 1) {
             _cabinT = 0;
             score += 100;
             _earn(_sales, 'repas et boissons vendus');
@@ -3469,13 +3480,35 @@ class ChachaGame extends FlameGame {
       _turbulence -= dt;
       if (_rng.nextDouble() < dt * 2.5) shake = math.max(shake, 0.12);
       vy += (_rng.nextDouble() - 0.5) * _h * dt * 3;
+      // La turbulence passée, l'hôtesse sert de l'eau et du café pour calmer la cabine.
+      if (_turbulence <= 0) _drinksDue = true;
+    }
+    // Le chariot vient de passer : pas de second service tout de suite.
+    if (_drinksDue && t < _nextDrinks) _drinksDue = false;
+    if (_drinksDue &&
+        cabin.value == null &&
+        meal.value == null &&
+        quiz.value == null &&
+        passengers > 0 &&
+        !_waveActive) {
+      _drinksDue = false;
+      _serveDrinks();
     }
 
     final free =
         _quiet && cabin.value == null && quiz.value == null && _zone == null && !_offerPending && passengers > 0;
     if (free && t >= _nextBelts) {
       _askBelts('Zone de turbulences droit devant');
-    } else if (free && t >= _nextMeal && _turbulence <= 0) {
+    } else if (t >= _nextMeal &&
+        _turbulence <= 0 &&
+        cabin.value == null &&
+        meal.value == null &&
+        quiz.value == null &&
+        _zone == null &&
+        !_offerPending &&
+        passengers > 0 &&
+        _cues.length <= 2) {
+      // Le repas ne demande pas un ciel vide de messages : il prend sa place dans la file, entre deux fiches.
       _offerMeal();
     }
   }
@@ -3705,8 +3738,32 @@ class ChachaGame extends FlameGame {
     }
   }
 
+  bool _drinksDue = false, _drinksOnly = false;
+
+  /// Pas plus d'un passage du chariot d'eau toutes les deux minutes.
+  double _nextDrinks = 0;
+
+  /// Eau et café, offerts après une turbulence ou au calme d'une guerre : pas de choix, le chariot passe.
+  void _serveDrinks() {
+    _nextDrinks = t + 120;
+    _drinksOnly = true;
+    _sales = 0;
+    _cabinT = 0;
+    final n = math.max(1, passengers);
+    final coffee = (n * (0.35 + _rng.nextDouble() * 0.25)).round();
+    _say(
+      'Hôtesse',
+      _zone == null ? Lingala.kimia : Lingala.matondo,
+      _zone == null
+          ? 'Le calme est revenu. Je vous sers de l\'eau et du café.'
+          : 'Un moment de calme entre deux vagues : de l\'eau et du café pour tout le monde.',
+    );
+    cabin.value = CabinHud(CabinMode.serving, 0, n, 'Eau et café pour la cabine', '${n - coffee} Eau · $coffee Café');
+    _pushHud();
+  }
+
   void _offerMeal() {
-    _nextMeal = t + 140 + _rng.nextDouble() * 50;
+    _nextMeal = t + 110 + _rng.nextDouble() * 40;
     _cue(
       () {
         _mealWait = 0;
@@ -4059,6 +4116,8 @@ class ChachaGame extends FlameGame {
         _waveActive = false;
         _wavesCleared++;
         score += 100 * _wavesCleared;
+        // Au milieu de la guerre, un moment de calme : l'eau et le café passent dans l'allée.
+        if (_wavesCleared == waves ~/ 2) _drinksDue = true;
         _waveDelay = 2.2;
         // Une vague passée : la cabine respire et remercie Dieu (pas à chaque fois).
         if (_wavesCleared.isOdd || _wavesCleared == waves) _talk(TalkMoment.escape, force: _wavesCleared == 1);
@@ -4213,6 +4272,7 @@ class ChachaGame extends FlameGame {
     _peace = 7;
     _confetti();
     _saveCheckpoint(z.to);
+    _drinksDue = true;
     _queueBanner(
       FlightBanner(
         '${Lingala.kimia} · ${z.peaceTitle}',

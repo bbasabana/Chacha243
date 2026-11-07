@@ -382,4 +382,27 @@ void main() {
     expect(said, isNotEmpty);
     expect(historyEvents.firstWhere((e) => e.title == 'Ali – Foreman').photo2, 'aliforeman');
   });
+
+  test('de 1970 à 1979, la cabine mange plusieurs fois, et boit de l\'eau et du café après la guerre', () async {
+    final g = await start(year: 1970.0, autopilot: true);
+    g.passengers = 80;
+    var meals = 0, drinks = 0;
+    g.meal.addListener(() => g.meal.value != null ? meals++ : null);
+    g.cabin.addListener(() {
+      if (g.cabin.value?.title == 'Eau et café servis') drinks++;
+    });
+    for (var i = 0; i < 60 * 60 * 30 && g.year < 1979; i++) {
+      g.lives = 5;
+      g.condition = 100;
+      if (g.passengers < 40) g.passengers = 80;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+      if (g.phase == FlightPhase.crashed) break;
+    }
+    // ignore: avoid_print
+    print('repas $meals, eau et café $drinks, en ${g.year.toStringAsFixed(2)}');
+    expect(g.year, greaterThanOrEqualTo(1979));
+    expect(meals, greaterThanOrEqualTo(2));
+    expect(drinks, greaterThanOrEqualTo(1));
+  });
 }
