@@ -198,6 +198,16 @@ const momentSongs = <String, MomentSong>{
     then: 'mpr',
   ),
   'mpr': MomentSong('mpr-chant.mp3', 'Chant du MPR', 'MPR', seconds: 75, level: 0.5, fadeIn: 2),
+  // Le passage des années 1970 aux années 1980 : l'extrait de 7 min 32 à 8 min, puis Indépendance Cha Cha.
+  'ngwasuma': MomentSong(
+    'zaiko-ngwasuma.mp3',
+    'Les 19 minutes de Ngwasuma',
+    'Zaïko Langa Langa',
+    seconds: 28,
+    level: 0.7,
+    fadeIn: 0.5,
+    then: 'chacha',
+  ),
   'okjazz': MomentSong('franco-chicotte.mp3', 'Chicotte (1964)', 'Franco et l\'OK Jazz'),
   'bomaye': MomentSong('ali-bomaye.mp3', '« Ali, bomaye ! »', 'Kinshasa, 1974'),
   'viva': MomentSong('viva-pole-position.mp3', 'Pole Position', 'Papa Wemba et Viva la Musica'),

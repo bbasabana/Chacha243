@@ -30,6 +30,9 @@ enum TalkMoment {
   finaleCalm,
   approachHome,
   arrival,
+
+  /// On vient d'échapper aux avions de chasse : on remercie Dieu.
+  escape,
 }
 
 const cabinTalks = <TalkMoment, List<List<TalkLine>>>{
@@ -288,6 +291,17 @@ const cabinTalks = <TalkMoment, List<List<TalkLine>>>{
     [
       TalkLine('Commandant', 'Toyei na ndako.', 'Nous rentrons à la maison.'),
       TalkLine('Passagers', 'Dipanda ! Dipanda !', 'Indépendance ! Indépendance !'),
+    ],
+  ],
+  TalkMoment.escape: [
+    [
+      TalkLine('Une maman', 'Nkembo na Nzambe ! Nzambe abatela biso.', 'Gloire à Dieu ! Dieu, protège-nous.'),
+      TalkLine('Passagers', 'Amen !', 'Amen !'),
+    ],
+    [TalkLine('Un papa', 'Nzambe azali na biso, tokokoma na 2027.', 'Dieu est avec nous, nous arriverons en 2027.')],
+    [
+      TalkLine('Hôtesse', 'Bopema, tolongi yango.', 'Respirez, nous y avons échappé.'),
+      TalkLine('Une grand-mère', 'Nkembo na Nzambe !', 'Gloire à Dieu !'),
     ],
   ],
   TalkMoment.arrival: [

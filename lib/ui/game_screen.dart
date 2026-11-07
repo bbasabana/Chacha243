@@ -506,7 +506,8 @@ class _YearPanel extends StatelessWidget {
                 const SizedBox(height: 2),
                 // Le temps qui passe : tout le vol, et l'étape en cours.
                 Text(
-                  '⏱ ${_clock(hud.flightSeconds)} · ${hud.inZone ? 'zone' : 'paix'} ${_clock(hud.stageSeconds)}',
+                  '⏱ ${_clock(hud.flightSeconds)} · ${hud.inZone ? 'zone' : 'paix'} ${_clock(hud.stageSeconds)}'
+                  ' · 2027 : reste ${((2027.5 - hud.year) / 67 * 100).clamp(0, 100).ceil()} %',
                   style: TextStyle(
                     color: hud.inZone ? const Color(0xFFFF9A9A) : Colors.white.withValues(alpha: 0.8),
                     fontSize: 10.5,
@@ -1346,10 +1347,12 @@ class _Controls extends StatelessWidget {
                 radius: 34,
                 padding: const EdgeInsets.all(18),
                 // L'aimant : pendant 3 secondes, il attire vers l'avion les médaillons, les bidons et les étoiles.
+                // Puis il se recharge en 10 secondes (le cercle jaune se remplit).
                 child: const Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
+                    SizedBox(width: 24, height: 24, child: CustomPaint(painter: _MagnetIcon())),
+                    SizedBox(height: 2),
                     Text('AIMANT', style: TextStyle(fontSize: 9, letterSpacing: 0.8)),
                   ],
                 ),
@@ -1360,11 +1363,12 @@ class _Controls extends StatelessWidget {
         // TURBO est un bouton rond, à portée du pouce droit. Il s'allume en jaune quand la tour demande la ligne droite.
         // Gros, et il suffit de garder le pouce dessus : l'avion accélère tant qu'on appuie.
         GlassButton(
-          onPressChanged: (down) => game.boost = down,
+          onPressChanged: game.turboPress,
           radius: 56,
-          tint: game.turboCall
-              ? const Color(0xCCF7D618)
-              : (hud.boost ? const Color(0xCCFF5A3C) : const Color(0x88CE1021)),
+          // Vert bien vif quand il est actif ; un appui court le bloque, un autre l'arrête.
+          tint: hud.boost
+              ? const Color(0xE61DB954)
+              : (game.turboCall ? const Color(0xCCF7D618) : const Color(0x88CE1021)),
           padding: EdgeInsets.zero,
           child: SizedBox(
             width: 112,
@@ -1376,8 +1380,11 @@ class _Controls extends StatelessWidget {
                 const SizedBox(height: 3),
                 const Text('TURBO', style: TextStyle(fontSize: 15, letterSpacing: 1.4, fontWeight: FontWeight.w900)),
                 Text(
-                  hud.boost ? 'ça accélère !' : 'maintiens',
-                  style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.8)),
+                  game.turboLock
+                      ? 'actif · appuie\npour arrêter'
+                      : (hud.boost ? 'actif · lâche\npour arrêter' : 'appuie ou\nmaintiens'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10, height: 1.15, color: Colors.white.withValues(alpha: 0.9)),
                 ),
               ],
             ),
@@ -1386,6 +1393,34 @@ class _Controls extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Un aimant en fer à cheval : rouge, avec ses deux pôles argentés.
+class _MagnetIcon extends CustomPainter {
+  const _MagnetIcon();
+
+  @override
+  void paint(Canvas canvas, Size s) {
+    final w = s.width, h = s.height;
+    final arm = w * 0.26;
+    final rect = Rect.fromLTWH(arm / 2, h * 0.12, w - arm, (w - arm) * 0.95);
+    final red = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = arm
+      ..color = const Color(0xFFE53935);
+    // L'arc du bas et les deux bras qui montent
+    canvas.drawArc(rect, 0, math.pi, false, red);
+    final top = h * 0.14, mid = rect.center.dy;
+    canvas.drawLine(Offset(rect.left, mid), Offset(rect.left, top + arm * 0.9), red);
+    canvas.drawLine(Offset(rect.right, mid), Offset(rect.right, top + arm * 0.9), red);
+    // Les pôles argentés
+    final silver = Paint()..color = const Color(0xFFE0E4EA);
+    canvas.drawRect(Rect.fromLTWH(rect.left - arm / 2, top - arm * 0.1, arm, arm), silver);
+    canvas.drawRect(Rect.fromLTWH(rect.right - arm / 2, top - arm * 0.1, arm, arm), silver);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
 }
 
 /// Pendant une guerre : le nom de la zone, la vague en cours et la traversée des années.

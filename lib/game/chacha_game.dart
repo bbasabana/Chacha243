@@ -273,7 +273,33 @@ class ZoneHud {
 
 /// Un avion de chasse noir : il arrive de face, annoncé par un signal rouge au bord de l'écran.
 class _Jet {
-  _Jet(this.x, this.y, this.wait, this.speed, this.drift, {this.missile = false, this.part = false});
+  _Jet(
+    this.x,
+    this.y,
+    this.wait,
+    this.speed,
+    this.drift, {
+    this.missile = false,
+    this.part = false,
+    this.heli = false,
+    this.shots = 0,
+    this.stopX = 0,
+    this.aimed = false,
+  });
+
+  /// Un missile tiré par un chasseur qui vole avec toi : il avance à sa seule vitesse, on a le temps de l'esquiver.
+  final bool aimed;
+
+  /// Un hélicoptère de combat : lent, il se tient au-dessus de toi et tire.
+  final bool heli;
+
+  /// Un chasseur qui s'arrête devant toi (ou un hélicoptère) : il cherche ta hauteur,
+  /// tire ses missiles l'un après l'autre, puis s'en va.
+  bool get hunter => shots > 0 || stopX > 0;
+  int shots;
+  final double stopX;
+  double fireT = 1.2, age = 0, vy = 0;
+  bool leaving = false;
 
   /// Un avion de la crise dans la crise (le Sud-Kasaï) : bleu, avec une bande jaune.
   final bool part;
@@ -435,6 +461,32 @@ class ChachaGame extends FlameGame {
   // Entrées
   bool boost = false;
 
+  /// TURBO bloqué : un appui court l'allume et il reste allumé ; un autre appui l'arrête.
+  /// Garder le pouce dessus marche toujours : il s'arrête quand on lâche.
+  bool turboLock = false;
+  DateTime? _turboDownAt;
+  bool _turboStopping = false;
+
+  void turboPress(bool down) {
+    if (down) {
+      _turboDownAt = DateTime.now();
+      _turboStopping = turboLock;
+      boost = true;
+    } else {
+      final quick =
+          _turboDownAt != null && DateTime.now().difference(_turboDownAt!) < const Duration(milliseconds: 300);
+      if (_turboStopping) {
+        turboLock = false;
+        boost = false;
+      } else if (quick) {
+        turboLock = true;
+      } else {
+        boost = false;
+      }
+    }
+    _pushHud();
+  }
+
   /// Mode démo (bande-annonce, tests) : l'avion se pilote seul.
   bool autopilot = false;
   double timeScale = 1;
@@ -518,6 +570,21 @@ class ChachaGame extends FlameGame {
     cp.save();
   }
 
+  int _flownMoney = 0;
+  double _nextEarnFloat = 45;
+
+  /// De l'argent gagné : il entre dans le portefeuille et s'affiche en vert au-dessus de l'avion.
+  void _earn(int amount, String why) {
+    if (amount <= 0) return;
+    money += amount;
+    _earnFloat(amount, why);
+  }
+
+  void _earnFloat(int amount, String why) {
+    final y = math.max(_h * 0.2 + 22 * _unit, planeY - planeLength * 0.6);
+    _float('+${_fmt(amount)} ${currencyAt(year)} · argent gagné ($why)', planeX, y, const Color(0xFF7CF29A));
+  }
+
   void _float(String text, double x, double y, Color color) {
     final tp = TextPainter(
       text: TextSpan(
@@ -572,6 +639,7 @@ class ChachaGame extends FlameGame {
       : 3;
   bool _startSent = false;
   int _yearSent = 0;
+  bool _eightiesSaid = false;
   int _nextZone = 0, _wave = 0, _wavesCleared = 0, _decade = 0;
 
   /// Le temps passé dans la zone en cours, et le temps qu'elle dure : jamais plus de cinq minutes.
@@ -880,6 +948,11 @@ class ChachaGame extends FlameGame {
   }
 
   void _setPhase(FlightPhase p) {
+    // Un TURBO bloqué s'arrête dès qu'on quitte le vol (approche, sol, crash).
+    if (turboLock && p != FlightPhase.cruising && p != FlightPhase.climbing && p != FlightPhase.rolling) {
+      turboLock = false;
+      boost = false;
+    }
     if (p == FlightPhase.rolling && !_startSent) {
       _startSent = true;
       _yearSent = year.floor();
@@ -1336,8 +1409,13 @@ class ChachaGame extends FlameGame {
     }
     // Les avions de chasse : choisir la hauteur la plus éloignée de ceux qui arrivent.
     final threats = [
+      // Un chasseur arrêté qui vise n'est pas sur ton chemin : ce sont ses missiles qu'il faut éviter.
+      // Pour ce qui file vers toi, on regarde aussi où il passera quand il arrivera à ta hauteur.
       for (final j in _jets)
-        if (j.x > planeX - _jetLength * 0.5 && j.wait < 0.5) Offset(j.x, j.y),
+        if (j.x > planeX - _jetLength * 0.5 && j.wait < 0.5 && !(j.hunter && !j.leaving)) ...[
+          Offset(j.x, j.y),
+          Offset(j.x, j.y + j.drift * ((j.x - planeX) / (j.speed + (j.aimed ? 0 : _scroll))).clamp(0.0, 3.0)),
+        ],
       for (final b in _bombs)
         if (b.x > planeX - 40 * _unit && b.x < planeX + 500 * _unit) Offset(b.x, b.y + b.vy * 0.4),
     ];
@@ -1473,7 +1551,12 @@ class ChachaGame extends FlameGame {
     _spawnSkyLife();
     if (_zone == null && t >= _nextChat && _quiet && !_eventSoon) {
       _nextChat = t + 40 + _rng.nextDouble() * 30;
-      _talk(TalkMoment.chat);
+      // Une fois sur trois, dans le calme, le commandant rappelle le but du voyage.
+      if (_chats++ % 3 == 0) {
+        _goalTalk();
+      } else {
+        _talk(TalkMoment.chat);
+      }
     }
 
     // Carburant
@@ -1568,6 +1651,20 @@ class ChachaGame extends FlameGame {
       _yearSent = year.floor();
       _report('year');
     }
+    // On quitte les années 1970 : Zaïko Langa Langa ouvre les années 1980, dans un ciel sans obstacle.
+    if (!_eightiesSaid && year >= 1980 && year < 1981 && _zone == null && phase == FlightPhase.cruising) {
+      _eightiesSaid = true;
+      _calmUntil = math.max(_calmUntil, t + 40);
+      _queueBanner(
+        const FlightBanner(
+          'Bienvenue dans les années 1980',
+          '♪ Zaïko Langa Langa · Ngwasuma · ciel calme, profite',
+          color: ChachaColors.yellow,
+        ),
+        first: true,
+      );
+      onSong?.call('ngwasuma');
+    }
 
     _spawnHistory();
     _spawnAmbient();
@@ -1617,7 +1714,7 @@ class ChachaGame extends FlameGame {
     _finaleT = 0;
     _finaleStep = 0;
     _finaleYear0 = year;
-    boost = false;
+    boost = turboLock = false;
     mission.value = null;
     cabin.value = null;
     _offerPending = false;
@@ -1780,18 +1877,38 @@ class ChachaGame extends FlameGame {
     final bag = _talkBags[m] ??= [];
     if (bag.isEmpty) bag.addAll(List.generate(options.length, (i) => i)..shuffle(_rng));
     final lines = options[bag.removeLast()];
-    if (lines.length > 3) {
-      // Une longue conversation : chacun parle à son tour, avec un temps entre deux répliques.
-      for (final l in lines) {
-        _cue(() => talk.value = CabinTalk([l]), 7, hide: () => talk.value = null);
-      }
-    } else {
-      _cue(() => talk.value = CabinTalk(lines), seconds ?? 5 + lines.length * 3, hide: () => talk.value = null);
+    // Chacun parle à son tour : une seule bulle à l'écran, on la lit, elle s'en va, puis la réponse vient.
+    for (final l in lines) {
+      final each = seconds != null ? seconds / lines.length : _lineTime(l);
+      _cue(() => talk.value = CabinTalk([l]), each, hide: () => talk.value = null);
     }
     _nextTalk = t + 20;
   }
 
   final _talkBags = <TalkMoment, List<int>>{};
+  int _chats = 0;
+
+  /// La part du voyage qui reste jusqu'au 30 juin 2027, en pour cent.
+  int get tripLeft => ((2027.5 - year) / (2027.5 - 1960.5) * 100).clamp(0, 100).ceil();
+
+  void _goalTalk() {
+    final left = tripLeft;
+    _cue(
+      () => talk.value = CabinTalk([
+        TalkLine(
+          'Commandant',
+          'Mokano na biso : kokoma na 30 juin 2027. Tokokoma !',
+          'Notre objectif : arriver le 30 juin 2027. Nous y arriverons ! Il reste $left % du voyage.',
+        ),
+      ]),
+      7,
+      hide: () => talk.value = null,
+    );
+    _nextTalk = t + 20;
+  }
+
+  /// Le temps de lire une réplique, en lingala puis en français.
+  double _lineTime(TalkLine l) => (2.5 + '${l.lingala} ${l.french}'.split(' ').length / 3.2).clamp(4.0, 8.0);
 
   /// Un moment difficile : une louange douce réconforte, sans revenir trop souvent.
   void _comfort() {
@@ -1853,11 +1970,13 @@ class ChachaGame extends FlameGame {
       hide: () => talk.value = null,
     );
     _cue(
-      () => talk.value = CabinTalk([
-        TalkLine('Commandant', b.oursLingala, b.ours.replaceAll('{to}', tr.to)),
-        const TalkLine('Passagers', 'Ha ha ha !', 'Ha ha ha !'),
-      ]),
-      6.5,
+      () => talk.value = CabinTalk([TalkLine('Commandant', b.oursLingala, b.ours.replaceAll('{to}', tr.to))]),
+      5,
+      hide: () => talk.value = null,
+    );
+    _cue(
+      () => talk.value = const CabinTalk([TalkLine('Passagers', 'Ha ha ha !', 'Ha ha ha !')]),
+      2.5,
       hide: () => talk.value = null,
     );
     _nextTalk = t + 20;
@@ -2657,7 +2776,7 @@ class ChachaGame extends FlameGame {
       passengers = math.max(0, passengers - m.count);
       final stars = m.stars;
       score += 300 * stars;
-      money += m.count * 40;
+      _earn(m.count * 40, 'passagers déposés');
       mission.value = null;
       _nextMission = t + 35;
       _stopPurpose = 0;
@@ -2793,7 +2912,14 @@ class ChachaGame extends FlameGame {
     _moneyAcc += dt * (6 + passengers / 6);
     if (_moneyAcc >= 1) {
       money += _moneyAcc.floor();
+      _flownMoney += _moneyAcc.floor();
       _moneyAcc -= _moneyAcc.floor();
+    }
+    // Toutes les 45 secondes, on voit ce que le vol a rapporté.
+    if (_flownMoney >= 200 && t >= _nextEarnFloat && phase == FlightPhase.cruising) {
+      _nextEarnFloat = t + 45;
+      _earnFloat(_flownMoney, 'gagnés en vol');
+      _flownMoney = 0;
     }
     final cur = currencyAt(year);
     if (cur != _lastCurrency) {
@@ -2889,7 +3015,7 @@ class ChachaGame extends FlameGame {
           if (p >= 1) {
             _cabinT = 0;
             score += 100;
-            money += _sales;
+            _earn(_sales, 'repas et boissons vendus');
             _talk(TalkMoment.meal);
             cabin.value = CabinHud(
               CabinMode.served,
@@ -3460,7 +3586,8 @@ class ChachaGame extends FlameGame {
           'Les avions de chasse sont les jours durs de « ${z.name} » · évite-les pour continuer',
           color: _warRed,
         );
-        _waveDelay = math.min(_waveDelay, 1.2);
+        // On lit l'annonce, on se prépare : les premiers avions arrivent quelques secondes après.
+        _waveDelay = math.min(_waveDelay, 5.5);
       },
       7,
       hide: () => banner.value = null,
@@ -3497,6 +3624,8 @@ class ChachaGame extends FlameGame {
         _wavesCleared++;
         score += 100 * _wavesCleared;
         _waveDelay = 2.2;
+        // Une vague passée : la cabine respire et remercie Dieu (pas à chaque fois).
+        if (_wavesCleared.isOdd || _wavesCleared == waves) _talk(TalkMoment.escape, force: _wavesCleared == 1);
         final sub = z.part;
         if (sub != null && _wavesCleared == sub.to) {
           score += 300;
@@ -3558,7 +3687,41 @@ class ChachaGame extends FlameGame {
           : 0.0;
       // Les trois premiers arrivent presque ensemble ; les suivants derrière.
       final wait = i < 3 ? i * 0.12 : 0.9 + (i - 3) * 0.7;
-      _jets.add(_Jet(_w + _jetLength, lanes[lane], wait, _unit * (480 + 60 * jets + 140 * _level), drift, part: part));
+      // Certains foncent, d'autres traînent : on ne devine pas le rythme d'avance.
+      final pace = const [0.6, 0.8, 1.0, 1.0, 1.15, 1.3][_rng.nextInt(6)];
+      _jets.add(
+        _Jet(_w + _jetLength, lanes[lane], wait, _unit * (480 + 60 * jets + 140 * _level) * pace, drift, part: part),
+      );
+    }
+    // Dès la deuxième vague, un chasseur s'arrête devant toi et tire ; au cœur de la crise,
+    // un hélicoptère de combat se tient au-dessus et tire aussi.
+    final lastWait = jets < 3 ? 0.4 : 0.9 + (jets - 3) * 0.7;
+    if (_wave >= 2 && !part && (_wave.isEven || _rng.nextDouble() < 0.4)) {
+      _jets.add(
+        _Jet(
+          _w + _jetLength,
+          lanes[_rng.nextInt(lanes.length)],
+          lastWait + 1.2,
+          _unit * 520,
+          0,
+          shots: 1 + (_wave >= 4 ? _rng.nextInt(_level > 0.5 ? 3 : 2) : 0),
+          stopX: _w * (0.68 + _rng.nextDouble() * 0.12),
+        ),
+      );
+    }
+    if ((_peakWave(_zone!, _wave) || (_wave >= 3 && _rng.nextDouble() < 0.4)) && !part) {
+      _jets.add(
+        _Jet(
+          _w + _jetLength,
+          _h * 0.14,
+          lastWait + 2.6,
+          _unit * 300,
+          0,
+          heli: true,
+          shots: 1 + _rng.nextInt(2),
+          stopX: _w * (0.55 + _rng.nextDouble() * 0.15),
+        ),
+      );
     }
     // Dès la deuxième vague, des missiles filent vers l'avion entre les avions de chasse.
     if (_wave == (_wavesOf(_zone!) / 3).floor() + 1) {
@@ -3694,6 +3857,7 @@ class ChachaGame extends FlameGame {
       flash = math.max(flash, 0.25);
     }
 
+    final fired = <_Jet>[];
     for (final j in _jets) {
       if (j.wait > 0) {
         j.wait -= dt;
@@ -3703,21 +3867,45 @@ class ChachaGame extends FlameGame {
         j.warn -= dt;
         continue;
       }
-      j.x -= move + j.speed * dt;
-      j.y += j.drift * dt;
-      if (!j.hit && phase == FlightPhase.cruising && _hits(j.x, j.y, _jetLength * (j.missile ? 0.09 : 0.16))) {
+      if (j.hunter) {
+        _huntStep(j, dt, move, fired);
+      } else {
+        j.x -= (j.aimed ? 0 : move) + j.speed * dt;
+        j.y += j.drift * dt;
+      }
+      final reach = _jetLength * (j.missile ? 0.09 : (j.heli ? 0.2 : 0.16));
+      if (!j.hit && phase == FlightPhase.cruising && _hits(j.x, j.y, reach)) {
         j.hit = true;
         // Le choc perce le réservoir et coûte des points : on le voit tout de suite, au-dessus de l'avion.
         if (invulnerable <= 0 && _finaleT < 0) {
           final leak = j.missile ? 12.0 : 8.0, cost = j.missile ? 150 : 100;
           fuel = math.max(fuel > 5 ? 5 : fuel, fuel - leak);
           score = math.max(0, score - cost);
-          _float('−${leak.round()} % kérosène · −$cost points', planeX, planeY - 40 * _unit, const Color(0xFFFF8A65));
+          _float(
+            '−${leak.round()} % kérosène · −$cost points${j.aimed ? ' · −15 % état' : ''}',
+            planeX,
+            planeY - 40 * _unit,
+            const Color(0xFFFF8A65),
+          );
         }
-        _loseLife(j.missile ? 'Missile' : 'Avion de chasse');
+        if (j.aimed) {
+          // Le missile d'un chasseur qui te vise abîme l'avion sans te coûter une vie.
+          if (invulnerable <= 0 && _finaleT < 0) {
+            condition = math.max(0, condition - _hurt(15));
+            invulnerable = 1.2;
+            shake = 0.4;
+            HapticFeedback.mediumImpact();
+            _burst(planeX, planeY, 18, const [Color(0xFFFFB04A), Color(0xFFFF3B3B), Colors.white]);
+            _pushHud();
+          }
+        } else {
+          _loseLife(j.missile ? 'Missile' : 'Avion de chasse');
+        }
       }
     }
-    _jets.removeWhere((j) => j.x < -_jetLength);
+    _jets
+      ..addAll(fired)
+      ..removeWhere((j) => j.x < -_jetLength || j.y < -_h * 0.4);
     _zoneFade = (_zoneFade + (_zone != null ? dt : -dt) * 0.8).clamp(0.0, 1.0);
 
     // Le volcan défile lentement, loin en bas, et crache des bombes de lave.
@@ -4119,12 +4307,24 @@ class ChachaGame extends FlameGame {
     if (phase == FlightPhase.approach) _drawGlidePath(canvas);
     if (phase == FlightPhase.ground) _drawCrew(canvas, behind: true);
     _drawPlane(canvas);
+    if (phase == FlightPhase.crashed || _wrecked) _drawPlaneFire(canvas);
     _drawMaint(canvas);
     _drawTruck(canvas);
     if (phase == FlightPhase.ground) _drawCrew(canvas, behind: false);
     for (final j in _jets) {
       if (j.wait > 0) continue;
-      j.warn > 0 ? _drawWarning(canvas, j) : _drawJet(canvas, j);
+      j.warn > 0 ? _drawWarning(canvas, j) : (j.heli ? _drawHeli(canvas, j) : _drawJet(canvas, j));
+      // Le chasseur arrêté vise : un cercle rouge clignote sur son nez juste avant le tir.
+      if (!j.heli && j.hunter && !j.leaving && j.shots > 0 && j.fireT < 0.6 && (t * 10).floor().isEven) {
+        canvas.drawCircle(
+          Offset(j.x - _jetLength * 0.45, j.y),
+          _jetLength * 0.07,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.5 * _unit
+            ..color = const Color(0xFFFF3B3B),
+        );
+      }
     }
 
     for (final c in _clouds.where((c) => !c.storm && c.depth >= 0.6)) {
@@ -4353,6 +4553,98 @@ class ChachaGame extends FlameGame {
   }
 
   /// Un missile gris à pointe rouge, avec sa traînée de feu.
+  /// Le chasseur qui s'arrête, ou l'hélicoptère : il cherche ta hauteur, tire, puis s'en va.
+  void _huntStep(_Jet j, double dt, double move, List<_Jet> fired) {
+    j.age += dt;
+    if (j.leaving) {
+      // Ses tirs finis, il vire et remonte hors de l'écran : il ne fonce jamais sur toi.
+      if (j.heli) {
+        j.y -= _h * 0.45 * dt;
+        j.x += _w * 0.05 * dt;
+      } else {
+        j.y -= _h * 0.7 * dt;
+        j.x -= _w * 0.1 * dt;
+      }
+      return;
+    }
+    if (j.x > j.stopX) {
+      j.x = math.max(j.stopX, j.x - (move + j.speed * dt));
+    }
+    // L'hélicoptère reste au-dessus de toi ; le chasseur se met à ta hauteur, sans jamais être exact.
+    final aim = j.heli ? (planeY - _h * 0.3).clamp(_h * 0.1, _h * 0.42) : planeY.clamp(_h * 0.12, _h * 0.88);
+    final speed = _h * (j.heli ? 0.18 : 0.3);
+    j.vy = ((aim - j.y) * 2).clamp(-speed, speed);
+    j.y += j.vy * dt;
+    if (j.x > j.stopX + 1) return;
+    j.fireT -= dt;
+    if (j.fireT <= 0 && j.shots > 0) {
+      j.shots--;
+      j.fireT = j.heli ? 2.0 : 1.7;
+      final from = Offset(j.x - _jetLength * 0.3, j.y + (j.heli ? _jetLength * 0.1 : 0));
+      final speedM = _unit * (j.heli ? 320 : 400);
+      // Le missile vise là où tu es au moment du tir : il faut bouger pour l'éviter.
+      final arrive = math.max(0.6, (from.dx - planeX) / speedM);
+      final drift = ((planeY - from.dy) / arrive).clamp(-_h * 0.5, _h * 0.5);
+      fired.add(_Jet(from.dx, from.dy, 0, speedM, drift, missile: true, aimed: true)..warn = 0);
+      _burst(from.dx, from.dy, 8, const [Color(0xFFFFE0A0), Color(0xFFB0B0B0)], speed: 90, size: 3);
+      HapticFeedback.selectionClick();
+    } else if (j.shots == 0 && j.fireT <= 0.4 || j.age > 14) {
+      j.leaving = true;
+    }
+  }
+
+  /// L'hélicoptère de combat, vu de côté, nez à gauche : le rotor tourne au-dessus.
+  void _drawHeli(Canvas canvas, _Jet j) {
+    final l = _jetLength * 0.9;
+    canvas.save();
+    canvas.translate(j.x, j.y);
+    canvas.rotate(j.leaving ? -0.12 : 0.08);
+    final body = Paint()..color = const Color(0xFF2E3A2A);
+    final dark = Paint()..color = const Color(0xFF151C14);
+    // Queue et rotor arrière
+    canvas.drawRect(Rect.fromLTWH(l * 0.05, -l * 0.04, l * 0.5, l * 0.05), body);
+    canvas.drawRect(Rect.fromLTWH(l * 0.52, -l * 0.14, l * 0.04, l * 0.14), dark);
+    final spinTail = (math.sin(t * 50) * 0.5 + 0.5) * l * 0.12 + l * 0.02;
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(l * 0.56, -l * 0.07), width: spinTail, height: l * 0.12),
+      dark..color = const Color(0x88151C14),
+    );
+    // Cabine
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(-l * 0.3, -l * 0.1, l * 0.42, l * 0.18), Radius.circular(l * 0.09)),
+      body,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(-l * 0.3, -l * 0.08, l * 0.13, l * 0.08), Radius.circular(l * 0.04)),
+      Paint()..color = const Color(0xFF8FB4C8),
+    );
+    // Patins et lance-missiles
+    final skid = Paint()
+      ..color = const Color(0xFF151C14)
+      ..strokeWidth = l * 0.018
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(-l * 0.26, l * 0.15), Offset(l * 0.1, l * 0.15), skid);
+    canvas.drawLine(Offset(-l * 0.18, l * 0.08), Offset(-l * 0.18, l * 0.15), skid);
+    canvas.drawLine(Offset(l * 0.02, l * 0.08), Offset(l * 0.02, l * 0.15), skid);
+    canvas.drawRect(Rect.fromLTWH(-l * 0.2, l * 0.06, l * 0.22, l * 0.035), Paint()..color = const Color(0xFF59604F));
+    // Mât et grand rotor qui tourne
+    canvas.drawRect(Rect.fromLTWH(-l * 0.1, -l * 0.15, l * 0.04, l * 0.06), dark..color = const Color(0xFF151C14));
+    final spin = (math.cos(t * 38) * 0.5 + 0.5) * 0.8 + 0.2;
+    canvas.drawLine(
+      Offset(-l * 0.08 - l * 0.55 * spin, -l * 0.15),
+      Offset(-l * 0.08 + l * 0.55 * spin, -l * 0.15),
+      Paint()
+        ..color = const Color(0xCC151C14)
+        ..strokeWidth = l * 0.025
+        ..strokeCap = StrokeCap.round,
+    );
+    // Il vise : une petite lumière rouge clignote juste avant le tir.
+    if (!j.leaving && j.shots > 0 && j.fireT < 0.6 && (t * 10).floor().isEven) {
+      canvas.drawCircle(Offset(-l * 0.32, l * 0.02), l * 0.03, Paint()..color = const Color(0xFFFF3B3B));
+    }
+    canvas.restore();
+  }
+
   void _drawMissile(Canvas canvas, _Jet j) {
     final l = _jetLength * 0.42;
     canvas.save();
@@ -4396,7 +4688,8 @@ class ChachaGame extends FlameGame {
     final l = _jetLength;
     canvas.save();
     canvas.translate(j.x, j.y);
-    canvas.rotate(math.atan2(-j.drift, j.speed) * 0.5);
+    // Un chasseur qui s'en va cabre le nez vers le haut.
+    canvas.rotate(j.leaving ? 0.7 : math.atan2(-j.drift, j.speed) * 0.5);
     final bounds = Rect.fromLTRB(-l / 2, -l * 0.25, l / 2, l * 0.2);
     final dark = Paint()
       ..shader = LinearGradient(
@@ -4588,6 +4881,41 @@ class ChachaGame extends FlameGame {
         ..strokeWidth = 2.2 * _unit
         ..color = Color.fromRGBO(255, 255, 255, _bolt),
     );
+  }
+
+  /// Le feu de l'avion touché à mort : une flamme sur l'aile, une sur la queue,
+  /// et le brasier au sol après l'impact. Des flammes dessinées, sans flou : c'est léger.
+  void _drawPlaneFire(Canvas canvas) {
+    final len = planeLength;
+    final c = math.cos(pitch), s = math.sin(pitch);
+    Offset along(double k) => Offset(planeX + c * len * k * _facing, planeY + s * len * k);
+    final grow = phase == FlightPhase.crashed ? math.min(1.0, phaseTime * 1.5 + 0.3) : 0.7;
+    _flame(canvas, along(0.02), len * 0.2 * grow, 0);
+    _flame(canvas, along(-0.3), len * 0.14 * grow, 1.7);
+    if (_impact || _wrecked) {
+      _flame(canvas, Offset(planeX - len * 0.25, planeY + len * 0.12), len * 0.3, 3.1);
+      _flame(canvas, Offset(planeX + len * 0.2, planeY + len * 0.14), len * 0.24, 4.4);
+    }
+  }
+
+  void _flame(Canvas canvas, Offset at, double size, double seed) {
+    const colors = [Color(0xE6D7261E), Color(0xF2FF7A1E), Color(0xFFFFD34D), Color(0xFFFFF5C8)];
+    for (var i = 0; i < colors.length; i++) {
+      final k = 1 - i * 0.22;
+      final flick = 1 + 0.18 * math.sin(t * (13 + i * 3) + seed * 5) + 0.08 * math.sin(t * 31 + seed);
+      final w = size * 0.55 * k, h = size * 1.25 * k * flick;
+      final sway = math.sin(t * 7 + seed + i) * size * 0.12;
+      final base = at.translate(0, size * 0.25 - i * size * 0.04);
+      canvas.drawPath(
+        Path()
+          ..moveTo(base.dx - w / 2, base.dy)
+          ..quadraticBezierTo(base.dx - w * 0.6, base.dy - h * 0.55, base.dx + sway, base.dy - h)
+          ..quadraticBezierTo(base.dx + w * 0.6, base.dy - h * 0.55, base.dx + w / 2, base.dy)
+          ..quadraticBezierTo(base.dx, base.dy + w * 0.35, base.dx - w / 2, base.dy)
+          ..close(),
+        Paint()..color = colors[i],
+      );
+    }
   }
 
   void _drawPlane(Canvas canvas) {
