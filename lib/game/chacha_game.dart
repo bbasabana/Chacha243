@@ -1659,8 +1659,10 @@ class ChachaGame extends FlameGame {
         'Tour de contrôle',
         Lingala.keba,
         _zone == null
-            ? 'Ton avion est très abîmé (${condition.round()} %). Atterris pour l\'entretien, ou attrape un kit.'
-            : 'Ton avion est très abîmé (${condition.round()} %). Attrape un kit, et atterris dès la fin de la zone.',
+            ? 'Ton avion est abîmé à ${condition.round()} %. Que faire : attrape le rond BLEU avec une clé qui arrive '
+                  'dans quelques secondes, il répare l\'avion. Ou touche ATTERRIR : à l\'aéroport, l\'entretien le remet à 100 %.'
+            : 'Ton avion est abîmé à ${condition.round()} %. Que faire : attrape le rond BLEU avec une clé qui arrive '
+                  'dans quelques secondes. Dès la fin de la zone, touche ATTERRIR pour l\'entretien.',
         first: true,
         still: () => condition < 40 && _maintT < 0,
       );
@@ -1711,6 +1713,9 @@ class ChachaGame extends FlameGame {
     if (year.floor() > _yearSent && _startSent) {
       _yearSent = year.floor();
       _report('year');
+      // Chaque nouvelle année hors d'une guerre devient le point de reprise : après un crash en 1994,
+      // on reprend en 1994, pas au début de la décennie.
+      if (_zone == null && phase == FlightPhase.cruising && _finaleT < 0) _saveCheckpoint(year);
     }
     // On quitte les années 1970 : Zaïko Langa Langa ouvre les années 1980, dans un ciel sans obstacle.
     if (!_eightiesSaid && year >= 1980 && year < 1981 && _zone == null && phase == FlightPhase.cruising) {
@@ -2053,7 +2058,7 @@ class ChachaGame extends FlameGame {
             _cue(
               () => banner.value = FlightBanner(
                 e.medal ?? e.title,
-                'Son médaillon arrive au milieu · attrape-le pour lire son histoire',
+                '${e.intro ?? e.date} · son médaillon arrive au milieu, attrape-le',
                 color: ChachaColors.yellow,
               ),
               5,
@@ -4102,7 +4107,9 @@ class ChachaGame extends FlameGame {
 
     final rx = planeLength * 0.42;
     for (final p in _pickups) {
-      p.x -= p.slow ? move * (p.event != null && !independenceFaces.contains(p.event) ? 0.25 : 0.38) : move;
+      // Un médaillon d'histoire garde sa vitesse même en TURBO : il faut le temps de le voir et de l'attraper.
+      final calm = p.event != null && boost ? move / 1.6 : move;
+      p.x -= p.slow ? calm * (p.event != null && !independenceFaces.contains(p.event) ? 0.25 : 0.38) : calm;
       if (magnetTime > 0 && !p.taken) {
         final d = Offset(planeX - p.x, planeY - p.y);
         if (d.distance < 320 * _unit) {

@@ -30,6 +30,7 @@ class HistoryEvent {
     this.song,
     this.big = false,
     this.medal,
+    this.intro,
   });
 
   /// Année décimale (1974.83 = fin octobre 1974).
@@ -56,6 +57,9 @@ class HistoryEvent {
 
   /// Le nom écrit sur la plaque du médaillon, à la place de l'année.
   final String? medal;
+
+  /// Ce qu'il faut savoir en une ligne, annoncé avant que le médaillon arrive.
+  final String? intro;
 
   int get yearLabel => year.floor();
 }
@@ -395,8 +399,10 @@ const historyEvents = <HistoryEvent>[
     '24 avril 1990',
     'Kinshasa',
     '« Comprenez mon émotion »',
-    'Mobutu annonce la fin du parti unique et le multipartisme. Sa phrase reste dans toutes les mémoires.',
-    photo: 'mobutu',
+    'Le 24 avril 1990, Mobutu annonce la fin du parti unique : il accepte le multipartisme. Ému aux larmes, il dit « Comprenez mon émotion ». Sa phrase reste dans toutes les mémoires.',
+    photo: 'emotion',
+    medal: 'Mobutu · 1990',
+    intro: '« Comprenez mon émotion » · Mobutu accepte le multipartisme',
   ),
   HistoryEvent(
     1990.6,
@@ -407,6 +413,7 @@ const historyEvents = <HistoryEvent>[
     'À cette époque, les églises de réveil et leurs chants se répandent dans tout le pays. Le pasteur Ayidini Abala, né le 15 juillet 1927 en Ituri, fondateur de son église, est appelé le père du réveil au Congo.',
     photo: 'abala',
     medal: 'Ayidini Abala',
+    intro: 'Le père du réveil au Congo',
     song: 'reveil',
   ),
   HistoryEvent(

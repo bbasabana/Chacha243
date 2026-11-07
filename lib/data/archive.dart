@@ -32,6 +32,7 @@ const archivePhotos = <String, ArchivePhoto>{
     'Des militaires dans l\'Est du Congo',
     credit: 'Hugh Kinsella Cunningham / Getty Images',
   ),
+  'emotion': ArchivePhoto('mobutu-emotion-1990.jpg', 'Mobutu, ému, le 24 avril 1990'),
   'mobututoque': ArchivePhoto('mobutu-toque.jpg', 'Mobutu Sese Seko et sa toque de léopard'),
   'zaire': ArchivePhoto(
     'drapeau-zaire.jpg',

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -51,6 +52,9 @@ class Telemetry {
   static const _box = 'chacha243.outbox';
   static bool _flushing = false, _again = false;
 
+  /// While reports wait, the phone tries again every minute: as soon as the connection is back, they leave.
+  static Timer? _retry;
+
   static Future<void> _post(Map<String, Object?> body) async {
     try {
       final id = await _playerId();
@@ -85,6 +89,7 @@ class Telemetry {
       return;
     }
     _flushing = true;
+    var left = false;
     try {
       final p = await SharedPreferences.getInstance();
       while (true) {
@@ -95,15 +100,25 @@ class Telemetry {
             .post(Uri.parse(_url), headers: {'content-type': 'application/json'}, body: item)
             .timeout(const Duration(seconds: 8));
         // The server is down or busy: keep it for later. A refused report (4xx) is dropped.
-        if (r.statusCode >= 500 || r.statusCode == 429) break;
+        if (r.statusCode >= 500 || r.statusCode == 429) {
+          left = true;
+          break;
+        }
         final now = p.getStringList(_box) ?? [];
         now.remove(item);
         await p.setStringList(_box, now);
       }
     } catch (_) {
       // no connection: everything stays in the box
+      left = true;
     } finally {
       _flushing = false;
+    }
+    if (left && _retry == null) {
+      _retry = Timer(const Duration(minutes: 1), () {
+        _retry = null;
+        _flush();
+      });
     }
     if (_again) {
       _again = false;
