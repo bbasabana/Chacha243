@@ -33,6 +33,9 @@ class Music {
   final _available = <String, bool>{};
   String? _playing;
 
+  /// Une chanson joue en ce moment (pour ne pas en lancer une autre par-dessus).
+  bool get busy => _playing != null;
+
   /// Le niveau du fondu, de 0 (muet) à 1 (volume réglé par le joueur).
   double _level = 0;
   Timer? _fade, _end;

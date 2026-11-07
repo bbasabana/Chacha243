@@ -26,6 +26,12 @@ class ArchivePhoto {
 const archivePhotos = <String, ArchivePhoto>{
   'tshombe': ArchivePhoto('moise-tshombe.jpg', 'Moïse Tshombe'),
   'mobutu': ArchivePhoto('mobutu-au-pouvoir.jpg', 'Mobutu Sese Seko'),
+  'afdl': ArchivePhoto('kabila-afdl-troupes.jpg', 'Laurent-Désiré Kabila passe ses troupes en revue'),
+  'est': ArchivePhoto(
+    'militaires-est-goma.jpg',
+    'Des militaires dans l\'Est du Congo',
+    credit: 'Hugh Kinsella Cunningham / Getty Images',
+  ),
   'mobututoque': ArchivePhoto('mobutu-toque.jpg', 'Mobutu Sese Seko et sa toque de léopard'),
   'zaire': ArchivePhoto(
     'drapeau-zaire.jpg',
@@ -207,6 +213,23 @@ const momentSongs = <String, MomentSong>{
     level: 0.7,
     fadeIn: 0.5,
     then: 'chacha',
+  ),
+  // La paix revenue, la descente vers l'aéroport : deux extraits d'une louange, l'un après l'autre.
+  'paix1': MomentSong(
+    'paix-elshekina-1.mp3',
+    'Alléluia, amen',
+    'Gael · El-Shekina',
+    seconds: 30,
+    level: 0.55,
+    fadeIn: 1.5,
+  ),
+  'paix2': MomentSong(
+    'paix-elshekina-2.mp3',
+    'Alléluia, amen',
+    'Gael · El-Shekina',
+    seconds: 30,
+    level: 0.55,
+    fadeIn: 1.5,
   ),
   'okjazz': MomentSong('franco-chicotte.mp3', 'Chicotte (1964)', 'Franco et l\'OK Jazz'),
   'bomaye': MomentSong('ali-bomaye.mp3', '« Ali, bomaye ! »', 'Kinshasa, 1974'),

@@ -10,7 +10,7 @@ class Checkpoint {
   Checkpoint(this.year, this.score, this.medals, {this.money = 3000, this.seconds = 0});
 
   final double year;
-  final int score;
+  int score;
   final int medals;
   int money;
 

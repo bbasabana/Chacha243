@@ -200,7 +200,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           spacing: 14,
                           runSpacing: 12,
                           children: [
-                            if (_saved case final cp?)
+                            // Une reprise en dette n'est pas possible : il faut recommencer et récolter.
+                            if (_saved case final cp? when cp.money >= 0)
                               GlassButton(
                                 onTap: () => _play(from: cp),
                                 tint: const Color(0x55CE1021),

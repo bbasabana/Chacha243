@@ -384,7 +384,10 @@ class _Particle {
 
 /// Un passage de la régie : un seul message à l'écran, puis un temps de silence avant le suivant.
 class _Cue {
-  _Cue(this.show, this.seconds, {this.hide, this.done, this.hold = false, this.urgent = false});
+  _Cue(this.show, this.seconds, {this.hide, this.done, this.hold = false, this.urgent = false, this.still});
+
+  /// Encore vrai au moment de passer ? Un message périmé (« le kérosène va finir » après un plein) est sauté.
+  final bool Function()? still;
 
   /// Passé devant les autres (une zone, l'Indépendance) : jamais jeté quand la file déborde.
   final bool urgent;
@@ -436,6 +439,11 @@ class ChachaGame extends FlameGame {
 
   /// Fait monter ou baisser la chanson en cours (niveau de 0 à 1, en secondes).
   void Function(double level, double seconds)? onSwell;
+
+  /// Après un crash, l'avion se répare avant de reprendre : 1 500 dans la monnaie du moment.
+  /// Sans assez d'argent ni de points, on ne peut pas reprendre : on recommence en 1960 pour récolter.
+  static const repairFee = 1500;
+  String repairBill = '';
 
   /// Les droits d'escale, toujours 1 000 dans la monnaie du moment ; le kérosène se paie en plus.
   static const landingFee = 1000;
@@ -606,7 +614,7 @@ class ChachaGame extends FlameGame {
 
   /// Le réservoir de secours : ce qui déborde du plein y va, on le verse quand le kérosène manque.
   double reserve = 0;
-  bool _reserveSaid = false, _tenSaid = false;
+  bool _reserveSaid = false;
 
   /// Le temps en vol depuis le décollage, celui de l'étape en cours, celui depuis le dernier décollage.
   double _flightT = 0, _stageT = 0, _airT = 0, _zoneWarnT = -99;
@@ -891,6 +899,17 @@ class ChachaGame extends FlameGame {
       case 'atterrir':
         _clearStage();
         requestLanding();
+      case 'crash' || 'fauche':
+        // Pour les captures : le bilan d'un crash, avec ou sans de quoi payer la réparation.
+        autopilot = false;
+        if (showcase == 'fauche') money = 200;
+        _failWhy = 'Missile';
+        lives = 0;
+        _clearStage();
+        _setPhase(FlightPhase.crashed);
+        for (var i = 0; i < 4 * 60; i++) {
+          _tick(_step);
+        }
       case 'plein':
         // Pour les captures : le camion-citerne au milieu du plein.
         buyFuel();
@@ -927,7 +946,6 @@ class ChachaGame extends FlameGame {
     if (phase != FlightPhase.cruising || magnetCooldown > 0) return;
     magnetTime = 3;
     magnetCooldown = 10;
-    HapticFeedback.selectionClick();
   }
 
   static String _clock(double s) {
@@ -965,9 +983,23 @@ class ChachaGame extends FlameGame {
       _impact = false;
       if (!autopilot) {
         saveFlight(FlightRecord(DateTime.now(), score, medals, money, currencyAt(year), false, year));
-        // On reprendra au dernier point de reprise, mais avec l'argent qui reste maintenant.
+        // On reprendra au dernier point de reprise, avec l'argent qui reste maintenant,
+        // moins la réparation de l'avion : l'argent d'abord, puis les points du point de reprise.
         final cp = checkpoint.value;
         if (cp != null) {
+          var owe = repairFee;
+          final cash = math.min(math.max(0, money), owe);
+          owe -= cash;
+          final pts = math.min(cp.score, owe);
+          owe -= pts;
+          cp.score -= pts;
+          money -= cash + owe;
+          repairBill = [
+            'Réparation de l\'avion : ${_fmt(repairFee)} ${currencyAt(year)}',
+            if (cash > 0) '${_fmt(cash)} payés',
+            if (pts > 0) '${_fmt(pts)} points',
+            if (owe > 0) 'il manque ${_fmt(owe)}',
+          ].join(' · ');
           cp.money = money;
           cp.seconds = _flightT;
           cp.save();
@@ -997,8 +1029,9 @@ class ChachaGame extends FlameGame {
     bool Function()? done,
     bool hold = false,
     bool first = false,
+    bool Function()? still,
   }) {
-    final c = _Cue(show, seconds, hide: hide, done: done, hold: hold, urgent: first);
+    final c = _Cue(show, seconds, hide: hide, done: done, hold: hold, urgent: first, still: still);
     if (first) {
       // Derrière les autres messages urgents déjà en tête, pour garder leur ordre.
       final at = _cues.indexWhere((x) => !x.urgent);
@@ -1036,6 +1069,10 @@ class ChachaGame extends FlameGame {
       _cueGap = _breath;
     }
     _cueGap -= dt;
+    // Les messages qui ne sont plus vrais s'en vont sans s'afficher.
+    while (_cues.isNotEmpty && !(_cues.first.still?.call() ?? true)) {
+      _cues.removeAt(0);
+    }
     if (_cueGap > 0 || _cues.isEmpty) return;
     final next = _onStage = _cues.removeAt(0);
     _cueLeft = next.seconds;
@@ -1062,7 +1099,6 @@ class ChachaGame extends FlameGame {
           slowMo = math.max(slowMo, 3.5);
           shake = 0.3;
           turningPoint.value = TurningPoint(e, flagAt(e.year - 0.02).style, flagAt(e.year + 0.12).style);
-          HapticFeedback.heavyImpact();
         },
         7,
         hide: () => turningPoint.value = null,
@@ -1360,10 +1396,10 @@ class ChachaGame extends FlameGame {
     _updateWorld(dt, ts);
 
     // Dans les turbulences, le téléphone vibre doucement, lentement.
-    final rough = _zone != null || _turbulence > 0 || year < stormUntil;
-    if (rough && phase == FlightPhase.cruising && t >= _nextBuzz) {
-      _nextBuzz = t + (_zone != null ? 1.1 : 1.6) + _rng.nextDouble() * 0.5;
-      _zone != null ? onBuzz?.call(160, 170) : onBuzz?.call(90, 110);
+    // Seulement quand l'avion est vraiment secoué : pas pendant toute une époque d'orages.
+    if (_turbulence > 0 && phase == FlightPhase.cruising && t >= _nextBuzz) {
+      _nextBuzz = t + 2.4 + _rng.nextDouble() * 0.8;
+      onBuzz?.call(80, 90);
     }
 
     _runStage(dt);
@@ -1451,7 +1487,6 @@ class ChachaGame extends FlameGame {
       climbStartY = planeY;
       _climbFrom = climb;
       _setPhase(FlightPhase.climbing);
-      HapticFeedback.mediumImpact();
     }
   }
 
@@ -1582,7 +1617,14 @@ class ChachaGame extends FlameGame {
     condition = math.max(0, condition - _hurt(dt * ts * 0.15));
     if (fuel < 25 && !_lowFuelSaid) {
       _lowFuelSaid = true;
-      _say('Tour de contrôle', Lingala.mafuta, 'Le kérosène va finir. Attrape un bidon ou fais escale.');
+      _say(
+        'Tour de contrôle',
+        Lingala.mafuta,
+        reserve >= 5
+            ? 'Kérosène à 25 %. Ta réserve (${reserve.round()} %) sera versée toute seule dans le réservoir à 12 %.'
+            : 'Kérosène à 25 % et pas de réserve. Attrape un bidon rouge ou fais escale.',
+        still: () => fuel < 30,
+      );
     }
     if (fuel > 40) _lowFuelSaid = false;
     if (fuel > 70) _halfFuelSaid = false;
@@ -1620,26 +1662,20 @@ class ChachaGame extends FlameGame {
         'Tour de contrôle',
         Lingala.mafuta,
         'Kérosène à 50 % : regarde la jauge en bas à gauche. Attrape les bidons rouges marqués KÉROSÈNE.',
+        still: () => fuel < 55,
       );
     }
-    if (fuel < 22 && t >= _nextFuelAlert && !_offerPending) _fuelAlert();
+    // L'alerte ne vient que si la réserve ne suffit pas à tenir.
+    if (fuel < 22 && fuel + reserve < 30 && t >= _nextFuelAlert && !_offerPending) _fuelAlert();
     if (fuel < 14 && _quizCount < 3 && t >= _nextQuiz || quizNow) {
       quizNow = false;
       _askQuiz();
     }
     // Le kit attend que la fiche d'histoire soit lue : on n'apprend pas en esquivant.
     if (t >= _nextKit && (fuel < 55 || condition < 55) && card.value == null && turningPoint.value == null) _spawnKit();
-    if (fuel < 10 && !_tenSaid && reserve >= 1) {
-      _tenSaid = true;
-      _say(
-        'Tour de contrôle',
-        Lingala.mafuta,
-        'Plus que 10 % de kérosène ! Tu as ${reserve.round()} % en réserve : touche RÉSERVE pour la verser.',
-        first: true,
-      );
-    }
-    if (fuel <= 0 && reserve >= 1) {
-      useReserve();
+    // La réserve se verse toute seule quand le réservoir descend à 12 %.
+    if (fuel < 12 && reserve >= 1) {
+      useReserve(auto: true);
     } else if (fuel <= 0) {
       fuel = 45;
       _queueBanner(
@@ -1784,7 +1820,6 @@ class ChachaGame extends FlameGame {
       case 2 when _finaleT >= 13.5:
         slowMo = 1.6;
         shake = 0.35;
-        HapticFeedback.heavyImpact();
         _finaleStep++;
       case 3 when _finaleT >= 18:
         _stormWall();
@@ -1793,7 +1828,6 @@ class ChachaGame extends FlameGame {
       case 4 when _finaleT >= 20.5:
         slowMo = 1.4;
         shake = 0.45;
-        HapticFeedback.heavyImpact();
         _talk(TalkMoment.finaleStorm, force: true);
         _finaleStep++;
       case 5 when _finaleT >= 25:
@@ -1811,7 +1845,6 @@ class ChachaGame extends FlameGame {
           const FlightBanner('Le calme après la tempête', 'Le ciel s\'ouvre au-dessus du pays', color: _peaceGreen),
         );
         _talk(TalkMoment.finaleCalm, force: true);
-        HapticFeedback.mediumImpact();
         _finaleStep++;
       case 8 when _finaleT >= _finaleLength:
         _beginHomecoming();
@@ -1850,7 +1883,6 @@ class ChachaGame extends FlameGame {
     if (!autopilot) Checkpoint.clear();
     if (!autopilot) saveFlight(FlightRecord(DateTime.now(), score, medals, money, currencyAt(year), true, year));
     _confetti();
-    HapticFeedback.heavyImpact();
     _burst(
       planeX - planeLength * 0.1,
       planeY + planeLength * 0.08,
@@ -1865,7 +1897,6 @@ class ChachaGame extends FlameGame {
   /// Une fête : des confettis aux couleurs du drapeau, appelée par l'écran à chaque « Vive… ».
   void cheer() {
     _confetti();
-    HapticFeedback.lightImpact();
   }
 
   /// Les gens de la cabine parlent : une conversation tirée au hasard pour ce moment.
@@ -2100,6 +2131,7 @@ class ChachaGame extends FlameGame {
     String? fuelPrice,
     double seconds = 5.5,
     bool first = false,
+    bool Function()? still,
   }) {
     void show() => radio.value = RadioCall(speaker, lingala, french, offer: offer, fuelPrice: fuelPrice);
     void hide() {
@@ -2113,7 +2145,50 @@ class ChachaGame extends FlameGame {
 
     // À l'approche et au sol, la tour guide en direct : son message passe tout de suite.
     if (phase != FlightPhase.cruising && phase != FlightPhase.climbing) return _cueNow(show, seconds, hide: hide);
-    _cue(show, seconds, hide: hide, done: offer == null ? null : () => !_offerPending, first: first);
+    _cue(show, seconds, hide: hide, done: offer == null ? null : () => !_offerPending, first: first, still: still);
+  }
+
+  /// Plus assez d'argent ni de points pour le kérosène en vol : la tour fait descendre l'avion.
+  /// Au sol, le plein est fait à crédit ; la dette se rembourse avec l'argent gagné ensuite.
+  void _mustLand() {
+    if (_zone != null || !canLand || _offerPending) return;
+    _airport = _nearestAirport();
+    _stopPurpose = 0;
+    _gusty = false;
+    _offerPending = true;
+    final city = _airport!.cityAt(year);
+    _cue(
+      () => radio.value = RadioCall(
+        'Tour de $city',
+        Lingala.kitaMalembe,
+        'Tu n\'as plus assez d\'argent pour le kérosène (${_fmt(math.max(0, money))} ${currencyAt(year)}). '
+            'Tu dois descendre à $city : le plein te sera fait à crédit.',
+      ),
+      6,
+      hide: () {
+        radio.value = null;
+        if (_offerPending && phase == FlightPhase.cruising && canLand) {
+          _startApproach();
+          _queueBanner(FlightBanner('Descente obligatoire', '${_airport!.titleAt(year)} · plein à crédit'));
+        } else {
+          _offerPending = false;
+        }
+      },
+      first: true,
+    );
+  }
+
+  /// En dette, l'argent gagné rembourse d'abord ce qui est dû ; on le voit une fois, quand c'est fini.
+  bool _inDebt = false;
+  void _watchDebt() {
+    if (money < 0) {
+      _inDebt = true;
+    } else if (_inDebt) {
+      _inDebt = false;
+      _queueBanner(
+        const FlightBanner('Dette remboursée', 'L\'argent gagné reste maintenant à toi', color: _peaceGreen),
+      );
+    }
   }
 
   /// Le prix du plein en vol, dans la monnaie du moment.
@@ -2131,6 +2206,8 @@ class ChachaGame extends FlameGame {
   void _fuelAlert() {
     _nextFuelAlert = t + 30;
     if (_offerPending || phase != FlightPhase.cruising || _finaleT >= 0) return;
+    // Pas de quoi payer même un peu de kérosène en vol : il faut descendre, l'aéroport fait crédit.
+    if (money + score < fuelPrice * 10) return _mustLand();
     _airport = _nearestAirport();
     _stopPurpose = 0;
     _gusty = false;
@@ -2144,6 +2221,7 @@ class ChachaGame extends FlameGame {
       offer: _airport!.cityAt(year),
       fuelPrice: '${_fmt(fuelBill)} ${currencyAt(year)}',
       seconds: 20,
+      still: () => fuel < 30,
     );
     HapticFeedback.heavyImpact();
   }
@@ -2256,18 +2334,17 @@ class ChachaGame extends FlameGame {
   bool get canUseReserve => reserve >= 1 && fuel < 90 && phase == FlightPhase.cruising;
 
   /// Verse la réserve dans le réservoir.
-  void useReserve() {
+  void useReserve({bool auto = false}) {
     if (reserve < 1 || fuel >= 99) return;
     final put = math.min(reserve, 100 - fuel);
     reserve -= put;
     fuel += put;
-    _tenSaid = false;
+    if (fuel >= 25) _lowFuelSaid = false;
     onSound?.call('kerosene');
-    HapticFeedback.mediumImpact();
     _queueBanner(
       FlightBanner(
-        'Réserve versée',
-        '+${put.round()} % · il reste ${reserve.round()} % en réserve',
+        auto ? 'Ta réserve est utilisée' : 'Réserve versée',
+        'Réservoir à ${fuel.round()} % · il reste ${reserve.round()} % en réserve',
         color: _peaceGreen,
       ),
       first: true,
@@ -2297,11 +2374,7 @@ class ChachaGame extends FlameGame {
       // Pas assez pour tout le plein : on achète ce qu'on peut payer.
       pay = math.min(price, money);
       if (pay < fuelPrice * 5) {
-        _say(
-          'Tour de contrôle',
-          Lingala.zelaMoke,
-          'Plus d\'argent ni de points pour le kérosène. Attrape les bidons rouges, ou recommence.',
-        );
+        if (phase == FlightPhase.cruising) _mustLand();
         return;
       }
     }
@@ -2314,7 +2387,6 @@ class ChachaGame extends FlameGame {
       _fuelFrom = fuel;
       _fuelTo = math.min(100, fuel + pay / fuelPrice);
       _truckT = 0;
-      HapticFeedback.lightImpact();
       _pushHud();
       return;
     }
@@ -2322,7 +2394,6 @@ class ChachaGame extends FlameGame {
     _offerPending = false;
     _lowFuelSaid = _halfFuelSaid = false;
     onSound?.call('kerosene');
-    HapticFeedback.mediumImpact();
     _queueBanner(
       FlightBanner('Kérosène acheté', 'Réservoir à ${fuel.round()} % · −${_fmt(pay)} $cur', color: _peaceGreen),
     );
@@ -2340,7 +2411,6 @@ class ChachaGame extends FlameGame {
       fuel = _fuelTo;
       _lowFuelSaid = _halfFuelSaid = false;
       onSound?.call('kerosene');
-      HapticFeedback.mediumImpact();
       _queueBanner(
         FlightBanner(
           fuel >= 50 ? 'Prêt à décoller' : 'Plein partiel',
@@ -2519,36 +2589,11 @@ class ChachaGame extends FlameGame {
       offer: _airport!.cityAt(year),
       seconds: 10,
     );
-    HapticFeedback.selectionClick();
   }
 
   /// Le joueur accepte l'escale : on commence l'approche.
   void acceptStopover() {
     if (!_offerPending || phase != FlightPhase.cruising) return;
-    if (money < landingFee) {
-      // Pas assez pour les droits d'escale : on convertit des points en argent, si on en a.
-      final missing = landingFee - money;
-      if (score >= missing) {
-        score -= missing;
-        money += missing;
-        _queueBanner(
-          FlightBanner(
-            'Points convertis',
-            '${_fmt(missing)} points → ${_fmt(missing)} ${currencyAt(year)} pour les droits d\'escale',
-            color: ChachaColors.yellow,
-          ),
-        );
-      } else {
-        _offerPending = false;
-        _nextOffer = t + 14;
-        _say(
-          'Tour de ${_airport!.cityAt(year)}',
-          Lingala.zelaMoke,
-          'Les droits d\'escale coûtent ${_fmt(landingFee)} ${currencyAt(year)}. Tu n\'as que ${_fmt(money)} : continue et gagne encore un peu.',
-        );
-        return;
-      }
-    }
     _startApproach();
     _queueBanner(FlightBanner('Préparation de l\'atterrissage', _airport!.titleAt(year)));
     _say(
@@ -2561,7 +2606,23 @@ class ChachaGame extends FlameGame {
     );
   }
 
+  /// La louange de la paix : un extrait, puis l'autre la fois suivante.
+  int _peaceSongs = 0;
+  void _peaceSong() => onSong?.call((_peaceSongs++).isEven ? 'paix1' : 'paix2');
+
+  /// Après un long silence dans un ciel calme, « Indépendance Cha Cha » revient doucement.
+  bool Function()? songBusy;
+  double _nextFiller = 150;
+  void _fillSilence() {
+    if (t < _nextFiller) return;
+    _nextFiller = t + 150;
+    if (_zone != null || _finaleT >= 0 || phase != FlightPhase.cruising || (songBusy?.call() ?? true)) return;
+    onSong?.call('chacha', level: 0.4);
+  }
+
   void _startApproach() {
+    // On descend vers l'aéroport avec la louange de la paix.
+    _peaceSong();
     _offerPending = false;
     cabin.value = null;
     _approachT = 0;
@@ -2686,7 +2747,6 @@ class ChachaGame extends FlameGame {
     vy = 0;
     pitch = 0;
     score += 200;
-    HapticFeedback.mediumImpact();
     _burst(
       planeX - planeLength * 0.1,
       planeY + planeLength * 0.08,
@@ -2898,12 +2958,23 @@ class ChachaGame extends FlameGame {
       return;
     }
     final cur = currencyAt(year);
-    money -= math.min(money, landingFee);
+    // L'aéroport fait toujours le plein. On paie avec l'argent, puis avec les points ;
+    // ce qui manque devient une dette, remboursée ensuite avec l'argent gagné en volant.
     final want = ((100 - fuel) * fuelPrice).round();
-    final pay = math.min(money, want);
-    money -= pay;
-    _fuelTarget = math.min(100, fuel + pay / fuelPrice);
-    _bill = 'Droits ${_fmt(landingFee)} $cur · kérosène ${_fmt(pay)} $cur${pay < want ? ' (plein partiel)' : ''}';
+    var left = landingFee + want;
+    final cash = math.min(math.max(0, money), left);
+    money -= cash;
+    left -= cash;
+    final pts = math.min(score, left);
+    score -= pts;
+    left -= pts;
+    money -= left;
+    _fuelTarget = 100;
+    _bill = [
+      'Droits ${_fmt(landingFee)} $cur · kérosène ${_fmt(want)} $cur',
+      if (pts > 0) '${_fmt(pts)} points convertis',
+      if (left > 0) 'dette ${_fmt(left)} $cur',
+    ].join(' · ');
     _keepMoney();
   }
 
@@ -2915,6 +2986,8 @@ class ChachaGame extends FlameGame {
       _flownMoney += _moneyAcc.floor();
       _moneyAcc -= _moneyAcc.floor();
     }
+    _watchDebt();
+    _fillSilence();
     // Toutes les 45 secondes, on voit ce que le vol a rapporté.
     if (_flownMoney >= 200 && t >= _nextEarnFloat && phase == FlightPhase.cruising) {
       _nextEarnFloat = t + 45;
@@ -2958,7 +3031,6 @@ class ChachaGame extends FlameGame {
               'Les ceintures ne sont toujours pas attachées · touche le signal',
             );
             onSound?.call('ceinture');
-            HapticFeedback.selectionClick();
           },
           0,
           hold: true,
@@ -3062,7 +3134,6 @@ class ChachaGame extends FlameGame {
         _cabinT = 0;
         _beltsDeadline = t + 9;
         cabin.value = CabinHud(CabinMode.beltsAsk, 0, passengers, 'Attachez vos ceintures', why);
-        HapticFeedback.selectionClick();
       },
       0,
       hold: true,
@@ -3085,7 +3156,6 @@ class ChachaGame extends FlameGame {
       'Attachez vos ceintures',
       'Clic, clic… les passagers se bouclent',
     );
-    HapticFeedback.mediumImpact();
   }
 
   static const beltsMoney = 600, beltsPoints = 400;
@@ -3182,7 +3252,6 @@ class ChachaGame extends FlameGame {
     if (_maintT >= _maintTime) {
       _maintT = -1;
       condition = 100;
-      HapticFeedback.mediumImpact();
       _float('✓ Entretien fait · avion à 100 %', planeX, planeY - planeLength * 0.3, const Color(0xFF8FD0FF));
       _queueBanner(
         FlightBanner(
@@ -3436,7 +3505,6 @@ class ChachaGame extends FlameGame {
     _offerAt = t;
     _nextKit = math.max(_nextKit, t + 15);
     _say('Tour de $city', lingala, french, offer: city, seconds: 18);
-    HapticFeedback.selectionClick();
   }
 
   void _askQuiz() {
@@ -3569,7 +3637,6 @@ class ChachaGame extends FlameGame {
     _waveDelay = 20;
     _saveCheckpoint(z.from + span * _wavesCleared);
     shake = 0.35;
-    HapticFeedback.heavyImpact();
     // Repris au milieu d'une zone, ou arrivé sans prévenir : on prévient maintenant.
     if (_warnedZone < _nextZone) {
       _warnedZone = _nextZone;
@@ -3755,7 +3822,6 @@ class ChachaGame extends FlameGame {
         );
       }
     }
-    if (_wave > 1) HapticFeedback.selectionClick();
     _pushHud();
   }
 
@@ -3773,7 +3839,6 @@ class ChachaGame extends FlameGame {
     flash = 0.5;
     _peace = 7;
     _confetti();
-    HapticFeedback.mediumImpact();
     _saveCheckpoint(z.to);
     _queueBanner(
       FlightBanner(
@@ -3783,6 +3848,7 @@ class ChachaGame extends FlameGame {
       ),
     );
     _talk(TalkMoment.peace, force: true);
+    _peaceSong();
     _queueBanner(
       const FlightBanner('Étape de paix', '+1 vie · +500 points · la réconciliation continue', color: _peaceGreen),
     );
@@ -3802,7 +3868,6 @@ class ChachaGame extends FlameGame {
       flash = 1;
       _burst(planeX, planeY, 40, const [Colors.white, ChachaColors.yellow, ChachaColors.skyLight], speed: 320);
       _queueBanner(FlightBanner('${a.from.floor()} · ${a.name}', a.note));
-      HapticFeedback.mediumImpact();
       final next = aircraftById(a.flagship);
       if (next != type && phase == FlightPhase.cruising) _changeAircraft(next);
     }
@@ -4043,7 +4108,6 @@ class ChachaGame extends FlameGame {
           _calmUntil = math.max(_calmUntil, t + 8);
           _talk(_rng.nextBool() ? TalkMoment.glory : TalkMoment.dance);
         }
-        HapticFeedback.lightImpact();
       case _PickupKind.star:
         score += 10;
         onSound?.call('etoile');
@@ -4081,7 +4145,6 @@ class ChachaGame extends FlameGame {
           planeY - planeLength * 0.3,
           const Color(0xFF8FD0FF),
         );
-        HapticFeedback.mediumImpact();
     }
     _pushHud();
   }
@@ -4587,7 +4650,6 @@ class ChachaGame extends FlameGame {
       final drift = ((planeY - from.dy) / arrive).clamp(-_h * 0.5, _h * 0.5);
       fired.add(_Jet(from.dx, from.dy, 0, speedM, drift, missile: true, aimed: true)..warn = 0);
       _burst(from.dx, from.dy, 8, const [Color(0xFFFFE0A0), Color(0xFFB0B0B0)], speed: 90, size: 3);
-      HapticFeedback.selectionClick();
     } else if (j.shots == 0 && j.fireT <= 0.4 || j.age > 14) {
       j.leaving = true;
     }

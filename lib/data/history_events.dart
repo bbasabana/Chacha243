@@ -480,7 +480,8 @@ const historyEvents = <HistoryEvent>[
     'octobre 1996 – mai 1997',
     'De l\'Est à Kinshasa',
     'Guerre de l\'AFDL',
-    'L\'AFDL de Laurent-Désiré Kabila traverse le pays.',
+    'Laurent-Désiré Kabila prend la tête de l\'AFDL. Soutenue par les armées du Rwanda, de l\'Ouganda et du Burundi, elle part de l\'Est et traverse le pays jusqu\'à Kinshasa.',
+    photo: 'afdl',
     war: true,
   ),
   HistoryEvent(
@@ -656,7 +657,8 @@ const historyEvents = <HistoryEvent>[
     'novembre 2012',
     'Goma',
     'Le M23 prend Goma',
-    'La rébellion du M23 occupe Goma ; elle est défaite fin 2013.',
+    'Né en avril 2012 d\'anciens rebelles du CNDP entrés dans l\'armée, le M23 tient son nom de l\'accord du 23 mars 2009, dont il réclame l\'application. Des experts de l\'ONU le disent soutenu par le Rwanda, qui le nie. Il prend Goma, puis est défait fin 2013.',
+    photo: 'est',
     war: true,
   ),
   HistoryEvent(
@@ -751,7 +753,8 @@ const historyEvents = <HistoryEvent>[
     'fin 2021',
     'Nord-Kivu',
     'Retour du M23',
-    'La rébellion du M23 reprend les armes.',
+    'Le M23 reprend les armes au Nord-Kivu. Il dit défendre les Tutsi congolais et réclame l\'application des accords. Kinshasa et des experts de l\'ONU l\'accusent d\'être appuyé par le Rwanda.',
+    photo: 'est',
     war: true,
   ),
   HistoryEvent(

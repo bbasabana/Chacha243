@@ -61,6 +61,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       ..onFinale = (() => Music.instance.play('chacha', loop: true, level: 0.95))
       ..onSong = ((key, {level, loop = false}) => Music.instance.play(key, level: level, loop: loop))
       ..onSwell = Music.instance.swell
+      ..songBusy = (() => Music.instance.busy)
       ..onHush = Music.instance.stop;
   }
 
@@ -248,7 +249,8 @@ class _Hud extends StatelessWidget {
     final modal = game.meal.value != null || game.quiz.value != null;
     // On découvre le tableau de bord pas à pas : l'année au décollage, les points en montée,
     // les instruments une fois en vol.
-    final showYear = p != FlightPhase.ready || !hud.firstFlight;
+    // Pendant le bilan, l'année se cache : le panneau du bilan ne passe jamais sur un autre.
+    final showYear = (p != FlightPhase.ready || !hud.firstFlight) && !showEnd;
     final showStatus = p != FlightPhase.ready && p != FlightPhase.rolling;
     final showCockpit =
         !modal && !ended && (p == FlightPhase.cruising || p == FlightPhase.approach || p == FlightPhase.ground);
@@ -657,18 +659,18 @@ class _StatusPanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${_money(hud.money)} ${hud.currency}',
-                style: const TextStyle(
-                  color: Color(0xFF9CF0B8),
+                hud.money < 0 ? '−${_money(-hud.money)} ${hud.currency}' : '${_money(hud.money)} ${hud.currency}',
+                style: TextStyle(
+                  color: hud.money < 0 ? const Color(0xFFFF9A9A) : const Color(0xFF9CF0B8),
                   fontSize: 15,
                   height: 1.1,
                   fontWeight: FontWeight.w900,
-                  fontFeatures: [FontFeature.tabularFigures()],
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
-              // La monnaie en toutes lettres : on comprend que Z veut dire zaïres.
+              // La monnaie en toutes lettres : on comprend que Z veut dire zaïres. En dette, on le dit.
               Text(
-                'argent · ${currencyName(hud.currency)}',
+                hud.money < 0 ? 'dette · remboursée en volant' : 'argent · ${currencyName(hud.currency)}',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 9, fontWeight: FontWeight.w700),
               ),
             ],
@@ -1542,86 +1544,115 @@ class _EndPanelState extends State<_EndPanel> {
     final win = hud.phase == FlightPhase.finished;
     final past = flights.value.take(5).toList();
     final earned = game.moneyEarned;
+    // Après un crash, on reprend seulement si la réparation est payée (l'argent n'est pas en dette).
+    final canResume = !win && checkpoint != null && checkpoint.money >= 0;
+    final broke = !win && checkpoint != null && checkpoint.money < 0;
     final muted = TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12.5);
+    final accent = win ? ChachaColors.yellow : const Color(0xFFFF6B6B);
     return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 24, maxWidth: 560),
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height - 24, maxWidth: 520),
       child: SingleChildScrollView(
         child: Glass(
-          tint: const Color(0x55001433),
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          tint: const Color(0x99001433),
+          padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Le pilote en photo, avec son nom, et ce qui s'est passé.
-              ValueListenableBuilder(
-                valueListenable: pilotPhoto,
-                builder: (_, photo, _) => Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
+              // En tête : le pilote, ce qui s'est passé, et l'accueil dans le coin.
+              Row(
+                children: [
+                  ValueListenableBuilder(
+                    valueListenable: pilotPhoto,
+                    builder: (_, photo, _) => Container(
                       padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: win ? ChachaColors.yellow : Colors.white54,
-                      ),
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: accent.withValues(alpha: 0.8)),
                       child: CircleAvatar(
-                        radius: 20,
+                        radius: 22,
                         backgroundColor: ChachaColors.night,
                         backgroundImage: photo == null ? null : MemoryImage(photo),
-                        child: photo == null ? const Icon(Icons.person_rounded, color: Colors.white70, size: 22) : null,
+                        child: photo == null ? const Icon(Icons.person_rounded, color: Colors.white70, size: 24) : null,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            win ? 'Moment de gloire !' : 'CRASH !',
-                            style: TextStyle(
-                              color: win ? ChachaColors.yellow : const Color(0xFFFF6B6B),
-                              fontSize: 24,
-                              height: 1.1,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: win ? 0 : 1.5,
-                            ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          win ? 'Moment de gloire !' : 'Crash',
+                          style: TextStyle(color: accent, fontSize: 24, height: 1.05, fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          win
+                              ? 'Commandant ${pilotName.value ?? ''} · du 30 juin 1960 au 30 juin 2027'
+                              : [
+                                  'Commandant ${pilotName.value ?? ''}'.trim(),
+                                  if (game.failWhy.isNotEmpty) game.failWhy,
+                                ].join(' · '),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
                           ),
-                          Text(
-                            win
-                                ? 'Commandant ${pilotName.value ?? ''} · du 30 juin 1960 au 30 juin 2027'
-                                : 'Commandant ${pilotName.value ?? ''}${game.failWhy.isEmpty ? '' : ' · ${game.failWhy}'}',
-                            style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w800),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    tooltip: 'Accueil',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.home_rounded, color: Colors.white70),
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                '${hud.year.floor()} · ⏱ ${_clock(game.flightSeconds)} · ${_points(hud.score)} points',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+              const SizedBox(height: 14),
+              // Le bilan en quatre cases égales.
+              Row(
+                children: [
+                  _EndStat('Année', '${hud.year.floor()}'),
+                  _EndStat('Temps', _clock(game.flightSeconds)),
+                  _EndStat(
+                    'Points',
+                    _points(hud.score),
+                    note: hud.score > 0 && hud.score >= bestScore ? 'record' : null,
+                  ),
+                  _EndStat(
+                    earned >= 0 ? 'Gagné' : 'Dépensé',
+                    '${_points(earned.abs())} ${hud.currency}',
+                    color: earned >= 0 ? const Color(0xFF7CF0A6) : const Color(0xFFFF9A9A),
+                  ),
+                ],
               ),
-              Text(
-                earned >= 0
-                    ? 'Tu as gagné ${_points(earned)} ${hud.currency}'
-                    : 'Tu as dépensé ${_points(-earned)} ${hud.currency}',
-                style: TextStyle(
-                  color: earned >= 0 ? const Color(0xFF7CF0A6) : const Color(0xFFFF9A9A),
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
+              if (!win && game.repairBill.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: broke ? const Color(0x33FF5A5A) : const Color(0x22FFFFFF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    broke
+                        ? '${game.repairBill}\nPas assez d\'argent pour réparer l\'avion : recommence en 1960 et récolte de l\'argent.'
+                        : game.repairBill,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: broke ? const Color(0xFFFFB4B4) : Colors.white.withValues(alpha: 0.85),
+                      fontSize: 12.5,
+                      height: 1.35,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
-              ),
-              if (hud.score > 0 && hud.score >= bestScore)
-                const Text(
-                  'Nouveau record !',
-                  style: TextStyle(color: ChachaColors.yellow, fontSize: 13, fontWeight: FontWeight.w900),
-                ),
+              ],
               if (win) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -1647,16 +1678,58 @@ class _EndPanelState extends State<_EndPanel> {
                       ch == null ? const SizedBox.shrink() : _MomoBox(ch, seconds: game.flightSeconds),
                 ),
               ],
+              const SizedBox(height: 16),
+              // Deux boutons, de même largeur : le premier est le bon choix.
+              Row(
+                children: [
+                  Expanded(
+                    child: _EndButton(
+                      canResume ? 'Reprendre en ${checkpoint.year.floor()}' : 'Recommencer en 1960',
+                      icon: canResume ? Icons.play_arrow_rounded : Icons.replay_rounded,
+                      primary: true,
+                      onTap: () => onRestart(canResume ? checkpoint : null),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: canResume
+                        ? _EndButton('Recommencer en 1960', icon: Icons.replay_rounded, onTap: () => onRestart(null))
+                        : _EndButton('Accueil', icon: Icons.home_rounded, onTap: () => Navigator.of(context).pop()),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Center(
+                child: TextButton(
+                  onPressed: () => setState(() => _more = !_more),
+                  child: Text(
+                    _more ? 'Moins de détails ▴' : 'Détails du vol ▾',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
               if (_more) ...[
-                const SizedBox(height: 12),
-                Text('${hud.medals} médaillons · ${_points(hud.money)} ${hud.currency} en caisse', style: muted),
-                Text('Temps de vol enregistré dans le classement des pilotes', style: muted),
-                if (!win && checkpoint != null)
-                  Text('Tu peux reprendre en ${checkpoint.year.floor()}, là où tu étais.', style: muted),
+                Text(
+                  '${hud.medals} médaillons · ${_money(hud.money)} ${hud.currency} en caisse',
+                  textAlign: TextAlign.center,
+                  style: muted,
+                ),
+                Text(
+                  'Temps de vol enregistré dans le classement des pilotes',
+                  textAlign: TextAlign.center,
+                  style: muted,
+                ),
+                if (canResume)
+                  Text(
+                    'Tu peux reprendre en ${checkpoint.year.floor()}, là où tu étais.',
+                    textAlign: TextAlign.center,
+                    style: muted,
+                  ),
                 if (past.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
                     'TES VOLS · MEILLEUR SCORE ${_points(bestScore)}',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 11,
@@ -1668,49 +1741,102 @@ class _EndPanelState extends State<_EndPanel> {
                   for (final f in past) _FlightRow(flight: f),
                 ],
                 const SizedBox(height: 8),
-                GlassButton(
-                  onTap: () => Navigator.of(
-                    context,
-                  ).push(MaterialPageRoute<void>(builder: (_) => TimelineScreen(caught: {...game.caught}))),
-                  tint: const Color(0x557CF0A6),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  child: const Text('Les dates à retenir'),
+                Center(
+                  child: GlassButton(
+                    onTap: () => Navigator.of(
+                      context,
+                    ).push(MaterialPageRoute<void>(builder: (_) => TimelineScreen(caught: {...game.caught}))),
+                    tint: const Color(0x557CF0A6),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                    child: const Text('Les dates à retenir'),
+                  ),
                 ),
               ],
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 10,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  if (!win && checkpoint != null)
-                    GlassButton(
-                      onTap: () => onRestart(checkpoint),
-                      tint: const Color(0x88CE1021),
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
-                      child: Text('Reprendre en ${checkpoint.year.floor()}'),
-                    ),
-                  GlassButton(
-                    onTap: () => onRestart(null),
-                    tint: !win && checkpoint != null ? ChachaColors.glassFill : const Color(0x88CE1021),
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
-                    child: const Text('Recommencer en 1960'),
-                  ),
-                  GlassButton(
-                    onTap: () => Navigator.of(context).pop(),
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
-                    child: const Text('Accueil'),
-                  ),
-                  GlassButton(
-                    onTap: () => setState(() => _more = !_more),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                    child: Text(_more ? 'Moins ▴' : 'Détails ▾'),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Une case du bilan : un petit titre, une grande valeur.
+class _EndStat extends StatelessWidget {
+  const _EndStat(this.label, this.value, {this.color = Colors.white, this.note});
+
+  final String label;
+  final String value;
+  final Color color;
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 3),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        decoration: BoxDecoration(color: const Color(0x1FFFFFFF), borderRadius: BorderRadius.circular(12)),
+        child: Column(
+          children: [
+            Text(
+              note == null ? label.toUpperCase() : '${label.toUpperCase()} · ${note!.toUpperCase()}',
+              style: TextStyle(
+                color: note == null ? Colors.white.withValues(alpha: 0.6) : ChachaColors.yellow,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 3),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Un des deux grands boutons du bilan.
+class _EndButton extends StatelessWidget {
+  const _EndButton(this.label, {required this.icon, required this.onTap, this.primary = false});
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassButton(
+      onTap: onTap,
+      radius: 16,
+      tint: primary ? const Color(0xCCCE1021) : const Color(0x33FFFFFF),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2410,7 +2536,6 @@ class _PulseButton extends StatelessWidget {
       builder: (_, v, child) => Transform.scale(scale: 1 + 0.06 * (0.5 + 0.5 * _wave(v * 12)), child: child),
       child: GestureDetector(
         onTap: () {
-          HapticFeedback.mediumImpact();
           onTap();
         },
         child: Container(
@@ -2682,7 +2807,6 @@ class _MealViewState extends State<_MealView> {
                   onTap: _drinks.isEmpty
                       ? null
                       : () {
-                          HapticFeedback.mediumImpact();
                           widget.game.serveMeal(_base, _dish, _drinks.toList());
                         },
                   tint: const Color(0x55CE1021),
