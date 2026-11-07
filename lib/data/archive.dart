@@ -46,6 +46,11 @@ const archivePhotos = <String, ArchivePhoto>{
     'La carte d\'identité pour citoyen, République du Zaïre',
     credit: 'République du Zaïre',
   ),
+  'jeanpaul2': ArchivePhoto('jean-paul-ii-zaire.jpg', 'Le pape Jean-Paul II reçu par Mobutu au Zaïre'),
+  'francois': ArchivePhoto(
+    'pape-francois-kinshasa-2023.jpg',
+    'Le pape François et la jeunesse au stade des Martyrs, 2 février 2023',
+  ),
   'aliforeman': ArchivePhoto('ali-foreman-1974.jpg', 'Mohamed Ali frappe George Foreman, Kinshasa, 30 octobre 1974'),
   'ali': ArchivePhoto('mobutu-ali-1974.jpg', 'Mobutu et Mohamed Ali, Kinshasa, 1974'),
   'abala': ArchivePhoto('ayidini-abala.jpg', 'Le pasteur Ayidini Abala'),

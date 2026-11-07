@@ -338,10 +338,14 @@ const historyEvents = <HistoryEvent>[
   HistoryEvent(
     1980.35,
     EventKind.glory,
-    'mai 1980',
+    '2 – 6 mai 1980',
     'Kinshasa',
     'Visite du pape Jean-Paul II',
-    'Pour la première fois, un pape vient au Zaïre.',
+    'Pour la première fois, un pape vient au Zaïre. Jean-Paul II est reçu par Mobutu et célèbre la messe '
+        'devant une foule immense à Kinshasa.',
+    photo: 'jeanpaul2',
+    medal: 'Jean-Paul II · 1980',
+    intro: 'Le pape Jean-Paul II arrive au Zaïre',
   ),
   HistoryEvent(
     1981.5,
@@ -382,10 +386,13 @@ const historyEvents = <HistoryEvent>[
   HistoryEvent(
     1985.62,
     EventKind.glory,
-    'août 1985',
+    '14 – 16 août 1985',
     'Kinshasa',
     'Jean-Paul II revient',
-    'Deuxième visite du pape, qui béatifie Anuarite.',
+    'Deuxième visite du pape au Zaïre. Le 15 août 1985, à Kinshasa, il béatifie sœur Anuarite Nengapeta, '
+        'la première Zaïroise déclarée bienheureuse.',
+    photo: 'jeanpaul2',
+    medal: 'Jean-Paul II · 1985',
   ),
   HistoryEvent(
     1989.78,
@@ -845,7 +852,12 @@ const historyEvents = <HistoryEvent>[
     '31 janvier – 3 février 2023',
     'Kinshasa',
     'Visite du pape François',
-    'Plus d\'un million de fidèles à la messe de N\'dolo.',
+    'Trente-huit ans après Jean-Paul II, le pape François vient à Kinshasa. Le 1er février, plus d\'un million '
+        'de fidèles assistent à sa messe à l\'aéroport de N\'dolo ; le lendemain, il rencontre la jeunesse '
+        'au stade des Martyrs.',
+    photo: 'francois',
+    medal: 'Pape François · 2023',
+    intro: 'Le pape François arrive à Kinshasa',
   ),
   HistoryEvent(
     2023.97,
