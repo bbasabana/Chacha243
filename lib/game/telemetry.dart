@@ -316,16 +316,7 @@ class Telemetry {
             .timeout(const Duration(seconds: 6));
         if (ph.statusCode == 200 && ph.bodyBytes.length > 100) await savePilotPhoto(ph.bodyBytes);
       }
-      final s = b['save'];
-      if (s is Map<String, dynamic>) {
-        await Checkpoint(
-          (s['year'] as num).toDouble(),
-          (s['score'] as num).toInt(),
-          (s['medals'] as num).toInt(),
-          money: (s['money'] as num).toInt(),
-          seconds: (s['seconds'] as num?)?.toDouble() ?? 0,
-        ).save(sync: false);
-      }
+      // Le point de reprise ne revient pas : sur un téléphone neuf, le premier vol part toujours de 1960.
     } catch (_) {}
   }
 }

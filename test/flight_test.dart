@@ -102,7 +102,9 @@ void main() {
     g.radio.addListener(() => g.radio.value == null ? null : note('radio ${g.radio.value!.speaker}'));
     g.cabin.addListener(() => g.cabin.value == null ? null : note('cabine ${g.cabin.value!.title}'));
     g.zoneHud.addListener(() => g.zoneHud.value == null ? null : note('zone ${g.zoneHud.value!.zone.name}'));
-    for (var i = 0; i < 60 * 60 * 4 && g.zoneHud.value == null; i++) {
+    g.talk.addListener(() => g.talk.value == null ? null : note('bulle-cabine ${g.talk.value!.lines.first.french}'));
+    g.card.addListener(() => g.card.value == null ? null : note('fiche ${g.card.value!.event.title}'));
+    for (var i = 0; i < 60 * 60 * 6 && g.zoneHud.value == null; i++) {
       g.lives = 5;
       g.update(1 / 60);
       frame++;
@@ -118,6 +120,15 @@ void main() {
     expect(at('radio Commandant de bord'), greaterThan(at('bulle Indépendance du Congo')));
     expect(at('cabine Attachez vos ceintures'), greaterThan(at('radio Commandant de bord')));
     expect(at('zone Sécession du Katanga'), greaterThan(at('cabine Ceintures attachées')));
+    // La cabine crie sa joie avec la bulle, et l'enfant demande à son papa.
+    expect(at('Nous avons pris l\'indépendance'), greaterThan(at('bulle Indépendance du Congo')));
+    expect(at('Notre pays est maintenant libre'), greaterThan(at('Papa, on a eu quoi')));
+    expect(at('Notre pays est maintenant libre'), lessThan(at('radio Commandant de bord')));
+    // Rien sur le Katanga avant la fin de l'Indépendance, puis plus d'une minute de vol libre.
+    final katanga = seen.indexWhere((x) => x.contains('Katanga'));
+    expect(katanga, greaterThan(at('cabine Ceintures attachées')));
+    int secondsOf(int i) => int.parse(seen[i].split('· ').last.split(' ').first);
+    expect(secondsOf(katanga) - secondsOf(at('cabine Ceintures attachées')), greaterThanOrEqualTo(60));
   });
 
   test('Air Congo naît en 1961 dans un ciel calme, les avions de chasse reviennent après', () async {
@@ -290,4 +301,26 @@ void main() {
     expect(shown, containsAll(['Naissance du MPR', 'Ali – Foreman']));
     expect(songs, containsAll(['mpr', 'bomaye']));
   });
+
+  for (final (from, name) in [(1976.9, 'Guerres du Shaba'), (1996.5, 'AFDL')]) {
+    test('dans la guerre « $name », deux kits d\'entretien viennent toujours', () async {
+      final g = await start(year: from, autopilot: true);
+      var kits = 0, before = 0, inZone = false;
+      for (var i = 0; i < 60 * 60 * 12; i++) {
+        g.lives = 5;
+        g.condition = 100;
+        g.fuel = 90;
+        g.update(1 / 60);
+        if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+        if (g.atWar && !inZone) {
+          inZone = true;
+          before = g.kitsOffered;
+        }
+        if (inZone && !g.atWar) break;
+        if (inZone) kits = g.kitsOffered - before;
+      }
+      expect(inZone, isTrue);
+      expect(kits, greaterThanOrEqualTo(2));
+    });
+  }
 }

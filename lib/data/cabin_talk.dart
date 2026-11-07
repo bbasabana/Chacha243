@@ -33,6 +33,9 @@ enum TalkMoment {
 
   /// On vient d'échapper aux avions de chasse : on remercie Dieu.
   escape,
+
+  /// Le 30 juin 1960 : la cabine crie sa joie.
+  independence,
 }
 
 const cabinTalks = <TalkMoment, List<List<TalkLine>>>{
@@ -86,6 +89,21 @@ const cabinTalks = <TalkMoment, List<List<TalkLine>>>{
     [
       TalkLine('Un enfant', 'Mama, pilote ayebi nzela ?', 'Maman, le pilote connaît le chemin ?'),
       TalkLine('Sa maman', 'Ayebi yango malamu. Fanda kimia.', 'Il le connaît très bien. Reste tranquille.'),
+    ],
+  ],
+  TalkMoment.independence: [
+    [
+      TalkLine(
+        'Les passagers',
+        'Woooooh ! Lipanda ! Tozwi indépendance !',
+        'Woooooh ! L\'indépendance ! Nous avons pris l\'indépendance !',
+      ),
+      TalkLine('Un enfant', 'Papa, tozwi nini ?', 'Papa, on a eu quoi ? On a fait quoi ?'),
+      TalkLine(
+        'Son papa',
+        'Tozwi indépendance, mwana na ngai. Mboka na biso ezali sikoyo na bonsomi.',
+        'Nous avons eu l\'indépendance, mon enfant. Notre pays est maintenant libre.',
+      ),
     ],
   ],
   TalkMoment.war: [

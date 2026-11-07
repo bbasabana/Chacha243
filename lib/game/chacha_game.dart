@@ -568,6 +568,15 @@ class ChachaGame extends FlameGame {
   double _maintT = -1, _maintFrom = 100;
   static const _maintTime = 3.2;
 
+  /// Après l'Indépendance, plus d'une minute de vol libre avant d'annoncer la sécession du Katanga.
+  static const _katangaWait = 75.0;
+  double _indepDone = -1;
+  // Seulement pour un vol parti du 30 juin 1960 : une reprise en 1961 ou 1962 retrouve la guerre tout de suite.
+  bool get _katangaWaiting => _nextZone == 0 && _indepDone >= 0 && t - _indepDone < _katangaWait;
+
+  /// Les guerres du Shaba et de l'AFDL sont dures : deux kits d'entretien y viennent toujours.
+  static const _kitZones = [1977.2, 1996.8];
+
   // La ligne droite : la tour demande le TURBO dans un ciel dégagé, l'avion file sans obstacle.
   double _straightT = -1, _straightHeld = 0, _nextStraight = 70;
   static const _straightTime = 9.0;
@@ -1666,14 +1675,14 @@ class ChachaGame extends FlameGame {
           _yearSeconds *
           _calendarBoost *
           _storyPace *
-          (_indep == 1 || _maintT >= 0 ? 0 : (_airT < (_nextZone == 0 ? 30 : 14) ? 0.06 : 1));
+          (_indep == 1 || _maintT >= 0 ? 0 : (_nextZone == 0 ? (_katangaWaiting ? 0.06 : 1) : (_airT < 14 ? 0.06 : 1)));
       _checkDecade();
     } else {
       _updateZone(dt * ts);
     }
     if (_indep == 1) _updateIndependence();
     // Après l'Indépendance, un vrai moment de calme avant l'annonce de la sécession du Katanga.
-    if (_airT >= (_nextZone == 0 ? 25 : 10) && _indep != 1) _checkZone();
+    if ((_nextZone == 0 ? !_katangaWaiting : _airT >= 10) && _indep != 1) _checkZone();
     if (_zone == null && year >= _finaleFrom && year < _homeYear) return _startFinale();
     _steer(dt);
     if (_dance > 0) {
@@ -2011,7 +2020,7 @@ class ChachaGame extends FlameGame {
   }
 
   /// Les gens de la cabine parlent : une conversation tirée au hasard pour ce moment.
-  void _talk(TalkMoment m, {bool force = false, double? seconds}) {
+  void _talk(TalkMoment m, {bool force = false, double? seconds, bool first = false}) {
     if (!force && (t < _nextTalk || _finaleT >= 0)) return;
     final options = cabinTalks[m];
     if (options == null || options.isEmpty) return;
@@ -2022,7 +2031,7 @@ class ChachaGame extends FlameGame {
     // Chacun parle à son tour : une seule bulle à l'écran, on la lit, elle s'en va, puis la réponse vient.
     for (final l in lines) {
       final each = seconds != null ? seconds / lines.length : _lineTime(l);
-      _cue(() => talk.value = CabinTalk([l]), each, hide: () => talk.value = null);
+      _cue(() => talk.value = CabinTalk([l]), each, hide: () => talk.value = null, first: first);
     }
     _nextTalk = t + 20;
   }
@@ -2129,6 +2138,9 @@ class ChachaGame extends FlameGame {
     final secondsToPlane = (_w + 60 - planeX) / _scroll;
     final lead = secondsToPlane / _yearSeconds * _calendarBoost;
     while (_nextEvent < historyEvents.length && historyEvents[_nextEvent].year <= year + lead) {
+      // Le 30 juin 1960 d'abord : rien d'autre (ni la sécession du Katanga) tant que l'Indépendance n'est pas finie.
+      // Puis plus d'une minute de vol libre avant que la sécession du Katanga s'annonce.
+      if ((_indep == 1 || _katangaWaiting) && historyEvents[_nextEvent].year > 1960.5) break;
       final e = historyEvents[_nextEvent++];
       // La mort de Mzee arrête « Franc congolais » ; Indépendance Cha Cha prend la suite.
       if (e.year >= 2001 && _francOn) {
@@ -2416,6 +2428,8 @@ class ChachaGame extends FlameGame {
       8,
       hide: () {
         turningPoint.value = null;
+        // La cabine crie sa joie, l'enfant demande à son papa, puis les deux visages passent.
+        _talk(TalkMoment.independence, force: true, first: true);
         _independenceFaces();
       },
       first: true,
@@ -2502,10 +2516,14 @@ class ChachaGame extends FlameGame {
       case 4 when since >= 10 && cabin.value == null && _onStage == null:
         _indep = 2;
         _airT = 0;
+        _indepDone = t;
         if (_nextZone < warZones.length && warZones[_nextZone].from - year > 0.3) _freeSky();
     }
     // Un message a tout retardé trop longtemps : l'histoire reprend quand même.
-    if (_indep == 1 && t > _indepT + 180) _indep = 2;
+    if (_indep == 1 && t > _indepT + 180) {
+      _indep = 2;
+      _indepDone = t;
+    }
   }
 
   void _addFuel(double amount) {
@@ -2913,7 +2931,11 @@ class ChachaGame extends FlameGame {
     _say('Tour de contrôle', Lingala.matondo, 'Très bien, continue. Surveille ton kérosène.');
   }
 
+  /// Combien de kits d'entretien sont venus pendant ce vol.
+  int kitsOffered = 0;
+
   void _spawnKit() {
+    kitsOffered++;
     _nextKit = t + 24 + _rng.nextDouble() * 10;
     // Le kit d'abord : la tour ne propose l'escale que s'il est manqué.
     _nextOffer = math.max(_nextOffer, t + 8);
@@ -4038,6 +4060,10 @@ class ChachaGame extends FlameGame {
     _waveActive = true;
     // La louange vient avec les premiers avions de chasse, pas avant.
     if (_wavesCleared == 0 || _peakWave(_zone!, _wave)) _comfort();
+    final all = _wavesOf(_zone!);
+    if (_kitZones.contains(_zone!.from) && (_wave == (all / 3).round() || _wave == (all * 2 / 3).round())) {
+      _spawnKit();
+    }
     final jets = _jetsIn(_zone!, _wave);
     final sub = _zone!.part;
     final part = sub != null && _wave >= sub.from && _wave <= sub.to;
