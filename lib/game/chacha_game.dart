@@ -876,6 +876,9 @@ class ChachaGame extends FlameGame {
       while (_nextEvent < historyEvents.length && historyEvents[_nextEvent].year < year) {
         _nextEvent++;
       }
+      // La chanson de l'époque revient dès le sol, si celle d'avant le crash s'est tue.
+      _eraSongDue = true;
+      _silentFor = 4;
     } else if (startYear != null) {
       _indep = 2;
       year = startYear!;
@@ -1281,9 +1284,14 @@ class ChachaGame extends FlameGame {
   int _benchFrames = 0, _benchUpdate = 0, _benchRender = 0;
   double _benchT = 0;
 
+  /// Écran éteint, verrouillé ou en train de tourner : la vue peut passer un instant à une taille nulle.
+  /// Le jeu attend alors, au lieu de calculer (et de dessiner) dans un écran de zéro pixel.
+  bool get _tiny => size.x < 120 || size.y < 120;
+
   @override
   // ignore: must_call_super
   void update(double dt) {
+    if (_tiny) return;
     if (bench.isEmpty) return _update(dt);
     _sw
       ..reset()
@@ -1307,6 +1315,7 @@ class ChachaGame extends FlameGame {
   @override
   // ignore: must_call_super
   void render(Canvas canvas) {
+    if (_tiny) return;
     if (bench.isEmpty) return _render(canvas);
     _sw
       ..reset()
@@ -1361,6 +1370,11 @@ class ChachaGame extends FlameGame {
     if (phase == FlightPhase.cruising) {
       _updateMaint(dt);
       _updateStraight(dt);
+    }
+    // Au sol après une reprise ou une escale (le plein, le roulage) : la musique continue aussi.
+    if (_takeoffs > 0 &&
+        (phase == FlightPhase.ready || phase == FlightPhase.rolling || phase == FlightPhase.climbing)) {
+      _fillSilence(dt);
     }
     magnetTime = math.max(0, magnetTime - dt);
     magnetCooldown = math.max(0, magnetCooldown - dt);
@@ -2028,7 +2042,7 @@ class ChachaGame extends FlameGame {
   /// Un moment difficile : une louange douce réconforte, sans revenir trop souvent.
   void _comfort() {
     if (t < _nextComfort || _finaleT >= 0) return;
-    _nextComfort = t + 75;
+    _nextComfort = t + 50;
     _song('louange');
   }
 
@@ -2749,6 +2763,9 @@ class ChachaGame extends FlameGame {
   /// On peut demander l'atterrissage : en vol, hors des guerres et de la dernière ligne droite.
   bool get canLand => phase == FlightPhase.cruising && _zone == null && _finaleT < 0;
 
+  /// Le vol traverse une guerre en ce moment.
+  bool get atWar => _zone != null;
+
   void _offerStopover() {
     final open = [
       for (final a in airports)
@@ -2809,19 +2826,46 @@ class ChachaGame extends FlameGame {
   int _peaceSongs = 0;
   void _peaceSong() => _song((_peaceSongs++).isEven ? 'paix1' : 'paix2');
 
-  /// On ne vole jamais sans musique : après 12 secondes de silence, « Indépendance Cha Cha » revient doucement
+  /// On ne vole jamais sans musique : après 5 secondes de silence, une chanson revient
   /// (sauf si le joueur a coupé la musique : elle joue alors à volume zéro).
+  /// Dans une guerre, c'est la louange qui réconforte ; après une reprise, la chanson de l'époque ;
+  /// sinon « Indépendance Cha Cha », doucement, sous le vol.
   bool Function()? songBusy;
   double _silentFor = 0;
+  bool _eraSongDue = false;
   void _fillSilence(double dt) {
-    if (_finaleT >= 0 || phase != FlightPhase.cruising || (songBusy?.call() ?? true)) {
+    final flying =
+        phase == FlightPhase.cruising ||
+        phase == FlightPhase.ready ||
+        phase == FlightPhase.rolling ||
+        phase == FlightPhase.climbing;
+    if (_finaleT >= 0 || !flying || (songBusy?.call() ?? true)) {
       _silentFor = 0;
       return;
     }
     _silentFor += dt;
-    if (_silentFor < 12) return;
+    if (_silentFor < 5) return;
     _silentFor = 0;
-    _song('fond');
+    _song(_fillerSong());
+  }
+
+  String _fillerSong() {
+    if (_francOn) return 'franc';
+    if (_zone != null) return 'louange';
+    if (_eraSongDue) {
+      _eraSongDue = false;
+      return _eraSong();
+    }
+    return 'fond';
+  }
+
+  /// La chanson du dernier moment passé (Franco en 1964, Ali bomaye en 1974…), pour retrouver l'époque.
+  String _eraSong() {
+    for (var i = _nextEvent - 1; i >= 0; i--) {
+      final e = historyEvents[i];
+      if (e.song != null && e.kind != EventKind.memory && momentSongs.containsKey(e.song)) return e.song!;
+    }
+    return 'chacha';
   }
 
   void _startApproach() {
@@ -3966,7 +4010,7 @@ class ChachaGame extends FlameGame {
     _wave = _wavesCleared + 1;
     _waveActive = true;
     // La louange vient avec les premiers avions de chasse, pas avant.
-    if (_wave == _wavesCleared + 1 && _wavesCleared == 0) _comfort();
+    if (_wavesCleared == 0 || _peakWave(_zone!, _wave)) _comfort();
     final jets = _jetsIn(_zone!, _wave);
     final sub = _zone!.part;
     final part = sub != null && _wave >= sub.from && _wave <= sub.to;
@@ -5205,7 +5249,7 @@ class ChachaGame extends FlameGame {
     final r = math.Random((_boltX * 1000).round());
     final path = Path()..moveTo(_boltX, _rainTop);
     var x = _boltX, y = _rainTop;
-    while (y < _h) {
+    for (var i = 0; i < 40 && y < _h; i++) {
       y += _h * (0.04 + r.nextDouble() * 0.04);
       x += (r.nextDouble() - 0.5) * 40 * _unit;
       path.lineTo(x, y);

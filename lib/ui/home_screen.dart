@@ -111,192 +111,199 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ),
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        ValueListenableBuilder(
-                          valueListenable: pilotName,
-                          builder: (_, name, _) => name == null
-                              ? const SizedBox.shrink()
-                              : GestureDetector(
-                                  onTap: _askName,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    child: Glass(
-                                      radius: 14,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          ValueListenableBuilder(
-                                            valueListenable: pilotPhoto,
-                                            builder: (_, photo, _) => photo == null
-                                                ? const Icon(Icons.badge_rounded, color: ChachaColors.yellow, size: 18)
-                                                : CircleAvatar(radius: 13, backgroundImage: MemoryImage(photo)),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Commandant $name · ${pilotRank(missionsDone.value)}',
-                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          // Le nom et la photo se changent ici, à tout moment.
-                                          const Icon(Icons.edit_rounded, color: Colors.white70, size: 16),
-                                          const SizedBox(width: 3),
-                                          const Text(
-                                            'Nom et photo',
-                                            style: TextStyle(color: Colors.white70, fontSize: 12),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                        ),
-                        // Un championnat ouvert depuis le tableau de bord : son nom, son prix, sa date de fin.
-                        ValueListenableBuilder(
-                          valueListenable: Telemetry.championship,
-                          builder: (_, ch, _) => ch == null
-                              ? const SizedBox.shrink()
-                              : Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: Glass(
-                                    radius: 14,
-                                    tint: const Color(0x40F7D618),
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    child: Text(
-                                      '🏆 ${ch.title}${ch.prize.isEmpty ? '' : ' · prix ${ch.prize}'} · '
-                                      '${ch.first ? 'le premier' : 'le plus rapide'} jusqu\'en 2027 gagne'
-                                      '${ch.ends == null ? '' : ' · jusqu\'au ${ch.ends!.day}/${ch.ends!.month}'}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                        ),
-                        const _Title(),
-                        const SizedBox(height: 10),
-                        Text(
-                          "Pilote l'avion du Congo, de l'Indépendance à aujourd'hui.",
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.92),
-                            fontSize: 17,
-                            fontWeight: FontWeight.w500,
-                            shadows: const [Shadow(color: Color(0x66001433), blurRadius: 12)],
-                          ),
-                        ),
-                        const SizedBox(height: 22),
-                        Wrap(
-                          spacing: 14,
-                          runSpacing: 12,
-                          children: [
-                            // Une reprise en dette n'est pas possible : il faut recommencer et récolter.
-                            if (_saved case final cp? when cp.money >= 0)
-                              GlassButton(
-                                onTap: () => _play(from: cp),
-                                tint: const Color(0x55CE1021),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.play_arrow_rounded, color: Colors.white),
-                                    const SizedBox(width: 10),
-                                    Text('Continuer · ${cp.year.floor()}'),
-                                  ],
-                                ),
-                              ),
-                            GlassButton(
-                              onTap: _play,
-                              tint: _saved == null ? const Color(0x55CE1021) : ChachaColors.glassFill,
+            // Dessiné pour au moins 800 × 360 points : sur un écran plus petit (iPhone avec son îlot,
+            // petit Android), l'accueil entier se réduit d'un bloc au lieu de déborder.
+            child: LayoutBuilder(
+              builder: (_, box) {
+                final w = math.max(box.maxWidth, 800.0), h = math.max(box.maxHeight, 360.0);
+                return FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.bottomLeft,
+                  child: SizedBox(width: w, height: h, child: _content()),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _content() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ValueListenableBuilder(
+                  valueListenable: pilotName,
+                  builder: (_, name, _) => name == null
+                      ? const SizedBox.shrink()
+                      : GestureDetector(
+                          onTap: _askName,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Glass(
+                              radius: 14,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.flight_takeoff_rounded, color: Colors.white),
-                                  const SizedBox(width: 10),
-                                  Text(_saved == null ? 'Décoller · 1960' : 'Recommencer · 1960'),
+                                  ValueListenableBuilder(
+                                    valueListenable: pilotPhoto,
+                                    builder: (_, photo, _) => photo == null
+                                        ? const Icon(Icons.badge_rounded, color: ChachaColors.yellow, size: 18)
+                                        : CircleAvatar(radius: 13, backgroundImage: MemoryImage(photo)),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      'Commandant $name · ${pilotRank(missionsDone.value)}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Le nom et la photo se changent ici, à tout moment.
+                                  const Icon(Icons.edit_rounded, color: Colors.white70, size: 16),
+                                  const SizedBox(width: 3),
+                                  const Text('Nom et photo', style: TextStyle(color: Colors.white70, fontSize: 12)),
                                 ],
                               ),
                             ),
-                            GlassButton(
-                              onTap: _hangar,
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.warehouse_rounded, color: Colors.white),
-                                  SizedBox(width: 10),
-                                  Text('Hangar'),
-                                ],
-                              ),
+                          ),
+                        ),
+                ),
+                // Un championnat ouvert depuis le tableau de bord : son nom, son prix, sa date de fin.
+                ValueListenableBuilder(
+                  valueListenable: Telemetry.championship,
+                  builder: (_, ch, _) => ch == null
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Glass(
+                            radius: 14,
+                            tint: const Color(0x40F7D618),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            child: Text(
+                              '🏆 ${ch.title}${ch.prize.isEmpty ? '' : ' · prix ${ch.prize}'} · '
+                              '${ch.first ? 'le premier' : 'le plus rapide'} jusqu\'en 2027 gagne'
+                              '${ch.ends == null ? '' : ' · jusqu\'au ${ch.ends!.day}/${ch.ends!.month}'}',
+                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800),
                             ),
-                            GlassButton(
-                              onTap: () => Navigator.of(context).push(_fade(const TimelineScreen())),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.menu_book_rounded, color: Colors.white),
-                                  SizedBox(width: 10),
-                                  Text('Les dates'),
-                                ],
-                              ),
-                            ),
-                            GlassButton(
-                              onTap: () => Navigator.of(context).push(_fade(const AboutScreen())),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.favorite_rounded, color: Colors.white),
-                                  SizedBox(width: 10),
-                                  Text('À propos · Soutenir'),
-                                ],
-                              ),
-                            ),
-                            GlassButton(
-                              onTap: _volume,
-                              padding: const EdgeInsets.all(14),
-                              child: ValueListenableBuilder(
-                                valueListenable: musicVolume,
-                                builder: (_, v, _) => Icon(
-                                  v == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
+                          ),
+                        ),
+                ),
+                const _Title(),
+                const SizedBox(height: 10),
+                Text(
+                  "Pilote l'avion du Congo, de l'Indépendance à aujourd'hui.",
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                    shadows: const [Shadow(color: Color(0x66001433), blurRadius: 12)],
+                  ),
+                ),
+                const SizedBox(height: 22),
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 12,
+                  children: [
+                    // Une reprise en dette n'est pas possible : il faut recommencer et récolter.
+                    if (_saved case final cp? when cp.money >= 0)
+                      GlassButton(
+                        onTap: () => _play(from: cp),
+                        tint: const Color(0x55CE1021),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.play_arrow_rounded, color: Colors.white),
+                            const SizedBox(width: 10),
+                            Text('Continuer · ${cp.year.floor()}'),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                  ValueListenableBuilder(
-                    valueListenable: selectedAircraft,
-                    builder: (_, type, _) => Glass(
-                      child: Column(
+                      ),
+                    GlassButton(
+                      onTap: _play,
+                      tint: _saved == null ? const Color(0x55CE1021) : ChachaColors.glassFill,
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('TON AVION', style: _label),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${type.maker} ${type.name}',
-                            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
-                          ),
-                          Text(
-                            'Au Congo : ${type.inCongo}',
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
-                          ),
-                          Text('${type.seats} passagers', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
+                          const Icon(Icons.flight_takeoff_rounded, color: Colors.white),
+                          const SizedBox(width: 10),
+                          Text(_saved == null ? 'Décoller · 1960' : 'Recommencer · 1960'),
                         ],
                       ),
                     ),
+                    GlassButton(
+                      onTap: _hangar,
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.warehouse_rounded, color: Colors.white),
+                          SizedBox(width: 10),
+                          Text('Hangar'),
+                        ],
+                      ),
+                    ),
+                    GlassButton(
+                      onTap: () => Navigator.of(context).push(_fade(const TimelineScreen())),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.menu_book_rounded, color: Colors.white),
+                          SizedBox(width: 10),
+                          Text('Les dates'),
+                        ],
+                      ),
+                    ),
+                    GlassButton(
+                      onTap: () => Navigator.of(context).push(_fade(const AboutScreen())),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.favorite_rounded, color: Colors.white),
+                          SizedBox(width: 10),
+                          Text('À propos · Soutenir'),
+                        ],
+                      ),
+                    ),
+                    GlassButton(
+                      onTap: _volume,
+                      padding: const EdgeInsets.all(14),
+                      child: ValueListenableBuilder(
+                        valueListenable: musicVolume,
+                        builder: (_, v, _) =>
+                            Icon(v == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          ValueListenableBuilder(
+            valueListenable: selectedAircraft,
+            builder: (_, type, _) => Glass(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('TON AVION', style: _label),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${type.maker} ${type.name}',
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
                   ),
+                  Text('Au Congo : ${type.inCongo}', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
+                  Text('${type.seats} passagers', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
                 ],
               ),
             ),

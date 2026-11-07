@@ -40,6 +40,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Le moteur graphique en OpenGL ES plutôt qu'en Vulkan : sur certains téléphones (puces MediaTek),
+             Vulkan reste bloqué quand l'écran s'éteint, et le jeu ne répond plus au déverrouillage. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.ImpellerBackend"
+            android:value="opengles" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

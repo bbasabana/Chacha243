@@ -25,13 +25,15 @@ class Telemetry {
   /// The phone's id and details, read once.
   static Future<String> _playerId() async {
     if (_id != null) return _id!;
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    final ios = defaultTargetPlatform == TargetPlatform.iOS;
+    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || ios)) {
       try {
         final m = await _channel.invokeMapMethod<String, String>('info');
         if (m != null) {
           _device = m;
           final a = m['id'] ?? '';
-          if (a.length >= 8) return _id = 'a-$a';
+          // iPhone : l'identifiant vient du trousseau, qui survit à une réinstallation.
+          if (a.length >= 8) return _id = '${ios ? 'i' : 'a'}-$a';
         }
       } catch (_) {}
     }

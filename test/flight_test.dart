@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:chacha243/data/aircraft_types.dart';
 import 'package:chacha243/game/chacha_game.dart';
 import 'package:flame/components.dart';
@@ -163,5 +164,47 @@ void main() {
     expect(again.zoneHud.value?.zone.name, 'Sécession du Katanga');
     expect(again.zoneHud.value!.wave, greaterThan(1));
     expect(again.year, greaterThanOrEqualTo(1962));
+  });
+
+  test('après un crash, la musique revient dès le sol : la chanson de l\'époque, puis Indépendance', () async {
+    final g = await start(year: 1966.2, resumed: true, money: 5000);
+    final songs = <String>[];
+    g
+      ..onSong = ((key, {level, loop = false}) => songs.add(key))
+      ..songBusy = (() => false);
+    for (var i = 0; i < 60 * 12; i++) {
+      g.update(1 / 60);
+    }
+    expect(g.phase, FlightPhase.ready);
+    expect(songs, isNotEmpty, reason: 'aucune chanson au sol après la reprise');
+    expect(songs.first, 'okjazz');
+    expect(songs.skip(1), everyElement('fond'));
+  });
+
+  test('dans une guerre, le silence ne dure pas : la louange réconforte', () async {
+    final g = await start(year: 1962.0, autopilot: true);
+    final songs = <String>[];
+    var playing = false;
+    g
+      ..onSong = ((key, {level, loop = false}) {
+        songs.add('${g.atWar ? 'guerre:' : ''}$key');
+        playing = true;
+      })
+      ..onHush = (() => playing = false)
+      ..songBusy = (() => playing);
+    var silent = 0.0, longest = 0.0;
+    for (var i = 0; i < 60 * 90; i++) {
+      g.lives = 5;
+      g.condition = 100;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+      // Chaque chanson « joue » 20 secondes dans ce test.
+      if (playing && songs.isNotEmpty) silent = 0;
+      if (!playing) longest = math.max(longest, silent += 1 / 60);
+      if (i % (60 * 20) == 0) playing = false;
+    }
+    expect(songs.where((s) => s.startsWith('guerre:')), contains('guerre:louange'));
+    expect(songs.where((s) => s.startsWith('guerre:') && s != 'guerre:louange'), isEmpty);
+    expect(longest, lessThan(7), reason: 'trop de silence');
   });
 }
