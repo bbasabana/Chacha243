@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:chacha243/data/archive.dart';
 import 'package:chacha243/data/aircraft_types.dart';
 import 'package:chacha243/data/history_events.dart';
 import 'package:chacha243/game/chacha_game.dart';
@@ -191,6 +192,29 @@ void main() {
     expect(songs, isNotEmpty, reason: 'aucune chanson au sol après la reprise');
     expect(songs.first, 'okjazz');
     expect(songs.skip(1), everyElement('fond'));
+  });
+
+  test('Mario pour Franco en 1989, le chant pour Mobutu le temps de son émotion, puis une autre chanson', () async {
+    final g = await start(year: 1989.6, autopilot: true);
+    final songs = <String>[];
+    var until = 0.0, clock = 0.0;
+    g
+      ..onSong = ((key, {level, loop = false}) {
+        songs.add(key);
+        until = clock + (momentSongs[key]?.seconds ?? 40);
+      })
+      ..songBusy = (() => clock < until);
+    for (var i = 0; i < 60 * 120 && g.year < 1991.6; i++) {
+      clock += 1 / 60;
+      g.lives = 5;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+    }
+    final mario = songs.indexOf('mario'), desire = songs.indexOf('desire');
+    expect(mario, greaterThanOrEqualTo(0), reason: '$songs');
+    expect(desire, greaterThan(mario), reason: '$songs');
+    expect(songs.skip(desire + 1), isNotEmpty, reason: 'le silence après le chant : $songs');
+    expect(songs.skip(desire + 1), isNot(contains('desire')), reason: '$songs');
   });
 
   test('dans une guerre, le silence ne dure pas : la louange réconforte', () async {

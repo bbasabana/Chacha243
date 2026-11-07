@@ -432,6 +432,7 @@ const historyEvents = <HistoryEvent>[
     'Le 24 avril 1990, Mobutu annonce la fin du parti unique : il accepte le multipartisme. Ému aux larmes, il dit « Comprenez mon émotion ». Sa phrase reste dans toutes les mémoires.',
     photo: 'emotion',
     medal: 'Mobutu · 1990',
+    song: 'desire',
     intro: '« Comprenez mon émotion » · Mobutu accepte le multipartisme',
   ),
   HistoryEvent(

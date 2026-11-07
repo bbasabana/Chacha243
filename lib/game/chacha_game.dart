@@ -2946,6 +2946,8 @@ class ChachaGame extends FlameGame {
   String _eraSong() {
     for (var i = _nextEvent - 1; i >= 0; i--) {
       final e = historyEvents[i];
+      // Le chant pour Mobutu n'accompagne que sa fiche : il ne revient pas pour l'époque.
+      if (e.song == 'desire') continue;
       if (e.song != null && e.kind != EventKind.memory && momentSongs.containsKey(e.song)) return e.song!;
     }
     return 'chacha';

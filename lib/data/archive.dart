@@ -265,6 +265,8 @@ const momentSongs = <String, MomentSong>{
     fadeIn: 3,
   ),
   'okjazz': MomentSong('franco-chicotte.mp3', 'Chicotte (1964)', 'Franco et l\'OK Jazz'),
+  // « Comprenez mon émotion », en 1990 : le chant pour Mobutu joue le temps de la fiche, puis s'arrête.
+  'desire': MomentSong('mobutu-desire.mp3', 'Mobutu Désiré', 'Chant de louange pour Mobutu', seconds: 20, fadeIn: 1),
   // La mort de Franco, en 1989 : « Mario » joue en entier, jusqu'au moment suivant.
   'mario': MomentSong('franco-mario.mp3', 'Mario', 'Franco et le TP OK Jazz', seconds: 300, level: 0.65, fadeIn: 3),
   'bomaye': MomentSong('ali-bomaye.mp3', '« Ali, bomaye ! »', 'Kinshasa, 1974'),
