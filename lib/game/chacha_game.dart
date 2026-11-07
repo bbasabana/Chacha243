@@ -800,18 +800,23 @@ class ChachaGame extends FlameGame {
     _wornAlert = level;
     _nextKit = math.min(_nextKit, t + 2);
     onBuzz?.call(260, 200);
-    _queueBanner(
-      FlightBanner(
-        level == 10 ? 'Danger : avion à ${condition.round()} %' : 'État de l\'avion : ${condition.round()} %',
-        level == 10
-            ? 'Encore un choc et l\'avion tombe · attrape vite le kit BLEU avec une clé'
-            : _zone == null
-            ? 'Trop de chocs · attrape le kit BLEU avec une clé, ou touche ATTERRIR pour l\'entretien'
-            : 'Trop de chocs · attrape le kit BLEU avec une clé ; après la guerre, atterris pour l\'entretien',
-        color: ChachaColors.red,
-      ),
-      first: true,
+    void show() => banner.value = FlightBanner(
+      level == 10 ? 'Danger : avion à ${condition.round()} %' : 'État de l\'avion : ${condition.round()} %',
+      level == 10
+          ? 'Encore un choc et l\'avion tombe · attrape vite le kit BLEU avec une clé'
+          : _zone == null
+          ? 'Trop de chocs · attrape le kit BLEU avec une clé, ou touche ATTERRIR pour l\'entretien'
+          : 'Trop de chocs · attrape le kit BLEU avec une clé ; après la guerre, atterris pour l\'entretien',
+      color: ChachaColors.red,
     );
+    // Elle passe tout de suite, avant le kit qu'elle annonce ; seule une fiche d'histoire la fait attendre.
+    // Une alerte qui attend encore s'en va si l'avion a été réparé ou si un seuil plus bas a parlé.
+    final c = _onStage;
+    if (c == null || (c.story == null && !c.hold)) {
+      _cueNow(show, 5.5, hide: () => banner.value = null);
+    } else {
+      _cue(show, 5.5, hide: () => banner.value = null, first: true, still: () => _wornAlert == level && _maintT < 0);
+    }
   }
 
   int _fuelCans = 0;

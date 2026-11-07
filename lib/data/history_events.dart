@@ -371,9 +371,25 @@ const historyEvents = <HistoryEvent>[
     EventKind.life,
     '1982',
     'Kinshasa',
-    'Kester Emeneya et Victoria Eleison',
-    'Kester Emeneya quitte Viva la Musica et fonde Victoria Eleison.',
+    'King Kester Emeneya et Victoria Eleison',
+    'Kester Emeneya, chanteur vedette de Viva la Musica, quitte Papa Wemba et fonde Victoria Eleison. '
+        'On l\'appelle « King Kester » : il devient l\'un des grands noms de la rumba des années 1980.',
+    photo: 'kester',
+    medal: 'King Kester',
     song: 'kester',
+  ),
+  HistoryEvent(
+    1983.5,
+    EventKind.life,
+    '1983',
+    'Kinshasa',
+    'Koffi Olomidé se lance en solo',
+    'Né le 13 juillet 1956 à Kisangani, Antoine Christophe Agbepa Mumba, dit Koffi Olomidé, écrit d\'abord des chansons '
+        'pour Papa Wemba. En 1983, il se lance en solo avec l\'album « Ngounda », puis fonde le Quartier Latin '
+        'International en 1986. On l\'appelle « le Grand Mopao » : il devient une star de la rumba en Afrique et en Europe.',
+    photo: 'koffi',
+    medal: 'Grand Mopao',
+    song: 'koffi',
   ),
   HistoryEvent(
     1984.52,
@@ -404,7 +420,7 @@ const historyEvents = <HistoryEvent>[
     'Le 12 octobre 1989, le « Grand Maître » Franco Luambo Makiadi, roi de la rumba et chef de l\'OK Jazz, meurt à Bruxelles. '
         'Tout le Zaïre le pleure : quatre jours de deuil national, et des milliers de Kinois l\'accompagnent jusqu\'à la Gombe.',
     photo: 'franco',
-    song: 'okjazz',
+    song: 'mario',
     intro: 'Adieu au « Grand Maître » de la rumba',
   ),
   HistoryEvent(

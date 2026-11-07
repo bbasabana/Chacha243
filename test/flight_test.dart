@@ -337,10 +337,12 @@ void main() {
       if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
     }
     for (final level in [24.0, 19.0, 9.0]) {
+      // Pendant un entretien (kit pris), on ne prévient pas : on attend la fin, puis on remet l'avion à ce seuil.
       g.condition = level;
-      for (var i = 0; i < 60 * 4; i++) {
+      for (var i = 0; i < 60 * 40 && !alerts.any((a) => a.endsWith(' ${level.round()} %')); i++) {
         g.lives = 5;
         g.update(1 / 60);
+        if (g.condition >= 99.9) g.condition = level;
         if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
       }
     }

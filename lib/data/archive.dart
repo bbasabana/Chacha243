@@ -46,6 +46,8 @@ const archivePhotos = <String, ArchivePhoto>{
     'La carte d\'identité pour citoyen, République du Zaïre',
     credit: 'République du Zaïre',
   ),
+  'koffi': ArchivePhoto('koffi-olomide.jpg', 'Koffi Olomidé, « le Grand Mopao »'),
+  'kester': ArchivePhoto('king-kester-emeneya.jpg', 'King Kester Emeneya'),
   'wenge': ArchivePhoto('wenge-musica.jpg', 'Wenge Musica, l\'orchestre de la jeunesse kinoise'),
   'jeanpaul2': ArchivePhoto('jean-paul-ii-zaire.jpg', 'Le pape Jean-Paul II reçu par Mobutu au Zaïre'),
   'francois': ArchivePhoto(
@@ -263,9 +265,12 @@ const momentSongs = <String, MomentSong>{
     fadeIn: 3,
   ),
   'okjazz': MomentSong('franco-chicotte.mp3', 'Chicotte (1964)', 'Franco et l\'OK Jazz'),
+  // La mort de Franco, en 1989 : « Mario » joue en entier, jusqu'au moment suivant.
+  'mario': MomentSong('franco-mario.mp3', 'Mario', 'Franco et le TP OK Jazz', seconds: 300, level: 0.65, fadeIn: 3),
   'bomaye': MomentSong('ali-bomaye.mp3', '« Ali, bomaye ! »', 'Kinshasa, 1974'),
   'viva': MomentSong('viva-pole-position.mp3', 'Pole Position', 'Papa Wemba et Viva la Musica'),
   'wenge': MomentSong('wenge-musica.mp3', 'Une chanson de Wenge Musica', 'Wenge Musica 4×4'),
+  'koffi': MomentSong('koffi-olomide.mp3', 'Une chanson de Koffi Olomidé', 'Koffi Olomidé', start: 59, seconds: 180),
   'kester': MomentSong('victoria-eleison.mp3', 'Une chanson de Victoria Eleison', 'Kester Emeneya'),
   'reveil': MomentSong(
     'louange-kumama.mp3',
