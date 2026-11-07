@@ -2551,14 +2551,14 @@ class ChachaGame extends FlameGame {
         _indepStep = 4;
         _indepAt = t;
       // Les ceintures attachées, l'histoire reprend doucement vers 1961.
-      case 4 when since >= 10 && cabin.value == null && _onStage == null:
+      case 4 when since >= 10 && cabin.value == null && _onStage == null && _cues.isEmpty:
         _indep = 2;
         _airT = 0;
         _indepDone = t;
         if (_nextZone < warZones.length && warZones[_nextZone].from - year > 0.3) _freeSky();
     }
     // Un message a tout retardé trop longtemps : l'histoire reprend quand même.
-    if (_indep == 1 && t > _indepT + 180) {
+    if (_indep == 1 && t > _indepT + 300) {
       _indep = 2;
       _indepDone = t;
     }
