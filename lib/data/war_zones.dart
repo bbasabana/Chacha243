@@ -124,7 +124,7 @@ const warZones = <WarZone>[
 /// À faire valider par des locuteurs avant la sortie.
 abstract final class Lingala {
   /// « Allons-y ! »
-  static const tokende = 'Tokende !';
+  static const tokende = 'To kende !';
 
   /// « Bonjour ! », la tour de contrôle qui répond.
   static const mbote = 'Mbote !';

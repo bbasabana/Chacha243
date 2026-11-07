@@ -163,7 +163,7 @@ const pilotBanter = <PilotBanter>[
     'Mbote !',
     'On vous entend chanter depuis notre avion !',
     'Ezali kabine, bazali kobina !',
-    'C\'est la cabine, ils dansent ! Tokende !',
+    'C\'est la cabine, ils dansent ! To kende !',
   ),
   PilotBanter(
     'Keba, ndeko.',
