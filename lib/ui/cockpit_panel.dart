@@ -32,7 +32,12 @@ class CockpitPanel extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _Dial(label: 'ASSIETTE', painter: _HorizonPainter(hud.pitch)),
+                  // Les deux cadrans sur la même ligne : le cadran, sa valeur, puis son nom.
+                  _Dial(
+                    label: 'ASSIETTE',
+                    value: '${(-hud.pitch * 57.3).round() >= 0 ? '+' : ''}${(-hud.pitch * 57.3).round()}°',
+                    painter: _HorizonPainter(hud.pitch),
+                  ),
                   _Dial(
                     label: 'ALTITUDE',
                     value: '${(hud.altitude / 100).round() * 100} ft',

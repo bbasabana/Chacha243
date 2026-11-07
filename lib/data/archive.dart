@@ -193,6 +193,15 @@ const momentSongs = <String, MomentSong>{
     'Grand Kallé et l\'African Jazz',
     seconds: 50,
   ),
+  // Quand rien d'autre ne joue : la chanson presque entière, doucement, sous le vol.
+  'fond': MomentSong(
+    'independance-cha-cha.mp3',
+    'Indépendance Cha Cha',
+    'Grand Kallé et l\'African Jazz',
+    seconds: 180,
+    level: 0.4,
+    fadeIn: 3,
+  ),
   // L'hymne du Zaïre : un court extrait, et la chanson du MPR prend la suite sans silence.
   'hymne': MomentSong(
     'zaire-hymne.mp3',

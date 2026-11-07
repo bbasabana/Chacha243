@@ -403,9 +403,10 @@ const historyEvents = <HistoryEvent>[
     EventKind.life,
     'années 1990 (à confirmer)',
     'Ituri, Kinshasa',
-    'Les églises de réveil',
-    'Les églises de réveil et leurs chants se répandent. Le pasteur pentecôtiste Ayidini Abala, né le 15 juillet 1927 en Ituri, en est une grande figure.',
+    'Ayidini Abala, père du réveil',
+    'À cette époque, les églises de réveil et leurs chants se répandent dans tout le pays. Le pasteur Ayidini Abala, né le 15 juillet 1927 en Ituri, fondateur de son église, est appelé le père du réveil au Congo.',
     photo: 'abala',
+    medal: 'Ayidini Abala',
     song: 'reveil',
   ),
   HistoryEvent(

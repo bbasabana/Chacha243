@@ -1388,8 +1388,8 @@ class _Controls extends StatelessWidget {
                 const Text('TURBO', style: TextStyle(fontSize: 15, letterSpacing: 1.4, fontWeight: FontWeight.w900)),
                 Text(
                   game.turboLock
-                      ? 'actif · appuie\npour arrêter'
-                      : (hud.boost ? 'actif · lâche\npour arrêter' : 'appuie ou\nmaintiens'),
+                      ? 'actif · touche\npour désactiver'
+                      : (hud.boost ? 'actif · lâche\npour désactiver' : 'touche ou\nmaintiens'),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10, height: 1.15, color: Colors.white.withValues(alpha: 0.9)),
                 ),

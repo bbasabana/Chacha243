@@ -486,7 +486,8 @@ class ChachaGame extends FlameGame {
       if (_turboStopping) {
         turboLock = false;
         boost = false;
-      } else if (quick) {
+      } else if (quick && phase == FlightPhase.cruising) {
+        // On ne bloque le TURBO qu'en vol : sur la piste, on le garde appuyé pour décoller.
         turboLock = true;
       } else {
         boost = false;
@@ -564,6 +565,21 @@ class ChachaGame extends FlameGame {
   /// Le blindage gagné avec les kits : chaque kit retire 10 % des dégâts, jusqu'à 50 %.
   double armor = 0;
   double _hurt(double d) => d * (1 - armor);
+
+  /// Traverser un nuage noir secoue et abîme l'avion, sans coûter une vie : on le voit tout de suite.
+  /// Seul un avion à 0 % d'état finit par tomber.
+  void _stormHit() {
+    if (invulnerable > 0 || _finaleT >= 0) return;
+    final d = _hurt(10);
+    condition = math.max(0, condition - d);
+    invulnerable = 1.5;
+    shake = math.max(shake, 0.35);
+    _turbulence = math.max(_turbulence, 1.2);
+    onBuzz?.call(160, 160);
+    _wearArmor();
+    _float('Orage · −${d.round()} % état', planeX, planeY - 40 * _unit, const Color(0xFFFFB04A));
+    _pushHud();
+  }
 
   /// La protection des kits s'use : chaque choc en retire 5 points.
   void _wearArmor() {
@@ -974,7 +990,7 @@ class ChachaGame extends FlameGame {
 
   void _setPhase(FlightPhase p) {
     // Un TURBO bloqué s'arrête dès qu'on quitte le vol (approche, sol, crash).
-    if (turboLock && p != FlightPhase.cruising && p != FlightPhase.climbing && p != FlightPhase.rolling) {
+    if (turboLock && p != FlightPhase.cruising) {
       turboLock = false;
       boost = false;
     }
@@ -2030,8 +2046,21 @@ class ChachaGame extends FlameGame {
       switch (e.kind) {
         case EventKind.life:
         case EventKind.glory:
-          final y = _h * (0.18 + _rng.nextDouble() * 0.64);
-          // Un visage (Mobutu, Abala…) passe lentement : on a le temps de le voir, de le prendre, de lire.
+          // Un visage (Mobutu, Abala…) passe au milieu de l'écran, lentement, et on l'annonce avant.
+          final face = e.photo != null && (archivePhotos[e.photo]?.isPortrait ?? false);
+          final y = face ? _h * (0.46 + _rng.nextDouble() * 0.08) : _h * (0.18 + _rng.nextDouble() * 0.64);
+          if (face) {
+            _cue(
+              () => banner.value = FlightBanner(
+                e.medal ?? e.title,
+                'Son médaillon arrive au milieu · attrape-le pour lire son histoire',
+                color: ChachaColors.yellow,
+              ),
+              5,
+              hide: () => banner.value = null,
+              first: true,
+            );
+          }
           _pickups.add(
             _Pickup(
               _PickupKind.medal,
@@ -2039,7 +2068,7 @@ class ChachaGame extends FlameGame {
               y,
               event: e,
               label: _label(e.medal ?? '${e.yearLabel}', 15 * _unit),
-              slow: e.photo != null,
+              slow: face,
             ),
           );
         case EventKind.obstacle:
@@ -2105,20 +2134,17 @@ class ChachaGame extends FlameGame {
     final short = _shortage;
     if (short != null && _shortageSaid < _shortages.indexOf(short) + 1) {
       _shortageSaid = _shortages.indexOf(short) + 1;
-      _queueBanner(
-        FlightBanner(
-          'Pénurie de kérosène · ${short.$3}',
-          '${short.$4} : plus de bidons pendant un moment',
-          color: _warRed,
+      // C'est le pays qui manque de carburant, pas ton avion : on le dit, avec ce qu'il te reste.
+      _cue(
+        () => banner.value = FlightBanner(
+          'Pénurie dans le pays · ${short.$3} (${short.$1.floor()})',
+          '${short.$4} : pas de bidon en vol un moment · ton avion : ${fuel.round()} %'
+              '${reserve >= 1 ? ' + ${reserve.round()} % de réserve' : ''}',
+          color: const Color(0xFFFFB04A),
         ),
+        8,
+        hide: () => banner.value = null,
         first: true,
-      );
-      _say(
-        'Tour de contrôle',
-        Lingala.keba,
-        reserve >= 1
-            ? 'Pénurie : aucun bidon ne viendra. Garde tes ${reserve.round()} % de réserve pour la fin.'
-            : 'Pénurie : aucun bidon ne viendra. Économise ton kérosène, attrape les médailles.',
       );
     }
     if (t >= _nextFuel && short == null) {
@@ -2627,14 +2653,19 @@ class ChachaGame extends FlameGame {
   int _peaceSongs = 0;
   void _peaceSong() => onSong?.call((_peaceSongs++).isEven ? 'paix1' : 'paix2');
 
-  /// Après un long silence dans un ciel calme, « Indépendance Cha Cha » revient doucement.
+  /// On ne vole jamais sans musique : après 12 secondes de silence, « Indépendance Cha Cha » revient doucement
+  /// (sauf si le joueur a coupé la musique : elle joue alors à volume zéro).
   bool Function()? songBusy;
-  double _nextFiller = 150;
-  void _fillSilence() {
-    if (t < _nextFiller) return;
-    _nextFiller = t + 150;
-    if (_zone != null || _finaleT >= 0 || phase != FlightPhase.cruising || (songBusy?.call() ?? true)) return;
-    onSong?.call('chacha', level: 0.4);
+  double _silentFor = 0;
+  void _fillSilence(double dt) {
+    if (_finaleT >= 0 || phase != FlightPhase.cruising || (songBusy?.call() ?? true)) {
+      _silentFor = 0;
+      return;
+    }
+    _silentFor += dt;
+    if (_silentFor < 12) return;
+    _silentFor = 0;
+    onSong?.call('fond');
   }
 
   void _startApproach() {
@@ -3029,7 +3060,7 @@ class ChachaGame extends FlameGame {
       _moneyAcc -= _moneyAcc.floor();
     }
     _watchDebt();
-    _fillSilence();
+    _fillSilence(dt);
     // Toutes les 45 secondes, on voit ce que le vol a rapporté.
     if (_flownMoney >= 200 && t >= _nextEarnFloat && phase == FlightPhase.cruising) {
       _nextEarnFloat = t + 45;
@@ -3460,19 +3491,30 @@ class ChachaGame extends FlameGame {
     _changeAircraft(t);
   }
 
+  /// L'avion de la compagnie s'il vole encore cette année-là, sinon celui de l'époque le plus proche en taille.
+  AircraftType _planeFor(AirlineEra a) {
+    final flag = aircraftById(a.flagship);
+    if (flag.fliesIn(year)) return flag;
+    final open = aircraftTypes.where((x) => x.fliesIn(year)).toList();
+    if (open.isEmpty) return type;
+    open.sort((x, y) => (x.seats - type.seats).abs().compareTo((y.seats - type.seats).abs()));
+    return open.first;
+  }
+
   void _changeAircraft(AircraftType t) {
     type = t;
     passengers = math.min(passengers, t.seats);
-    flash = 0.8;
-    _burst(planeX, planeY, 30, const [Colors.white, ChachaColors.yellow], speed: 260);
-    _queueBanner(
-      FlightBanner(
+    flash = 0.5;
+    // Un seul message, qu'on a le temps de lire : l'année, la compagnie, l'avion et ses places.
+    _cue(
+      () => banner.value = FlightBanner(
         'Nouvel avion · ${t.maker} ${t.name}',
-        '${t.seats} places · ${t.story}',
+        'En ${year.floor()}, ${_airline.name} vole en ${t.maker} ${t.name} · ${t.seats} places',
         color: ChachaColors.skyLight,
       ),
+      8,
+      hide: () => banner.value = null,
     );
-    _showPlaneCard('Nouvel avion');
     if (phase == FlightPhase.ground) _pushStopover();
   }
 
@@ -3910,10 +3952,14 @@ class ChachaGame extends FlameGame {
       flash = 1;
       _burst(planeX, planeY, 40, const [Colors.white, ChachaColors.yellow, ChachaColors.skyLight], speed: 320);
       _queueBanner(FlightBanner('${a.from.floor()} · ${a.name}', a.note));
-      final next = aircraftById(a.flagship);
+      final next = _planeFor(a);
       if (next != type && phase == FlightPhase.cruising) _changeAircraft(next);
     }
-    if (!type.fliesIn(year) && phase == FlightPhase.cruising) _changeAircraft(aircraftById(a.flagship));
+    // L'avion n'est plus en service : on passe une seule fois à un avion de l'époque (jamais au même).
+    if (!type.fliesIn(year) && phase == FlightPhase.cruising) {
+      final next = _planeFor(a);
+      if (next != type) _changeAircraft(next);
+    }
     final f = flagAt(year);
     if (!identical(f, _flag)) {
       _flag = f;
@@ -3929,7 +3975,7 @@ class ChachaGame extends FlameGame {
       if (c.storm) {
         c.flash = math.max(0, c.flash - dt * 3);
         if (_rng.nextDouble() < dt * 0.8) c.flash = 1;
-        if (phase == FlightPhase.cruising && _hits(c.x, c.y, c.r * 1.2)) _loseLife('Orage');
+        if (phase == FlightPhase.cruising && _hits(c.x, c.y, c.r * 0.85)) _stormHit();
       }
     }
     _clouds.removeWhere((c) => c.x < -c.r * 4);
@@ -4056,7 +4102,7 @@ class ChachaGame extends FlameGame {
 
     final rx = planeLength * 0.42;
     for (final p in _pickups) {
-      p.x -= p.slow ? move * (p.event != null && !independenceFaces.contains(p.event) ? 0.45 : 0.38) : move;
+      p.x -= p.slow ? move * (p.event != null && !independenceFaces.contains(p.event) ? 0.25 : 0.38) : move;
       if (magnetTime > 0 && !p.taken) {
         final d = Offset(planeX - p.x, planeY - p.y);
         if (d.distance < 320 * _unit) {
