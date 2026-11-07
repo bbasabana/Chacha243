@@ -1763,9 +1763,11 @@ class ChachaGame extends FlameGame {
     if (year.floor() > _yearSent && _startSent) {
       _yearSent = year.floor();
       _report('year');
-      // Chaque nouvelle année hors d'une guerre devient le point de reprise : après un crash en 1994,
-      // on reprend en 1994, pas au début de la décennie.
-      if (_zone == null && phase == FlightPhase.cruising && _finaleT < 0) _saveCheckpoint(year);
+    }
+    // Chaque nouvelle année devient le point de reprise, guerre comprise : après un crash en 1962,
+    // on reprend en 1962, au milieu de la sécession, avec les vagues déjà passées.
+    if (year.floor() > (checkpoint.value?.year.floor() ?? 0) && phase == FlightPhase.cruising && _finaleT < 0) {
+      _saveCheckpoint(year);
     }
     // On quitte les années 1970 : Zaïko Langa Langa ouvre les années 1980, dans un ciel sans obstacle.
     if (!_eightiesSaid && year >= 1980 && year < 1981 && _zone == null && phase == FlightPhase.cruising) {
@@ -3876,7 +3878,7 @@ class ChachaGame extends FlameGame {
     _waveActive = false;
     // La première vague part quand « La guerre arrive » s'affiche (au plus tard 20 s après l'entrée).
     _waveDelay = 20;
-    _saveCheckpoint(z.from + span * _wavesCleared);
+    _saveCheckpoint(math.max(year, z.from + span * _wavesCleared));
     shake = 0.35;
     // Repris au milieu d'une zone, ou arrivé sans prévenir : on prévient maintenant.
     if (_warnedZone < _nextZone) {

@@ -142,4 +142,26 @@ void main() {
     print('Air Congo à ${born! ~/ 60} s, avions de chasse ${calm ~/ 60} s après');
     expect(calm, greaterThanOrEqualTo(60 * 10));
   });
+
+  test('un crash en pleine guerre reprend à l\'année atteinte, pas au début de la guerre', () async {
+    final g = await start(year: 1961.3, autopilot: true);
+    for (var i = 0; i < 60 * 60 * 8 && g.year < 1962.3; i++) {
+      g.lives = 5;
+      g.condition = 100;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+    }
+    expect(g.zoneHud.value?.zone.name, 'Sécession du Katanga');
+    expect(g.checkpoint.value?.year.floor(), 1962);
+
+    // La reprise en 1962 repart au milieu de la sécession, avec les vagues déjà passées.
+    final again = await start(year: 1962.0, autopilot: true);
+    for (var i = 0; i < 60 * 40 && again.zoneHud.value == null; i++) {
+      again.update(1 / 60);
+      if (again.cabin.value?.mode == CabinMode.beltsAsk) again.fastenBelts();
+    }
+    expect(again.zoneHud.value?.zone.name, 'Sécession du Katanga');
+    expect(again.zoneHud.value!.wave, greaterThan(1));
+    expect(again.year, greaterThanOrEqualTo(1962));
+  });
 }
