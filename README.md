@@ -1,18 +1,21 @@
 <div align="center">
 
-# <img src=".github/icons/avion.svg" width="34" height="34" align="top" alt=""> Chacha243
+<img src=".github/logo.png" width="128" height="128" alt="Chacha243">
+
+# Chacha243
 
 ### Pilote l'avion du Congo, de l'Indépendance à aujourd'hui.
 
 **30 juin 1960 → 30 juin 2027** · un vol, soixante-sept ans d'histoire
 
+![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white)
+![iOS](https://img.shields.io/badge/iOS-13%2B-000000?logo=apple&logoColor=white)
 ![Flutter](https://img.shields.io/badge/Flutter-3.41-02569B?logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-3.11-0175C2?logo=dart&logoColor=white)
 ![Flame](https://img.shields.io/badge/Flame-1.38-FF6F00)
-![Plateformes](https://img.shields.io/badge/plateformes-Android%20·%20iOS%20·%20Web-007FFF)
 ![Langue](https://img.shields.io/badge/langue-français%20·%20lingala-CE1021)
 
-[Le jeu](#le-jeu) · [Lancer](#lancer-le-projet) · [Architecture](#architecture) · [Contribuer](#contribuer) · [Depuis 2014](#depuis-2014)
+[Le jeu](#le-jeu) · [Lancer](#lancer-le-projet) · [Android](#android) · [iOS](#ios) · [Architecture](#architecture) · [Contribuer](#contribuer)
 
 </div>
 
@@ -39,10 +42,22 @@ Un vol complet de 1960 à 2027 dure environ 35 minutes : on prend le temps de li
 
 ## Lancer le projet
 
+Il faut **Flutter 3.41** (Dart 3.11). Le même code donne la version Android et la version iOS : chaque correction du jeu vaut pour les deux.
+
 ```bash
 flutter pub get
 flutter run              # téléphone branché, simulateur, ou -d chrome
 ```
+
+Avant chaque envoi :
+
+```bash
+dart format -l 120 lib test
+flutter analyze
+flutter test
+```
+
+Les tests font voler le jeu sans écran : un vol en pilote automatique de 1985 à 2008 vérifie que chaque fiche s'affiche dans son année, d'autres vérifient la reprise après un crash, la musique et les écrans sur six tailles de téléphone.
 
 **Commandes en vol :** inclinaison du téléphone (calibrée au décollage) ou glisser du doigt · **TURBO** maintenu pour accélérer · **photo** pour attirer les médaillons proches. Au clavier : flèches, `espace` = TURBO, `P` = photo.
 
@@ -64,6 +79,41 @@ Ils permettent d'ouvrir le jeu directement au bon endroit, pour tester ou prépa
 
 Exemple : `http://localhost:8080/?demo=1&annee=1997&avance=10&montrer=repas`
 
+## Android
+
+| | |
+| --- | --- |
+| Version minimale | Android 7.0 (API 24) |
+| Identifiant | `cd.chacha243.chacha243` |
+| Écran | toujours couché (paysage), plein écran, 60 images par seconde |
+| Rendu | Impeller |
+
+Construire et installer sur un téléphone branché :
+
+```bash
+flutter build apk --release --split-per-abi --target-platform android-arm64
+adb install -r build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+```
+
+Le code propre à Android est dans `android/app/src/main/kotlin/…/MainActivity.kt` : l'écran couché, la limite à 60 images par seconde, la remise à la bonne taille au déverrouillage, et le canal `chacha243/device` (marque, modèle, identifiant du téléphone).
+
+## iOS
+
+| | |
+| --- | --- |
+| Version minimale | iOS 13 |
+| Outils | Xcode 26 et son simulateur |
+| Écran | toujours couché (paysage), plein écran |
+
+Construire pour le simulateur, ou pour un iPhone branché :
+
+```bash
+flutter build ios --simulator    # build/ios/iphonesimulator/Runner.app
+flutter run -d <iPhone>          # un iPhone branché et approuvé dans Xcode
+```
+
+Le code propre à iOS est dans `ios/Runner/AppDelegate.swift` : le même canal `chacha243/device` qu'Android, avec un identifiant gardé dans le trousseau pour retrouver le nom du pilote après une réinstallation.
+
 ## Architecture
 
 ```text
@@ -71,7 +121,7 @@ lib/
 ├── main.dart              point d'entrée, thème, routes
 ├── app_state.dart         nom du pilote, missions réussies, grades
 ├── data/                  le contenu : tout ce qui est historique vit ici
-│   ├── history_events.dart   75 moments de 1960 à 2027 (triés par année)
+│   ├── history_events.dart   les moments de 1960 à 2027 (triés par année)
 │   ├── war_zones.dart        zones de turbulence et phrases en lingala
 │   ├── eras.dart             compagnies, livrées et drapeaux par époque
 │   ├── aircraft_types.dart   les 10 avions et leurs dates de service
@@ -82,7 +132,9 @@ lib/
 │   ├── checkpoint.dart       point de reprise
 │   ├── scenery.dart          ciel, sol et villes
 │   ├── tilt_control.dart     pilotage par inclinaison
-│   └── music.dart            musique par moment
+│   ├── music.dart            musique par moment, sans temps mort
+│   ├── sfx.dart              petits sons du vol
+│   └── telemetry.dart        nom du pilote, championnat, envoi groupé hors ligne
 ├── painting/              avions et drapeaux dessinés en vecteurs
 ├── theme/                 couleurs du drapeau et de l'interface
 └── ui/                    écrans Flutter : accueil, hangar, tableau de bord, frise, à propos
