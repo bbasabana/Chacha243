@@ -85,7 +85,7 @@ const warZones = <WarZone>[
     from: 1996.8,
     to: 1997.38,
     name: "Guerre de l'AFDL",
-    place: "De l'Est à Kinshasa",
+    place: "De l'est du Congo jusqu'à Kinshasa",
     waves: 4,
     peaceTitle: 'Une nouvelle page',
     peaceText: "Mai 1997 : la guerre s'arrête, le Zaïre redevient le Congo.",

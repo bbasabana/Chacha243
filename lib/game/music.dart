@@ -17,6 +17,15 @@ class Music {
   Music._() {
     musicVolume.addListener(_applyVolume);
     musicOn.addListener(_applyVolume);
+    // Le fichier est allé au bout tout seul : le silence revient, et le jeu peut relancer une chanson.
+    _player.onPlayerComplete.listen((_) {
+      if (_player.releaseMode == ReleaseMode.loop) return;
+      _end?.cancel();
+      final next = current?.then;
+      _playing = null;
+      current = null;
+      if (next != null) play(next);
+    });
   }
 
   static final instance = Music._();
@@ -34,11 +43,12 @@ class Music {
   String? _playing;
 
   /// Une chanson joue en ce moment (pour ne pas en lancer une autre par-dessus).
-  bool get busy => _playing != null;
+  bool get busy => _playing != null && _player.state != PlayerState.completed && _player.state != PlayerState.stopped;
 
   /// Le niveau du fondu, de 0 (muet) à 1 (volume réglé par le joueur).
   double _level = 0;
   Timer? _fade, _end;
+  Completer<void>? _fading;
 
   /// Chaque nouvel ordre annule les fondus en cours de l'ordre précédent.
   int _order = 0;
@@ -52,11 +62,14 @@ class Music {
 
   /// Fait glisser le volume jusqu'à [to] ; se termine plus tôt si un autre ordre arrive.
   Future<void> _slide(double to, Duration over, int order) {
+    // Le fondu remplacé se termine quand même : sinon, ce qui l'attendait (la fin d'un extrait) resterait bloqué
+    // et le jeu croirait qu'une chanson joue encore, pour toujours.
     _fade?.cancel();
+    if (_fading case final f? when !f.isCompleted) f.complete();
     final from = _level;
     final steps = (over.inMilliseconds / 50).ceil().clamp(1, 1000);
     var i = 0;
-    final done = Completer<void>();
+    final done = _fading = Completer<void>();
     _fade = Timer.periodic(const Duration(milliseconds: 50), (t) {
       if (order != _order) {
         t.cancel();
@@ -107,6 +120,8 @@ class Music {
       }
       return true;
     } catch (_) {
+      _playing = null;
+      current = null;
       return false;
     }
   }

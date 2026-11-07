@@ -384,7 +384,23 @@ class _Particle {
 
 /// Un passage de la régie : un seul message à l'écran, puis un temps de silence avant le suivant.
 class _Cue {
-  _Cue(this.show, this.seconds, {this.hide, this.done, this.hold = false, this.urgent = false, this.still});
+  _Cue(
+    this.show,
+    this.seconds, {
+    this.hide,
+    this.done,
+    this.hold = false,
+    this.urgent = false,
+    this.still,
+    this.story,
+    this.at = 0,
+  });
+
+  /// L'année d'une fiche d'histoire : elle doit passer dans son année, avant les conseils ordinaires.
+  final double? story;
+
+  /// Le moment où le message a été mis dans la file.
+  final double at;
 
   /// Encore vrai au moment de passer ? Un message périmé (« le kérosène va finir » après un plein) est sauté.
   final bool Function()? still;
@@ -1053,18 +1069,23 @@ class ChachaGame extends FlameGame {
     bool hold = false,
     bool first = false,
     bool Function()? still,
+    double? story,
   }) {
-    final c = _Cue(show, seconds, hide: hide, done: done, hold: hold, urgent: first, still: still);
+    final c = _Cue(show, seconds, hide: hide, done: done, hold: hold, urgent: first, still: still, story: story, at: t);
     if (first) {
       // Derrière les autres messages urgents déjà en tête, pour garder leur ordre.
       final at = _cues.indexWhere((x) => !x.urgent);
       _cues.insert(at < 0 ? _cues.length : at, c);
+    } else if (story != null) {
+      // Une fiche d'histoire passe avant les conseils ordinaires, derrière les fiches déjà en attente.
+      final at = _cues.indexWhere((x) => !x.urgent && x.story == null);
+      _cues.insert(at < 0 ? _cues.length : at, c);
     } else {
       _cues.add(c);
     }
-    // Quand l'histoire s'emballe, on jette les messages ordinaires les plus anciens, jamais les urgents.
+    // Quand l'histoire s'emballe, on jette les messages ordinaires les plus anciens, jamais les urgents ni l'histoire.
     while (_cues.length > 12) {
-      final old = _cues.indexWhere((x) => !x.urgent);
+      final old = _cues.indexWhere((x) => !x.urgent && x.story == null);
       if (old < 0) break;
       _cues.removeAt(old);
     }
@@ -1093,7 +1114,9 @@ class ChachaGame extends FlameGame {
     }
     _cueGap -= dt;
     // Les messages qui ne sont plus vrais s'en vont sans s'afficher.
-    while (_cues.isNotEmpty && !(_cues.first.still?.call() ?? true)) {
+    // Un conseil ordinaire qui attend depuis trop longtemps ne parle plus de ce qui se passe : il s'en va aussi.
+    bool stale(_Cue c) => !(c.still?.call() ?? true) || (!c.urgent && !c.hold && c.story == null && t - c.at > 45);
+    while (_cues.isNotEmpty && stale(_cues.first)) {
       _cues.removeAt(0);
     }
     if (_cueGap > 0 || _cues.isEmpty) return;
@@ -1117,7 +1140,7 @@ class ChachaGame extends FlameGame {
       // Grand tournant : le ciel bout, le drapeau change, la fiche suit.
       _cue(
         () {
-          if (e.song != null && e.kind != EventKind.memory) onSong?.call(e.song!);
+          if (e.song != null && e.kind != EventKind.memory) _song(e.song!);
           _boil = 4.5;
           slowMo = math.max(slowMo, 3.5);
           shake = 0.3;
@@ -1125,15 +1148,17 @@ class ChachaGame extends FlameGame {
         },
         7,
         hide: () => turningPoint.value = null,
+        story: e.year,
       );
     }
     _cue(
       () {
-        if (e.song != null && e.kind != EventKind.memory && !(e.big && caught)) onSong?.call(e.song!);
+        if (e.song != null && e.kind != EventKind.memory && !(e.big && caught)) _song(e.song!);
         card.value = StoryCard(e, caught: caught, label: label);
       },
       _readTime(e),
       hide: () => card.value = null,
+      story: e.year,
       // Lumumba et Kasa-Vubu : leur fiche suit tout de suite le médaillon, avant les conseils de la tour.
       first: independenceFaces.contains(e),
     );
@@ -1142,6 +1167,8 @@ class ChachaGame extends FlameGame {
   /// Quand l'histoire parle (une fiche, un grand tournant, des messages qui attendent), les années ralentissent :
   /// on lit, on apprend, puis le temps reprend.
   double get _storyPace {
+    // Une fiche attend alors que son année est passée : le calendrier l'attend, pour qu'elle passe dans son année.
+    if (_cues.any((c) => c.story != null && c.story! < year - 0.2)) return 0;
     if (turningPoint.value != null || card.value != null) return 0.3;
     final waiting = _cues.where((c) => !c.hold).length;
     return waiting >= 3 ? 0.5 : 1;
@@ -1729,12 +1756,14 @@ class ChachaGame extends FlameGame {
         ),
         first: true,
       );
-      onSong?.call('ngwasuma');
+      _song('ngwasuma');
     }
 
     _spawnHistory();
     _spawnAmbient();
     _checkEras();
+    // Une reprise entre 1997 et 2001 retrouve « Franc congolais ».
+    if (year >= 1997.38 && year < 2001 && phase == FlightPhase.cruising && _finaleT < 0) _startFranc();
 
     if (year >= _endYear) {
       year = _endYear;
@@ -1786,7 +1815,7 @@ class ChachaGame extends FlameGame {
     _offerPending = false;
     _clearStage();
     if (passengers == 0) passengers = (type.seats * 0.8).round();
-    onSong?.call('moloto');
+    _song('moloto');
     _queueBanner(
       const FlightBanner('La dernière ligne droite', 'Le pilote automatique te ramène à Kinshasa pour le 30 juin 2027'),
     );
@@ -1975,7 +2004,7 @@ class ChachaGame extends FlameGame {
   void _comfort() {
     if (t < _nextComfort || _finaleT >= 0) return;
     _nextComfort = t + 75;
-    onSong?.call('louange');
+    _song('louange');
   }
 
   /// Le ciel n'est pas vide : un avion étranger qui salue, une volée d'oiseaux.
@@ -2048,11 +2077,16 @@ class ChachaGame extends FlameGame {
     final lead = secondsToPlane / _yearSeconds * (boost ? 1.6 : 1);
     while (_nextEvent < historyEvents.length && historyEvents[_nextEvent].year <= year + lead) {
       final e = historyEvents[_nextEvent++];
+      // La mort de Mzee arrête « Franc congolais » ; Indépendance Cha Cha prend la suite.
+      if (e.year >= 2001 && _francOn) {
+        _francOn = false;
+        _francDone = true;
+      }
       switch (e.kind) {
         case EventKind.life:
         case EventKind.glory:
           // Un visage (Mobutu, Abala…) passe au milieu de l'écran, lentement, et on l'annonce avant.
-          final face = e.photo != null && (archivePhotos[e.photo]?.isPortrait ?? false);
+          final face = e.intro != null || (e.photo != null && (archivePhotos[e.photo]?.isPortrait ?? false));
           final y = face ? _h * (0.46 + _rng.nextDouble() * 0.08) : _h * (0.18 + _rng.nextDouble() * 0.64);
           if (face) {
             _cue(
@@ -2100,7 +2134,7 @@ class ChachaGame extends FlameGame {
           if (_shortage == null) {
             _pickups.add(_Pickup(_PickupKind.fuel, _w + 160 * _unit, _h * (0.3 + _rng.nextDouble() * 0.4)));
           }
-          if (e.song != null) onSong?.call(e.song!);
+          if (e.song != null) _song(e.song!);
       }
     }
   }
@@ -2287,7 +2321,7 @@ class ChachaGame extends FlameGame {
     while (_nextEvent < historyEvents.length && historyEvents[_nextEvent].year <= 1960.5) {
       _nextEvent++;
     }
-    onSong?.call('chacha', level: 0.35, loop: true);
+    _song('chacha', level: 0.35, loop: true);
     // Le roulage a pu faire passer quelques jours : on revient au 30 juin, avant la sécession.
     year = math.min(year, 1960.51);
     _cue(
@@ -2655,8 +2689,22 @@ class ChachaGame extends FlameGame {
   }
 
   /// La louange de la paix : un extrait, puis l'autre la fois suivante.
+  /// De la fin de la guerre de l'AFDL (1997) à la mort de Mzee (2001), seule « Franc congolais » joue.
+  bool _francOn = false, _francDone = false;
+
+  void _song(String key, {double? level, bool loop = false}) {
+    if (_francOn && key != 'franc') return;
+    onSong?.call(key, level: level, loop: loop);
+  }
+
+  void _startFranc() {
+    if (_francOn || _francDone) return;
+    _francOn = true;
+    _song('franc', loop: true);
+  }
+
   int _peaceSongs = 0;
-  void _peaceSong() => onSong?.call((_peaceSongs++).isEven ? 'paix1' : 'paix2');
+  void _peaceSong() => _song((_peaceSongs++).isEven ? 'paix1' : 'paix2');
 
   /// On ne vole jamais sans musique : après 12 secondes de silence, « Indépendance Cha Cha » revient doucement
   /// (sauf si le joueur a coupé la musique : elle joue alors à volume zéro).
@@ -2670,7 +2718,7 @@ class ChachaGame extends FlameGame {
     _silentFor += dt;
     if (_silentFor < 12) return;
     _silentFor = 0;
-    onSong?.call('fond');
+    _song('fond');
   }
 
   void _startApproach() {
@@ -3654,7 +3702,7 @@ class ChachaGame extends FlameGame {
       _addFuel(55);
       score += 150;
       _confetti();
-      onSong?.call(q.event.song ?? 'chacha');
+      _song(q.event.song ?? 'chacha');
       _say('Tour de contrôle', Lingala.elonga, 'Bonne réponse ! Ravitaillement en vol : +55 % de kérosène.');
     } else {
       _addFuel(15);
@@ -3937,7 +3985,12 @@ class ChachaGame extends FlameGame {
       ),
     );
     _talk(TalkMoment.peace, force: true);
-    _peaceSong();
+    // La guerre finie, la louange laisse la place : « Franc congolais » pour le nouveau Congo, sinon Indépendance.
+    if (z.to > 1997 && z.to < 1998) {
+      _startFranc();
+    } else {
+      _song('fond');
+    }
     _queueBanner(
       const FlightBanner('Étape de paix', '+1 vie · +500 points · la réconciliation continue', color: _peaceGreen),
     );
