@@ -2697,6 +2697,11 @@ class ChachaGame extends FlameGame {
     onSong?.call(key, level: level, loop: loop);
   }
 
+  /// Une zone de guerre fait taire la musique, sauf « Franc congolais », qui continue jusqu'en 2001.
+  void _hush() {
+    if (!_francOn && !(year >= 1997.38 && year < 2001 && !_francDone)) onHush?.call();
+  }
+
   void _startFranc() {
     if (_francOn || _francDone) return;
     _francOn = true;
@@ -3750,7 +3755,7 @@ class ChachaGame extends FlameGame {
       _warnedZone = _nextZone + 1;
       _zoneWarnT = t;
       // L'annonce passe avant tout le reste : elle doit arriver avant la zone. La musique se tait.
-      onHush?.call();
+      _hush();
       _queueBanner(
         FlightBanner('Zone de turbulence devant', '${ahead.name} · ${ahead.place}', color: _warRed),
         first: true,
@@ -3780,7 +3785,7 @@ class ChachaGame extends FlameGame {
       if (passengers > 0) _askBelts('Zone de guerre droit devant');
     }
     _stageT = 0;
-    onHush?.call();
+    _hush();
     _payBelts();
     _queueBanner(FlightBanner('La RDC entre dans la zone', '${z.name} · ${z.place}', color: _warRed), first: true);
     _cue(

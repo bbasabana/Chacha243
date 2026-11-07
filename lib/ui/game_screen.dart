@@ -117,7 +117,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 
   void _restart(Checkpoint? from) {
-    Music.instance.stop();
+    // Reprendre après un crash : la chanson qui jouait continue. Un nouveau vol repart en silence.
+    if (from == null) Music.instance.stop();
     setState(() => _game = _newGame(from));
   }
 
@@ -261,7 +262,8 @@ class _Hud extends StatelessWidget {
         !modal && !ended && (p == FlightPhase.cruising || p == FlightPhase.approach || p == FlightPhase.ground);
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        // Serré à gauche : le milieu de l'écran reste libre pour l'avion.
+        padding: const EdgeInsets.fromLTRB(4, 8, 12, 8),
         child: Stack(
           children: [
             Align(
@@ -276,54 +278,37 @@ class _Hud extends StatelessWidget {
                     children: [
                       GlassButton(
                         onTap: () => Navigator.of(context).pop(),
-                        padding: const EdgeInsets.all(10),
-                        radius: 16,
-                        child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                        padding: const EdgeInsets.all(7),
+                        radius: 14,
+                        child: const Icon(Icons.close_rounded, color: Colors.white, size: 17),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 5),
                       GlassButton(
                         onTap: onPause,
-                        padding: const EdgeInsets.all(10),
-                        radius: 16,
-                        child: const Icon(Icons.pause_rounded, color: Colors.white, size: 20),
+                        padding: const EdgeInsets.all(7),
+                        radius: 14,
+                        child: const Icon(Icons.pause_rounded, color: Colors.white, size: 17),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 5),
                       GlassButton(
                         onTap: onGuide,
-                        padding: const EdgeInsets.all(10),
-                        radius: 16,
-                        child: const Icon(Icons.help_outline_rounded, color: Colors.white, size: 20),
+                        padding: const EdgeInsets.all(7),
+                        radius: 14,
+                        child: const Icon(Icons.help_outline_rounded, color: Colors.white, size: 17),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 6),
                       _Reveal(
                         visible: showYear,
                         dim: hud.planeHigh,
                         from: const Offset(-0.3, 0),
-                        child: _YearPanel(hud: hud),
+                        // Pas plus large qu'il ne faut : la prochaine étape se coupe plutôt que d'élargir le panneau.
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 250),
+                          child: _YearPanel(hud: hud),
+                        ),
                       ),
                     ],
                   ),
-                  // La zone de guerre se lit sous l'année, à gauche : elle ne cache jamais un autre panneau.
-                  if (flying)
-                    ValueListenableBuilder(
-                      valueListenable: game.zoneHud,
-                      builder: (_, z, _) => AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 350),
-                        transitionBuilder: _slide,
-                        layoutBuilder: (current, _) => current ?? const SizedBox.shrink(),
-                        child: z == null
-                            ? const SizedBox.shrink()
-                            : Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: _Reveal(
-                                  visible: true,
-                                  dim: hud.planeHigh,
-                                  from: const Offset(-0.3, 0),
-                                  child: _ZonePanel(key: ValueKey(z.zone), zone: z, next: hud.nextStage),
-                                ),
-                              ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -356,7 +341,8 @@ class _Hud extends StatelessWidget {
                   if (!ended && !modal && p != FlightPhase.ready)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: _StageSlot(game: game),
+                      // La zone de guerre prend la place des annonces quand elles sont passées.
+                      child: _StageSlot(game: game, zoneNext: flying ? hud.nextStage : null),
                     ),
                 ],
               ),
@@ -430,7 +416,7 @@ class _Hud extends StatelessWidget {
                 dim: hud.planeLow,
                 from: const Offset(0, 0.4),
                 child: Transform.scale(
-                  scale: 0.9,
+                  scale: 0.84,
                   alignment: Alignment.bottomLeft,
                   child: CockpitPanel(hud: hud),
                 ),
@@ -485,57 +471,59 @@ class _YearPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Glass(
-      padding: const EdgeInsets.fromLTRB(12, 7, 16, 8),
+      padding: const EdgeInsets.fromLTRB(9, 5, 12, 6),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(width: 42, height: 28, child: CustomPaint(painter: FlagPainter(hud.flag))),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '${hud.year.floor()}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  height: 1,
-                  fontWeight: FontWeight.w900,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
-              ),
-              Text(
-                hud.airline,
-                style: const TextStyle(color: ChachaColors.yellow, fontSize: 11, fontWeight: FontWeight.w800),
-              ),
-              if (hud.flightSeconds >= 1 && hud.phase != FlightPhase.ready) ...[
-                const SizedBox(height: 2),
-                // Le temps qui passe : tout le vol, et l'étape en cours.
+          SizedBox(width: 30, height: 20, child: CustomPaint(painter: FlagPainter(hud.flag))),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 Text(
-                  '⏱ ${_clock(hud.flightSeconds)} · ${hud.inZone ? 'zone' : 'paix'} ${_clock(hud.stageSeconds)}'
-                  ' · 2027 : reste ${((2027.5 - hud.year) / 67 * 100).clamp(0, 100).ceil()} %',
-                  style: TextStyle(
-                    color: hud.inZone ? const Color(0xFFFF9A9A) : Colors.white.withValues(alpha: 0.8),
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                  '${hud.year.floor()}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    height: 1,
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: [FontFeature.tabularFigures()],
                   ),
                 ),
-                if (hud.nextStage.isNotEmpty && !hud.inZone)
+                Text(
+                  hud.airline,
+                  style: const TextStyle(color: ChachaColors.yellow, fontSize: 10, fontWeight: FontWeight.w800),
+                ),
+                if (hud.flightSeconds >= 1 && hud.phase != FlightPhase.ready) ...[
+                  const SizedBox(height: 2),
+                  // Le temps qui passe : tout le vol, et l'étape en cours.
                   Text(
-                    hud.nextStage,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: ChachaColors.yellow,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      fontFeatures: [FontFeature.tabularFigures()],
+                    '⏱ ${_clock(hud.flightSeconds)} · ${hud.inZone ? 'zone' : 'paix'} ${_clock(hud.stageSeconds)}'
+                    ' · 2027 : reste ${((2027.5 - hud.year) / 67 * 100).clamp(0, 100).ceil()} %',
+                    style: TextStyle(
+                      color: hud.inZone ? const Color(0xFFFF9A9A) : Colors.white.withValues(alpha: 0.8),
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
+                  if (hud.nextStage.isNotEmpty && !hud.inZone)
+                    Text(
+                      hud.nextStage,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: ChachaColors.yellow,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                ],
               ],
-            ],
+            ),
           ),
         ],
       ),
@@ -572,15 +560,18 @@ class _Reveal extends StatelessWidget {
 /// La place unique des messages, sous les points : la tour, les bannières, les moments d'histoire,
 /// la fiche de l'avion et la cabine y passent un par un, jamais ensemble.
 class _StageSlot extends StatelessWidget {
-  const _StageSlot({required this.game});
+  const _StageSlot({required this.game, this.zoneNext});
 
   final ChachaGame game;
+
+  /// En vol : la prochaine étape, pour le panneau de la zone de guerre quand aucune annonce n'est là.
+  final String? zoneNext;
 
   @override
   Widget build(BuildContext context) {
     final g = game;
     return ListenableBuilder(
-      listenable: Listenable.merge([g.cabin, g.radio, g.banner, g.card, g.planeCard]),
+      listenable: Listenable.merge([g.cabin, g.radio, g.banner, g.card, g.planeCard, g.zoneHud]),
       builder: (_, _) {
         final Widget child;
         if (g.cabin.value case final c?) {
@@ -593,6 +584,8 @@ class _StageSlot extends StatelessWidget {
           child = _StoryCardView(key: ValueKey(c), card: c);
         } else if (g.planeCard.value case final pc?) {
           child = _PlaneCardView(key: ValueKey(pc), card: pc);
+        } else if ((g.zoneHud.value, zoneNext) case (final z?, final next?)) {
+          child = _ZonePanel(key: ValueKey(z.zone), zone: z, next: next);
         } else {
           child = const SizedBox.shrink();
         }
@@ -1481,7 +1474,7 @@ class _ZonePanel extends StatelessWidget {
               Text(
                 zone.active
                     ? 'Vague ${zone.wave} / ${zone.waves} · ${zone.jets} avion${zone.jets > 1 ? 's' : ''}'
-                    : 'Makasi ! Vague suivante…',
+                    : 'Vague ezo ya · makasi na liboso !',
                 style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800),
               ),
             ],
