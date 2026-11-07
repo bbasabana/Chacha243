@@ -74,7 +74,13 @@ class CockpitPanel extends StatelessWidget {
               const SizedBox(height: 6),
               _small('PASSAGERS', '${hud.passengers} / ${hud.seats}'),
               const SizedBox(height: 6),
-              _small('ÉTAT', '${hud.condition.round()} %'),
+              // Sous 25 %, l'état passe en rouge et demande la réparation : un choc de plus peut faire tomber l'avion.
+              _small(
+                'ÉTAT',
+                '${hud.condition.round()} %',
+                hot: hud.condition <= 25 ? 'RÉPARER' : null,
+                color: hud.condition <= 25 ? const Color(0xFFFF8A8A) : Colors.white,
+              ),
               const SizedBox(height: 3),
               SizedBox(
                 width: 96,

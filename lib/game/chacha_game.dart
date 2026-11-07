@@ -787,6 +787,33 @@ class ChachaGame extends FlameGame {
   int _banterIndex = 0, _warnedZone = 0;
   double _nextFuelAlert = 0, _nextBuzz = 0;
   bool _halfFuelSaid = false, _refuelSaid = false, _wornSaid = false;
+
+  /// Le dernier seuil d'usure annoncé (25, 20, 10 %) : chacun n'est dit qu'une fois, jusqu'à la réparation.
+  int _wornAlert = 100;
+
+  /// L'avion s'use : à 25, 20 puis 10 %, une alerte rouge passe avant tout le reste. Avec du kérosène plein,
+  /// on peut quand même tomber si l'état arrive à zéro : il faut un kit bleu ou un entretien à l'aéroport.
+  void _alertWorn() {
+    if (_finaleT >= 0 || _maintT >= 0) return;
+    final level = [10, 20, 25].firstWhere((l) => condition <= l, orElse: () => 100);
+    if (level >= _wornAlert || level == 100) return;
+    _wornAlert = level;
+    _nextKit = math.min(_nextKit, t + 2);
+    onBuzz?.call(260, 200);
+    _queueBanner(
+      FlightBanner(
+        level == 10 ? 'Danger : avion à ${condition.round()} %' : 'État de l\'avion : ${condition.round()} %',
+        level == 10
+            ? 'Encore un choc et l\'avion tombe · attrape vite le kit BLEU avec une clé'
+            : _zone == null
+            ? 'Trop de chocs · attrape le kit BLEU avec une clé, ou touche ATTERRIR pour l\'entretien'
+            : 'Trop de chocs · attrape le kit BLEU avec une clé ; après la guerre, atterris pour l\'entretien',
+        color: ChachaColors.red,
+      ),
+      first: true,
+    );
+  }
+
   int _fuelCans = 0;
   bool _comfortOnStorm = false;
   bool _impact = false;
@@ -1754,14 +1781,18 @@ class ChachaGame extends FlameGame {
       );
       _nextKit = math.min(_nextKit, t + 3);
     }
-    if (condition > 60) _wornSaid = false;
+    if (condition > 60) {
+      _wornSaid = false;
+      _wornAlert = 100;
+    }
+    _alertWorn();
     if (condition <= 0 && _finaleT < 0) {
       _queueBanner(
         const FlightBanner('L\'avion ne tient plus', 'Trop de chocs sans entretien', color: ChachaColors.red),
         first: true,
       );
       lives = 0;
-      _failWhy = 'Avion usé, sans entretien';
+      _failWhy = 'État de l\'avion à 0 % : trop de chocs, sans kit ni entretien';
       _clearStage(all: true);
       _setPhase(FlightPhase.crashed);
       return;

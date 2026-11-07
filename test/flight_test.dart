@@ -323,4 +323,35 @@ void main() {
       expect(kits, greaterThanOrEqualTo(2));
     });
   }
+
+  test('l\'avion abîmé est signalé à 25, 20 et 10 % : kit bleu ou entretien', () async {
+    final g = await start(year: 1970.0, autopilot: true);
+    final alerts = <String>[];
+    g.banner.addListener(() {
+      final b = g.banner.value;
+      if (b != null && (b.title.startsWith('État de l\'avion') || b.title.startsWith('Danger'))) alerts.add(b.title);
+    });
+    // Le kit arrive vite et répare l'avion : on regarde chaque seuil quelques secondes seulement.
+    for (var i = 0; i < 60 * 20; i++) {
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+    }
+    for (final level in [24.0, 19.0, 9.0]) {
+      g.condition = level;
+      for (var i = 0; i < 60 * 4; i++) {
+        g.lives = 5;
+        g.update(1 / 60);
+        if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+      }
+    }
+    // Les alertes passent l'une après l'autre, le temps de les lire.
+    for (var i = 0; i < 60 * 25; i++) {
+      g.lives = 5;
+      g.update(1 / 60);
+    }
+    // (Pendant une réparation, on ne prévient pas : le seuil de 20 % peut tomber dans ce moment-là.)
+    expect(alerts.first, 'État de l\'avion : 24 %');
+    expect(alerts.last, 'Danger : avion à 9 %');
+    expect(alerts.toSet().length, alerts.length, reason: 'une alerte répétée');
+  });
 }
