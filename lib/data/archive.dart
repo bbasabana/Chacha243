@@ -270,7 +270,7 @@ const momentSongs = <String, MomentSong>{
   'bomaye': MomentSong('ali-bomaye.mp3', '« Ali, bomaye ! »', 'Kinshasa, 1974'),
   'viva': MomentSong('viva-pole-position.mp3', 'Pole Position', 'Papa Wemba et Viva la Musica'),
   'wenge': MomentSong('wenge-musica.mp3', 'Une chanson de Wenge Musica', 'Wenge Musica 4×4'),
-  'koffi': MomentSong('koffi-olomide.mp3', 'Une chanson de Koffi Olomidé', 'Koffi Olomidé', start: 59, seconds: 180),
+  'koffi': MomentSong('koffi-olomide.mp3', 'Tcha Tcho', 'Koffi Olomidé', seconds: 240),
   'kester': MomentSong('victoria-eleison.mp3', 'Une chanson de Victoria Eleison', 'Kester Emeneya'),
   'reveil': MomentSong(
     'louange-kumama.mp3',
