@@ -81,4 +81,40 @@ void main() {
     expect(g.year, greaterThan(2001.5), reason: 'le vol s\'est arrêté en ${g.year} : ${g.failWhy}');
     expect(late, lessThan(1.0), reason: 'une fiche est passée $late an(s) après sa date');
   });
+
+  test('le 30 juin 1960 se vit pas à pas : annonce, bulle, visages, objectif, ceintures', () async {
+    final g = await start(autopilot: true);
+    final seen = <String>[];
+    var frame = 0;
+    var last = '';
+    void note(String what) {
+      if (what == last) return;
+      last = what;
+      seen.add('$what @${g.year.toStringAsFixed(3)} · ${(frame / 60).round()} s');
+    }
+
+    g.banner.addListener(() => g.banner.value == null ? null : note('bannière ${g.banner.value!.title}'));
+    g.turningPoint.addListener(
+      () => g.turningPoint.value == null ? null : note('bulle ${g.turningPoint.value!.event.title}'),
+    );
+    g.radio.addListener(() => g.radio.value == null ? null : note('radio ${g.radio.value!.speaker}'));
+    g.cabin.addListener(() => g.cabin.value == null ? null : note('cabine ${g.cabin.value!.title}'));
+    g.zoneHud.addListener(() => g.zoneHud.value == null ? null : note('zone ${g.zoneHud.value!.zone.name}'));
+    for (var i = 0; i < 60 * 60 * 4 && g.zoneHud.value == null; i++) {
+      g.lives = 5;
+      g.update(1 / 60);
+      frame++;
+      // Le pilote automatique attache les ceintures comme un vrai pilote.
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+    }
+    // ignore: avoid_print
+    print(seen.join("\n"));
+    int at(String what) => seen.indexWhere((x) => x.contains(what));
+    expect(at('L\'indépendance du Congo arrive'), greaterThanOrEqualTo(0));
+    expect(at('bulle Indépendance du Congo'), greaterThan(at('L\'indépendance du Congo arrive')));
+    expect(at('Lumumba et Kasa-Vubu') < 0 || at('Indépendance · 30 juin') > at('bulle'), isTrue);
+    expect(at('radio Commandant de bord'), greaterThan(at('bulle Indépendance du Congo')));
+    expect(at('cabine Attachez vos ceintures'), greaterThan(at('radio Commandant de bord')));
+    expect(at('zone Sécession du Katanga'), greaterThan(at('cabine Ceintures attachées')));
+  });
 }

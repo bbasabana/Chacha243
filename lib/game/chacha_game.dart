@@ -663,7 +663,11 @@ class ChachaGame extends FlameGame {
 
   /// Le moment de l'Indépendance au premier vol : 0 pas encore, 1 en cours, 2 passé.
   int _indep = 0;
-  double _indepT = 0, _indepShown = 1e9;
+  double _indepT = 0, _indepShown = 1e9, _indepAt = 0;
+
+  /// Le départ du 30 juin 1960, pas à pas : l'annonce, la bulle de l'Indépendance, les deux visages,
+  /// l'objectif du commandant, les ceintures.
+  int _indepStep = 0;
 
   /// Les pénuries : pendant ces mois-là, aucun bidon ne vient. Il faut tenir avec ses réserves.
   static const _shortages = [
@@ -1088,7 +1092,7 @@ class ChachaGame extends FlameGame {
     }
     // Quand l'histoire s'emballe, on jette les messages ordinaires les plus anciens, jamais les urgents ni l'histoire.
     while (_cues.length > 12) {
-      final old = _cues.indexWhere((x) => !x.urgent && x.story == null);
+      final old = _cues.indexWhere((x) => !x.urgent && !x.hold && x.story == null);
       if (old < 0) break;
       _cues.removeAt(old);
     }
@@ -1562,11 +1566,15 @@ class ChachaGame extends FlameGame {
       // La cabine parle juste après le décollage, derrière les messages de la tour et de l'Indépendance.
       if (passengers > 0) _talk(TalkMoment.takeoff, force: true);
       if (_takeoffs++ == 0) {
-        if (_indep == 0 && year < 1960.6) _startIndependence();
-        // Le premier vol commence par la mission, puis la tour explique les commandes, une chose à la fois.
-        _queueBanner(
-          const FlightBanner('Ta mission : le 30 juin 2027', 'Ramène le Congo jusqu\'à ses 67 ans d\'indépendance'),
-        );
+        // Le premier vol commence par l'Indépendance : le commandant donne la mission après.
+        // Pendant ce temps, la tour explique les commandes, une chose à la fois.
+        if (_indep == 0 && year < 1960.6) {
+          _startIndependence();
+        } else {
+          _queueBanner(
+            const FlightBanner('Ta mission : le 30 juin 2027', 'Ramène le Congo jusqu\'à ses 67 ans d\'indépendance'),
+          );
+        }
         _say(
           'Tour de Léopoldville',
           Lingala.elonga,
@@ -1604,6 +1612,10 @@ class ChachaGame extends FlameGame {
     }
   }
 
+  /// TURBO fait avancer les années plus vite, sauf au début de l'histoire (1960 jusqu'après la mort de Lumumba) :
+  /// l'Indépendance et la sécession se vivent lentement.
+  double get _calendarBoost => boost && year >= 1961.2 ? 1.6 : 1;
+
   double get _scroll => _unit * 520 * (boost ? 1.6 : 1) * (0.8 + type.speed * 0.4);
 
   void _cruise(double dt, double ts) {
@@ -1620,15 +1632,16 @@ class ChachaGame extends FlameGame {
           dt *
           ts /
           _yearSeconds *
-          (boost ? 1.6 : 1) *
+          _calendarBoost *
           _storyPace *
-          (_indep == 1 || _maintT >= 0 ? 0 : (_airT < 14 ? 0.06 : 1));
+          (_indep == 1 || _maintT >= 0 ? 0 : (_airT < (_nextZone == 0 ? 30 : 14) ? 0.06 : 1));
       _checkDecade();
     } else {
       _updateZone(dt * ts);
     }
     if (_indep == 1) _updateIndependence();
-    if (_airT >= 10 && _indep != 1) _checkZone();
+    // Après l'Indépendance, un vrai moment de calme avant l'annonce de la sécession du Katanga.
+    if (_airT >= (_nextZone == 0 ? 25 : 10) && _indep != 1) _checkZone();
     if (_zone == null && year >= _finaleFrom && year < _homeYear) return _startFinale();
     _steer(dt);
     if (_dance > 0) {
@@ -2079,7 +2092,7 @@ class ChachaGame extends FlameGame {
 
   void _spawnHistory() {
     final secondsToPlane = (_w + 60 - planeX) / _scroll;
-    final lead = secondsToPlane / _yearSeconds * (boost ? 1.6 : 1);
+    final lead = secondsToPlane / _yearSeconds * _calendarBoost;
     while (_nextEvent < historyEvents.length && historyEvents[_nextEvent].year <= year + lead) {
       final e = historyEvents[_nextEvent++];
       // La mort de Mzee arrête « Franc congolais » ; Indépendance Cha Cha prend la suite.
@@ -2337,6 +2350,36 @@ class ChachaGame extends FlameGame {
     _song('chacha', level: 0.35, loop: true);
     // Le roulage a pu faire passer quelques jours : on revient au 30 juin, avant la sécession.
     year = math.min(year, 1960.51);
+    _indepStep = 0;
+    _indepAt = t;
+  }
+
+  /// La bulle de l'Indépendance, puis Lumumba et Kasa-Vubu qui passent lentement devant l'avion.
+  void _independenceBubble() {
+    const e = HistoryEvent(
+      1960.5,
+      EventKind.glory,
+      '30 juin 1960',
+      'Léopoldville',
+      'Indépendance du Congo',
+      'Les Belges sont partis : le Congo est libre, et il est resté libre.',
+      big: true,
+    );
+    _cue(
+      () {
+        _boil = 3;
+        turningPoint.value = TurningPoint(e, flagAt(1960.4).style, flagAt(1960.52).style);
+      },
+      8,
+      hide: () {
+        turningPoint.value = null;
+        _independenceFaces();
+      },
+      first: true,
+    );
+  }
+
+  void _independenceFaces() {
     _cue(
       () {
         banner.value = const FlightBanner(
@@ -2378,13 +2421,48 @@ class ChachaGame extends FlameGame {
   );
 
   void _updateIndependence() {
-    final waiting = _pickups.any((p) => independenceFaces.contains(p.event));
-    // Les deux médaillons sont passés (ou un message les a retardés trop longtemps) : l'histoire reprend.
-    if ((!waiting && t > _indepShown + 9) || t > _indepT + 90) {
-      _indep = 2;
-      _airT = 0;
-      if (_nextZone < warZones.length && warZones[_nextZone].from - year > 0.3) _freeSky();
+    final since = t - _indepAt;
+    switch (_indepStep) {
+      // 10 secondes après le décollage, on annonce l'Indépendance…
+      case 0 when since >= 10:
+        _queueBanner(
+          const FlightBanner(
+            'L\'indépendance du Congo arrive',
+            '30 juin 1960 · le ciel est calme, profite du vol',
+            color: ChachaColors.yellow,
+          ),
+          first: true,
+        );
+        _indepStep = 1;
+        _indepAt = t;
+      // … 10 secondes plus tard, la bulle, puis les deux visages.
+      case 1 when since >= 10:
+        _independenceBubble();
+        _indepStep = 2;
+      // Les deux médaillons sont passés : un temps de vol tranquille, puis le commandant parle.
+      case 2 when t > _indepShown + 9 && !_pickups.any((p) => independenceFaces.contains(p.event)):
+        _indepStep = 3;
+        _indepAt = t;
+      case 3 when since >= 12:
+        _say(
+          'Commandant de bord',
+          Lingala.tokende,
+          'Mesdames et messieurs, notre objectif : arriver à Kinshasa le 30 juin 2027, pour fêter les 67 ans '
+              'de l\'indépendance. Tenez-vous bien !',
+          seconds: 9,
+          first: true,
+        );
+        if (passengers > 0) _askBelts('Le commandant demande d\'attacher les ceintures', first: true);
+        _indepStep = 4;
+        _indepAt = t;
+      // Les ceintures attachées, l'histoire reprend doucement vers 1961.
+      case 4 when since >= 10 && cabin.value == null && _onStage == null:
+        _indep = 2;
+        _airT = 0;
+        if (_nextZone < warZones.length && warZones[_nextZone].from - year > 0.3) _freeSky();
     }
+    // Un message a tout retardé trop longtemps : l'histoire reprend quand même.
+    if (_indep == 1 && t > _indepT + 180) _indep = 2;
   }
 
   void _addFuel(double amount) {
@@ -3270,7 +3348,7 @@ class ChachaGame extends FlameGame {
   }
 
   /// La tour annonce des turbulences : le pilote doit allumer le signal des ceintures.
-  void _askBelts(String why) {
+  void _askBelts(String why, {bool first = false}) {
     if (cabin.value?.mode == CabinMode.beltsAsk || passengers == 0) return;
     _nextBelts = t + 100 + _rng.nextDouble() * 50;
     _cue(
@@ -3282,6 +3360,7 @@ class ChachaGame extends FlameGame {
       0,
       hold: true,
       done: () => cabin.value == null,
+      first: first,
     );
   }
 
@@ -3831,7 +3910,7 @@ class ChachaGame extends FlameGame {
     // Les années avancent avec le temps, pas avec les vagues : une zone dure au plus cinq minutes.
     final budget = _zoneBudget(z);
     // Dans une guerre aussi, une fiche en retard fait attendre les années.
-    if (!_storyLate) _zoneT += dt * (boost ? 1.6 : 1);
+    if (!_storyLate) _zoneT += dt * _calendarBoost;
     year = math.max(year, z.from + (z.to - z.from) * math.min(1, _zoneT / budget));
     if (!_exitSaid && budget - _zoneT < 30) {
       _exitSaid = true;
@@ -4248,10 +4327,18 @@ class ChachaGame extends FlameGame {
         final fuelWas = fuel, reserveWas = reserve;
         _addFuel(_portraits.containsKey(e.photo) ? 32 : 15);
         // Lumumba et Kasa-Vubu font aussi un petit entretien de l'avion.
-        if (independenceFaces.contains(e)) condition = math.min(100, condition + 15);
+        // Lumumba et Kasa-Vubu font l'entretien complet de l'avion.
+        if (independenceFaces.contains(e)) {
+          condition = 100;
+          _float('Entretien fait · état 100 %', planeX, planeY + planeLength * 0.3, _peaceGreen);
+        }
         final gain = (fuel - fuelWas).round(), extra = (reserve - reserveWas).round();
         _float(
-          [if (gain > 0) '+$gain % kérosène', if (extra > 0) '+$extra % réserve', '+150 FC'].join(' · '),
+          [
+            if (gain > 0) '+$gain % kérosène',
+            if (extra > 0) '+$extra % réserve',
+            '+150 ${currencyAt(year)}',
+          ].join(' · '),
           planeX,
           math.max(_h * 0.2 + 22 * _unit, planeY - planeLength * 0.5),
           const Color(0xFFFFE27A),
@@ -4319,18 +4406,18 @@ class ChachaGame extends FlameGame {
   String _nextStageText() {
     final z = _zone;
     if (z != null) {
-      final left = math.max(0, _zoneBudget(z) - _zoneT) / (boost ? 1.6 : 1);
+      final left = math.max(0, _zoneBudget(z) - _zoneT) / _calendarBoost;
       return 'Sortie en ${z.to.floor()} dans ${_clock(left)}';
     }
     if (_finaleT >= 0) return '';
     if (_nextZone < warZones.length) {
       final n = warZones[_nextZone];
-      final left = math.max(0, n.from - year) * _yearSeconds / (boost ? 1.6 : 1);
+      final left = math.max(0, n.from - year) * _yearSeconds / _calendarBoost;
       return left < 2
           ? 'Prochaine étape : ${n.name} · droit devant'
           : 'Prochaine étape : ${n.name} (${n.from.floor()}) dans ${_clock(left)}';
     }
-    final left = math.max(0, _finaleFrom - year) * _yearSeconds / (boost ? 1.6 : 1);
+    final left = math.max(0, _finaleFrom - year) * _yearSeconds / _calendarBoost;
     return 'Arrivée : 30 juin 2027 dans ${_clock(left)}';
   }
 
