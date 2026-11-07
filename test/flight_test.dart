@@ -117,4 +117,29 @@ void main() {
     expect(at('cabine Attachez vos ceintures'), greaterThan(at('radio Commandant de bord')));
     expect(at('zone Sécession du Katanga'), greaterThan(at('cabine Ceintures attachées')));
   });
+
+  test('Air Congo naît en 1961 dans un ciel calme, les avions de chasse reviennent après', () async {
+    final g = await start(year: 1961.3, autopilot: true);
+    var frame = 0;
+    int? born;
+    int? jetsBack;
+    g.banner.addListener(() {
+      if (born == null && (g.banner.value?.title.contains('Air Congo') ?? false)) born = frame;
+    });
+    for (var i = 0; i < 60 * 60 * 6 && g.year < 1962; i++) {
+      g.lives = 5;
+      g.condition = 100;
+      g.update(1 / 60);
+      frame++;
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+      if (born != null && jetsBack == null && (g.zoneHud.value?.active ?? false)) jetsBack = frame;
+    }
+    expect(born, isNotNull, reason: 'Air Congo n\'a pas été annoncée');
+    expect(jetsBack, isNotNull, reason: 'les avions de chasse ne sont pas revenus');
+    // ignore: avoid_print
+    final calm = jetsBack! - born!;
+    // ignore: avoid_print
+    print('Air Congo à ${born! ~/ 60} s, avions de chasse ${calm ~/ 60} s après');
+    expect(calm, greaterThanOrEqualTo(60 * 10));
+  });
 }

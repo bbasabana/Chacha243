@@ -703,6 +703,11 @@ class ChachaGame extends FlameGame {
   bool _waveActive = false;
   double _waveDelay = 0, _zoneFade = 0, _peace = 0;
 
+  /// Une nouvelle compagnie au milieu d'une guerre (Air Congo en 1961) : le ciel reste calme jusque-là,
+  /// le temps de sentir le changement d'avion. Les avions de chasse reviennent après.
+  double _eraCalm = 0;
+  bool _eraPending = false;
+
   // Escales
   double condition = 100;
   double _runwayOrigin = 0, _offerAt = 0, _nextOffer = 0, _nextKit = 6;
@@ -3651,7 +3656,7 @@ class ChachaGame extends FlameGame {
     return open.first;
   }
 
-  void _changeAircraft(AircraftType t) {
+  void _changeAircraft(AircraftType t, {bool story = false}) {
     type = t;
     passengers = math.min(passengers, t.seats);
     flash = 0.5;
@@ -3664,6 +3669,8 @@ class ChachaGame extends FlameGame {
       ),
       8,
       hide: () => banner.value = null,
+      // Juste derrière l'annonce de la compagnie.
+      first: story,
     );
     if (phase == FlightPhase.ground) _pushStopover();
   }
@@ -3910,7 +3917,7 @@ class ChachaGame extends FlameGame {
     // Les années avancent avec le temps, pas avec les vagues : une zone dure au plus cinq minutes.
     final budget = _zoneBudget(z);
     // Dans une guerre aussi, une fiche en retard fait attendre les années.
-    if (!_storyLate) _zoneT += dt * _calendarBoost;
+    if (!_storyLate && t >= _eraCalm) _zoneT += dt * _calendarBoost;
     year = math.max(year, z.from + (z.to - z.from) * math.min(1, _zoneT / budget));
     if (!_exitSaid && budget - _zoneT < 30) {
       _exitSaid = true;
@@ -3947,7 +3954,7 @@ class ChachaGame extends FlameGame {
       if (_zoneT >= budget) return _exitZone();
       // Les avions de chasse viennent avec « La guerre arrive » ; seul un moment qui attend le joueur
       // (une question, les ceintures) les retient.
-      if (_waveDelay > 0 || (_onStage?.hold ?? false)) return;
+      if (_waveDelay > 0 || (_onStage?.hold ?? false) || _eraPending || t < _eraCalm) return;
       // Chaque vague a son moment dans la zone ; les dernières secondes restent calmes.
       if (_wavesCleared < waves && _zoneT >= budget * 0.85 * _wavesCleared / waves) _launchWave();
     }
@@ -4103,13 +4110,32 @@ class ChachaGame extends FlameGame {
 
   void _checkEras() {
     final a = airlineAt(year);
-    if (!identical(a, _airline)) {
+    // Pendant une vague d'avions de chasse, la nouvelle compagnie attend la fin de la vague : on ne mélange pas.
+    if (!identical(a, _airline) && !(_zone != null && _waveActive)) {
       _airline = a;
       flash = 1;
       _burst(planeX, planeY, 40, const [Colors.white, ChachaColors.yellow, ChachaColors.skyLight], speed: 320);
-      _queueBanner(FlightBanner('${a.from.floor()} · ${a.name}', a.note));
+      // La compagnie et son avion sont de l'histoire : ils passent dans leur année, jamais oubliés dans la file.
+      // Aucune nouvelle vague tant que la compagnie n'est pas annoncée ; puis le temps de la lire, avec son avion.
+      _eraPending = true;
       final next = _planeFor(a);
-      if (next != type && phase == FlightPhase.cruising) _changeAircraft(next);
+      final plane = next != type && phase == FlightPhase.cruising;
+      _cue(
+        () {
+          _eraPending = false;
+          _eraCalm = t + (plane ? 20 : 14);
+          // Même avion, nouvelle compagnie : il prend ses couleurs sous les yeux du joueur.
+          flash = 1;
+          banner.value = FlightBanner(
+            '${a.from.floor()} · ${a.name}',
+            plane ? a.note : '${a.note} · ton avion prend ses couleurs',
+          );
+        },
+        5.5,
+        hide: () => banner.value = null,
+        first: true,
+      );
+      if (plane) _changeAircraft(next, story: true);
     }
     // L'avion n'est plus en service : on passe une seule fois à un avion de l'époque (jamais au même).
     if (!type.fliesIn(year) && phase == FlightPhase.cruising) {
