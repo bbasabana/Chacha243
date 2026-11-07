@@ -61,6 +61,11 @@ const archivePhotos = <String, ArchivePhoto>{
   'ldkserment': ArchivePhoto('serment-ldk-1997.jpg', 'Laurent-Désiré Kabila prête serment, 29 mai 1997'),
   'bembamlc': ArchivePhoto('bemba-mlc.jpg', 'Jean-Pierre Bemba, chef du MLC'),
   'franco': ArchivePhoto('franco-luambo.jpg', 'Franco Luambo Makiadi, le « Grand Maître »'),
+  'cercueil': ArchivePhoto(
+    'cercueil-mzee-2001.jpg',
+    'Le cercueil de Mzee, et Joseph Kabila derrière lui, janvier 2001',
+  ),
+  'kapend': ArchivePhoto('eddy-kapend-2003.jpg', 'Le colonel Eddy Kapend perd ses insignes, 7 janvier 2003'),
   'obseques': ArchivePhoto('obseques-mzee-2001.jpg', 'Les obsèques de Mzee Laurent-Désiré Kabila, janvier 2001'),
   'serment': ArchivePhoto('serment-joseph-kabila-2001.jpg', 'Joseph Kabila prête serment, 26 janvier 2001'),
   'jkabila': ArchivePhoto('joseph-kabila.jpg', 'Joseph Kabila'),

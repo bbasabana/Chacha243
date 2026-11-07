@@ -2180,6 +2180,15 @@ class ChachaGame extends FlameGame {
     _nextTalk = t + 20;
   }
 
+  /// Un moment de vie avec un visage : il est annoncé, et son médaillon passe lentement au milieu.
+  bool _faceEvent(HistoryEvent e) =>
+      (e.kind == EventKind.life || e.kind == EventKind.glory) &&
+      (e.intro != null || (e.photo != null && (archivePhotos[e.photo]?.isPortrait ?? false)));
+
+  /// Une fiche d'histoire d'une date plus ancienne attend encore, ou se lit en ce moment.
+  bool _storyBefore(double y) =>
+      (_onStage?.story ?? 1e9) < y || _cues.any((c) => (c.story ?? 1e9) < y) || card.value != null;
+
   void _spawnHistory() {
     final secondsToPlane = (_w + 60 - planeX) / _scroll;
     final lead = secondsToPlane / _yearSeconds * _calendarBoost;
@@ -2187,6 +2196,8 @@ class ChachaGame extends FlameGame {
       // Le 30 juin 1960 d'abord : rien d'autre (ni la sécession du Katanga) tant que l'Indépendance n'est pas finie.
       // Puis plus d'une minute de vol libre avant que la sécession du Katanga s'annonce.
       if ((_indep == 1 || _katangaWaiting) && historyEvents[_nextEvent].year > 1960.5) break;
+      // Un visage annoncé (Joseph Kabila en 2001) attend que la fiche d'avant (la mort de Mzee) soit passée.
+      if (_faceEvent(historyEvents[_nextEvent]) && _storyBefore(historyEvents[_nextEvent].year)) break;
       final e = historyEvents[_nextEvent++];
       // La mort de Mzee arrête « Franc congolais » ; Indépendance Cha Cha prend la suite.
       if (e.year >= 2001 && _francOn) {
@@ -2197,7 +2208,7 @@ class ChachaGame extends FlameGame {
         case EventKind.life:
         case EventKind.glory:
           // Un visage (Mobutu, Abala…) passe au milieu de l'écran, lentement, et on l'annonce avant.
-          final face = e.intro != null || (e.photo != null && (archivePhotos[e.photo]?.isPortrait ?? false));
+          final face = _faceEvent(e);
           final y = face ? _h * (0.46 + _rng.nextDouble() * 0.08) : _h * (0.18 + _rng.nextDouble() * 0.64);
           if (face) {
             _cue(

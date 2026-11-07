@@ -614,8 +614,10 @@ const historyEvents = <HistoryEvent>[
     'Mzee Laurent-Désiré Kabila est assassiné',
     'Le 16 janvier 2001, le président Laurent-Désiré Kabila, que l\'on appelle Mzee, est assassiné par balles '
         'dans son palais de marbre, à Kinshasa. Le pays est en deuil : ses obsèques ont lieu le 23 janvier, '
-        'et il repose au mausolée près du palais de la Nation.',
+        'et il repose au mausolée près du palais de la Nation. Son aide de camp, le colonel Eddy Kapend, '
+        'sera arrêté et accusé du complot.',
     photo: 'obseques',
+    photo2: 'cercueil',
     song: 'fond',
     intro: 'Le deuil de Mzee Laurent-Désiré Kabila',
   ),
@@ -660,6 +662,18 @@ const historyEvents = <HistoryEvent>[
     'L\'accord global et inclusif met fin à la guerre : le pays sera réunifié, et une transition commencera '
         'avec un président et quatre vice-présidents.',
     medal: 'Paix · 2002',
+  ),
+  HistoryEvent(
+    2003.02,
+    EventKind.memory,
+    '7 janvier 2003',
+    'Kinshasa',
+    'Le procès de l\'assassinat de Mzee',
+    'Deux ans après la mort de Laurent-Désiré Kabila, la cour militaire juge 135 accusés. Le colonel Eddy Kapend, '
+        'son ancien aide de camp, perd ses insignes et il est condamné à mort, comme une trentaine d\'autres. '
+        'La peine n\'est pas exécutée : il reste en prison jusqu\'à sa grâce, en janvier 2021.',
+    photo: 'kapend',
+    intro: 'Le procès de l\'assassinat de Mzee',
   ),
   HistoryEvent(
     2003.49,

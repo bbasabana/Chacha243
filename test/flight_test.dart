@@ -479,4 +479,23 @@ void main() {
     }
     expect(said, containsAllInOrder([Lingala.guerreLisusu, Lingala.bomaMboka, Lingala.lembiMobutu]));
   });
+
+  test('2001 : la mort de Mzee passe avant le médaillon de Joseph Kabila, et le procès de 2003 suit', () async {
+    final g = await start(year: 2000.2, autopilot: true);
+    g.passengers = 80;
+    final seen = <String>[];
+    g.card.addListener(() => g.card.value != null ? seen.add(g.card.value!.event.title) : null);
+    g.banner.addListener(() => g.banner.value != null ? seen.add(g.banner.value!.title) : null);
+    for (var i = 0; i < 60 * 600 && g.year < 2003.45; i++) {
+      g.lives = 5;
+      g.condition = 100;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+    }
+    final death = seen.indexOf('Mzee Laurent-Désiré Kabila est assassiné');
+    final joseph = seen.indexOf('Joseph Kabila · 2001');
+    expect(death, greaterThanOrEqualTo(0), reason: '$seen');
+    expect(joseph, greaterThan(death), reason: '$seen');
+    expect(seen.indexOf('Le procès de l\'assassinat de Mzee'), greaterThan(joseph), reason: '$seen');
+  });
 }
