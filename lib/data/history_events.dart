@@ -354,6 +354,7 @@ const historyEvents = <HistoryEvent>[
     'Kinshasa',
     'Naissance de Wenge Musica',
     'Des jeunes de Kinshasa créent Wenge Musica. Le groupe se séparera en 1997 en deux orchestres célèbres.',
+    photo: 'wenge',
     song: 'wenge',
   ),
   HistoryEvent(

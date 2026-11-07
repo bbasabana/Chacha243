@@ -46,6 +46,7 @@ const archivePhotos = <String, ArchivePhoto>{
     'La carte d\'identité pour citoyen, République du Zaïre',
     credit: 'République du Zaïre',
   ),
+  'wenge': ArchivePhoto('wenge-musica.jpg', 'Wenge Musica, l\'orchestre de la jeunesse kinoise'),
   'jeanpaul2': ArchivePhoto('jean-paul-ii-zaire.jpg', 'Le pape Jean-Paul II reçu par Mobutu au Zaïre'),
   'francois': ArchivePhoto(
     'pape-francois-kinshasa-2023.jpg',
