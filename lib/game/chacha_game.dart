@@ -859,6 +859,13 @@ class ChachaGame extends FlameGame {
   bool resumed = false;
 
   /// Un moment d'histoire arrive bientôt : on lui laisse la place.
+  bool get _bigSoon {
+    for (var i = _nextEvent; i < historyEvents.length && historyEvents[i].year < year + 40 / _yearSeconds; i++) {
+      if (historyEvents[i].big) return true;
+    }
+    return false;
+  }
+
   bool get _eventSoon => _nextEvent < historyEvents.length && historyEvents[_nextEvent].year < year + 10 / _yearSeconds;
 
   // Le pilote automatique de la démo n'est pas parfait : il réagit avec un temps de retard
@@ -3814,7 +3821,8 @@ class ChachaGame extends FlameGame {
     final m = mission.value;
     if (_zone != null || _offerPending || !_quiet) return;
     if (m == null) {
-      if (t < _nextMission) return;
+      // Pas d'escale juste avant un grand tournant (Mobutu, le Zaïre…) : on le vit en vol, puis on descend.
+      if (t < _nextMission || _bigSoon) return;
       final open = [
         for (final a in airports)
           if (a.openAt(year)) a,

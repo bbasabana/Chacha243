@@ -187,7 +187,9 @@ const historyEvents = <HistoryEvent>[
     '24 novembre 1965',
     'Kinshasa',
     'Mobutu prend le pouvoir',
-    'Le général Joseph-Désiré Mobutu prend le pouvoir. Il le gardera plus de 30 ans. Sa toque de léopard devient son image.',
+    'Le général Joseph-Désiré Mobutu prend le pouvoir. Il le gardera plus de 30 ans. Sa toque de léopard devient son image. '
+        'Le pays garde encore son nom et son drapeau : tout changera pas à pas, la monnaie en 1967, puis le pays, '
+        'le drapeau et Air Zaïre en 1971.',
     photo: 'mobututoque',
     big: true,
   ),
@@ -222,7 +224,8 @@ const historyEvents = <HistoryEvent>[
     '20 mai 1967',
     'N\'Sele',
     'Naissance du MPR',
-    'Mobutu fonde le Mouvement populaire de la révolution. En 1970, il devient le seul parti permis, puis le parti-État : chaque Zaïrois en est membre.',
+    'Mobutu fonde le Mouvement populaire de la révolution. En 1970, il devient le seul parti permis, puis le parti-État : '
+        'chaque citoyen en est membre. Le pays s\'appelle encore le Congo.',
     photo: 'mpr',
     song: 'mpr',
   ),
@@ -232,7 +235,8 @@ const historyEvents = <HistoryEvent>[
     '24 juin 1967',
     'Kinshasa',
     'Naissance du zaïre',
-    'Une nouvelle monnaie, le zaïre, remplace le franc congolais : 1 zaïre vaut 1 000 francs. Ton portefeuille passe en zaïres.',
+    'Une nouvelle monnaie, le zaïre, remplace le franc congolais : 1 zaïre vaut 1 000 francs. Ton portefeuille passe en zaïres. '
+        'La monnaie prend le nom du fleuve avant le pays : le Congo deviendra le Zaïre en 1971.',
     photo: 'billet1z',
   ),
   HistoryEvent(
@@ -258,7 +262,8 @@ const historyEvents = <HistoryEvent>[
     '27 octobre 1971',
     'Kinshasa',
     'Le pays devient le Zaïre',
-    'Le Congo devient la République du Zaïre : nouveau drapeau, la main tenant la torche, et nouvel hymne, « La Zaïroise ». Air Congo devient Air Zaïre.',
+    'Le Congo prend le nom de sa monnaie et de son fleuve : il devient la République du Zaïre. Nouveau drapeau, '
+        'la main tenant la torche, nouvel hymne, « La Zaïroise », et Air Congo devient Air Zaïre.',
     photo: 'zaire',
     song: 'hymne',
     big: true,
