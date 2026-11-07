@@ -565,6 +565,13 @@ class ChachaGame extends FlameGame {
   double armor = 0;
   double _hurt(double d) => d * (1 - armor);
 
+  /// La protection des kits s'use : chaque choc en retire 5 points.
+  void _wearArmor() {
+    if (armor <= 0) return;
+    armor = math.max(0, armor - 0.05);
+    _float('Protection ${(armor * 100).round()} %', planeX, planeY + planeLength * 0.35, const Color(0xFF8FD0FF));
+  }
+
   /// Les petits textes qui montent d'un objet attrapé (« +16 % en réserve »).
   final _floats = <(TextPainter, double, double, double)>[];
 
@@ -1137,6 +1144,7 @@ class ChachaGame extends FlameGame {
     _failWhy = why;
     lives -= 1;
     condition = math.max(0, condition - _hurt(20));
+    _wearArmor();
     invulnerable = 2;
     final m = mission.value;
     if (m != null && m.boarded) {
@@ -1638,6 +1646,7 @@ class ChachaGame extends FlameGame {
             ? 'Ton avion est très abîmé (${condition.round()} %). Atterris pour l\'entretien, ou attrape un kit.'
             : 'Ton avion est très abîmé (${condition.round()} %). Attrape un kit, et atterris dès la fin de la zone.',
         first: true,
+        still: () => condition < 40 && _maintT < 0,
       );
       _nextKit = math.min(_nextKit, t + 3);
     }
@@ -2022,8 +2031,16 @@ class ChachaGame extends FlameGame {
         case EventKind.life:
         case EventKind.glory:
           final y = _h * (0.18 + _rng.nextDouble() * 0.64);
+          // Un visage (Mobutu, Abala…) passe lentement : on a le temps de le voir, de le prendre, de lire.
           _pickups.add(
-            _Pickup(_PickupKind.medal, _w + 60, y, event: e, label: _label(e.medal ?? '${e.yearLabel}', 15 * _unit)),
+            _Pickup(
+              _PickupKind.medal,
+              _w + 60,
+              y,
+              event: e,
+              label: _label(e.medal ?? '${e.yearLabel}', 15 * _unit),
+              slow: e.photo != null,
+            ),
           );
         case EventKind.obstacle:
           // Les guerres se traversent en vagues d'avions de chasse, les autres épreuves en orages.
@@ -2629,7 +2646,7 @@ class ChachaGame extends FlameGame {
     _approachY0 = planeY;
     _approachSpeed = _unit * 420;
     _prevShift = _groundShift;
-    _cueGear = _cueRunway = false;
+    _cueGear = _cueRunway = _earlySaid = false;
     // La piste commence sous l'avion juste avant la fin de la descente.
     _runwayOrigin = worldX + _approachSpeed * _approachTime * 0.84 + _w * 0.22 - _runwayStart * _unit;
     _setPhase(FlightPhase.approach);
@@ -2647,19 +2664,19 @@ class ChachaGame extends FlameGame {
     _nextKit = t + 24 + _rng.nextDouble() * 10;
     // Le kit d'abord : la tour ne propose l'escale que s'il est manqué.
     _nextOffer = math.max(_nextOffer, t + 8);
-    _pickups.add(_Pickup(_PickupKind.repair, _w + 300 * _unit, _h * (0.25 + _rng.nextDouble() * 0.5)));
-    _queueBanner(
-      FlightBanner(
+    final kit = _Pickup(_PickupKind.repair, _w + 300 * _unit, _h * (0.25 + _rng.nextDouble() * 0.5));
+    _pickups.add(kit);
+    // Un seul message, et seulement tant que le kit est encore devant l'avion.
+    _cue(
+      () => banner.value = FlightBanner(
         'Kit d\'entretien en approche',
-        'Le rond BLEU avec une clé · avion à ${condition.round()} %, kérosène ${fuel.round()} %',
+        'Le rond BLEU avec une clé : il répare l\'avion et refait le plein · avion à ${condition.round()} %',
         color: const Color(0xFF8FD0FF),
       ),
+      5.5,
+      hide: () => banner.value = null,
       first: true,
-    );
-    _say(
-      'Tour de contrôle',
-      Lingala.keba,
-      'Le rond bleu avec une clé, c\'est le kit d\'entretien : il répare l\'avion et refait le plein. Va le chercher !',
+      still: () => !kit.taken && kit.x > planeX,
     );
   }
 
@@ -2668,6 +2685,8 @@ class ChachaGame extends FlameGame {
     final f = (k / _approachTime).clamp(0.0, 1.0);
     return _approachY0 + (_planeOnGroundY - _approachY0) * (f * f * (3 - 2 * f));
   }
+
+  bool _earlySaid = false;
 
   void _approach(double dt) {
     _approachT += dt;
@@ -2698,6 +2717,9 @@ class ChachaGame extends FlameGame {
       if (_rng.nextDouble() < dt * 0.6) shake = 0.15;
     }
     final prevY = planeY;
+    // L'arrondi : près du sol, l'avion freine sa descente tout seul, même si on pique un peu trop.
+    final aboveGround = _planeOnGroundY + _groundShift - planeY;
+    if (aboveGround < _h * 0.18) targetVy = math.min(targetVy, _h * (0.12 + aboveGround / _h * 1.4));
     vy += (targetVy - vy) * math.min(1, dt * 6);
     planeY = math.max(_h * 0.1, planeY + vy * dt);
     pitch += ((vy / maxVy) * 0.28 - pitch) * math.min(1, dt * 6);
@@ -2721,15 +2743,35 @@ class ChachaGame extends FlameGame {
       final closing = ((planeY - prevY) - (shift - _prevShift)) / dt;
       final gx = worldX - _runwayOrigin;
       final onRunway = planeX > _runwayStart * _unit - gx && planeX < _runwayEnd * _unit - gx - planeLength;
-      planeY = groundOnPlane;
+      final early = planeX <= _runwayStart * _unit - gx;
       if (_homeApproach) {
+        planeY = groundOnPlane;
         _arriveHome();
-      } else if (closing > _h * 0.55 || !onRunway) {
-        _crashLanding(onRunway ? 'Descente trop rapide' : 'Hors de la piste');
+      } else if (early) {
+        // Trop tôt, avant la piste : l'avion rase le sol et attend qu'elle arrive, sans s'écraser.
+        planeY = groundOnPlane - 2;
+        vy = math.min(vy, 0);
+        if (!_earlySaid) {
+          _earlySaid = true;
+          _say(
+            'Tour de ${_airport!.cityAt(year)}',
+            Lingala.kitaMalembe,
+            'Pas encore ! Tiens-toi au-dessus du sol, la piste arrive.',
+          );
+        }
+      } else if (!onRunway) {
+        // Piste dépassée : on remet les gaz et on refait l'approche.
+        planeY = groundOnPlane - 2;
+        _approachT = _approachTime + 5;
+      } else if (closing > _h * 0.95) {
+        planeY = groundOnPlane;
+        _crashLanding('Descente trop rapide');
       } else {
+        planeY = groundOnPlane;
         _land();
       }
-    } else if (_approachT > _approachTime + 4) {
+    }
+    if (phase == FlightPhase.approach && _approachT > _approachTime + 4) {
       // Remise des gaz : on remonte et la tour reproposera l'escale.
       climbStartY = planeY;
       _climbFrom = climb;
@@ -3255,8 +3297,8 @@ class ChachaGame extends FlameGame {
       _float('✓ Entretien fait · avion à 100 %', planeX, planeY - planeLength * 0.3, const Color(0xFF8FD0FF));
       _queueBanner(
         FlightBanner(
-          'Entretien fait · avion renforcé',
-          'État 100 %, réservoir plein · blindage ${(armor * 100).round()} % : les coups abîment moins',
+          'Avion entretenu et renforcé pour ta sécurité',
+          'État 100 %, réservoir plein · protection ${(armor * 100).round()} % · chaque choc l\'use un peu',
           color: const Color(0xFF8FD0FF),
         ),
         first: true,
@@ -3957,6 +3999,7 @@ class ChachaGame extends FlameGame {
           // Le missile d'un chasseur qui te vise abîme l'avion sans te coûter une vie.
           if (invulnerable <= 0 && _finaleT < 0) {
             condition = math.max(0, condition - _hurt(15));
+            _wearArmor();
             invulnerable = 1.2;
             shake = 0.4;
             HapticFeedback.mediumImpact();
@@ -4013,7 +4056,7 @@ class ChachaGame extends FlameGame {
 
     final rx = planeLength * 0.42;
     for (final p in _pickups) {
-      p.x -= p.slow ? move * 0.38 : move;
+      p.x -= p.slow ? move * (p.event != null && !independenceFaces.contains(p.event) ? 0.45 : 0.38) : move;
       if (magnetTime > 0 && !p.taken) {
         final d = Offset(planeX - p.x, planeY - p.y);
         if (d.distance < 320 * _unit) {
@@ -4138,9 +4181,7 @@ class ChachaGame extends FlameGame {
         _burst(p.x, p.y, 24, const [Color(0xFF5AB4FF), Colors.white], speed: 220, size: 4);
         onSound?.call('kit');
         _float(
-          condition < 99
-              ? 'Avion endommagé · réparation, commandes bloquées…'
-              : 'Révision en cours, commandes bloquées…',
+          'Kit pris · entretien en cours, commandes bloquées un instant…',
           planeX,
           planeY - planeLength * 0.3,
           const Color(0xFF8FD0FF),

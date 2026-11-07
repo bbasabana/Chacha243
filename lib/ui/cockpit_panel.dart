@@ -20,23 +20,32 @@ class CockpitPanel extends StatelessWidget {
     final low = hud.fuel < 25;
     return Glass(
       tint: war ? const Color(0x55400008) : const Color(0x40001A40),
-      padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+      padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Dial(label: 'ASSIETTE', painter: _HorizonPainter(hud.pitch)),
-          _Dial(
-            label: 'ALTITUDE',
-            value: '${(hud.altitude / 100).round() * 100} ft',
-            painter: _AltimeterPainter(hud.altitude),
+          // À gauche : l'assiette et l'altitude en haut, le réservoir en dessous.
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _Dial(label: 'ASSIETTE', painter: _HorizonPainter(hud.pitch)),
+                  _Dial(
+                    label: 'ALTITUDE',
+                    value: '${(hud.altitude / 100).round() * 100} ft',
+                    painter: _AltimeterPainter(hud.altitude),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              _Tank(fuel: hud.fuel, reserve: hud.reserve, low: low),
+            ],
           ),
-          _Dial(
-            label: 'KÉROSÈNE',
-            value: '${hud.fuel.clamp(0, 100).round()} %',
-            alert: low,
-            painter: _FuelPainter(hud.fuel / 100, low),
-          ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
+          // À droite : les chiffres du vol, bien lisibles.
           Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -56,19 +65,14 @@ class CockpitPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-              _small('VITESSE', '${hud.speedKmh.round()} km/h${hud.boost ? ' · TURBO' : ''}'),
-              const SizedBox(height: 5),
+              _small('VITESSE', '${hud.speedKmh.round()} km/h', hot: hud.boost ? 'TURBO' : null),
+              const SizedBox(height: 6),
               _small('PASSAGERS', '${hud.passengers} / ${hud.seats}'),
-              const SizedBox(height: 5),
-              _small('RÉSERVE', '${hud.reserve.round()} %'),
-              const SizedBox(height: 5),
-              _small(
-                'ÉTAT',
-                '${hud.condition.round()} %${hud.armor > 0 ? ' · 🛡 ${(hud.armor * 100).round()} %' : ''}',
-              ),
+              const SizedBox(height: 6),
+              _small('ÉTAT', '${hud.condition.round()} %'),
               const SizedBox(height: 3),
               SizedBox(
-                width: 78,
+                width: 96,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
@@ -79,6 +83,10 @@ class CockpitPanel extends StatelessWidget {
                   ),
                 ),
               ),
+              if (hud.armor > 0) ...[
+                const SizedBox(height: 6),
+                _small('PROTECTION', '${(hud.armor * 100).round()} %', color: const Color(0xFF8FD0FF)),
+              ],
             ],
           ),
         ],
@@ -86,7 +94,7 @@ class CockpitPanel extends StatelessWidget {
     );
   }
 
-  static Widget _small(String label, String value) => Column(
+  static Widget _small(String label, String value, {String? hot, Color color = Colors.white}) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
     children: [
@@ -94,30 +102,146 @@ class CockpitPanel extends StatelessWidget {
         label,
         style: TextStyle(
           color: Colors.white.withValues(alpha: 0.6),
-          fontSize: 8.5,
+          fontSize: 9,
           fontWeight: FontWeight.w900,
           letterSpacing: 1,
         ),
       ),
-      Text(
-        value,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 13,
-          fontWeight: FontWeight.w900,
-          fontFeatures: [FontFeature.tabularFigures()],
-        ),
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 15,
+              height: 1.15,
+              fontWeight: FontWeight.w900,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          if (hot != null) ...[
+            const SizedBox(width: 5),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(color: const Color(0xFF1DB954), borderRadius: BorderRadius.circular(5)),
+              child: Text(
+                hot,
+                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
+              ),
+            ),
+          ],
+        ],
       ),
     ],
   );
 }
 
+/// Le réservoir, vu comme une vraie jauge : il se vide de droite à gauche, vert, puis orange, puis rouge.
+/// La réserve s'écrit dessous : elle se verse toute seule quand le réservoir tombe à 12 %.
+class _Tank extends StatelessWidget {
+  const _Tank({required this.fuel, required this.reserve, required this.low});
+
+  final double fuel;
+  final double reserve;
+  final bool low;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = (fuel / 100).clamp(0.0, 1.0);
+    final color = fuel < 25
+        ? ChachaColors.red
+        : fuel < 50
+        ? const Color(0xFFFFA62B)
+        : const Color(0xFF3DDC84);
+    return SizedBox(
+      width: 120,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.local_gas_station_rounded, size: 12, color: low ? const Color(0xFFFF7A7A) : Colors.white70),
+              const SizedBox(width: 3),
+              Text(
+                'KÉROSÈNE',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.65),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Container(
+            height: 20,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0B1424),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: low ? const Color(0xFFFF7A7A) : const Color(0x88FFFFFF), width: 1.5),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4.5),
+              child: Stack(
+                children: [
+                  FractionallySizedBox(
+                    widthFactor: f,
+                    heightFactor: 1,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color.lerp(color, Colors.white, 0.35)!, color],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Les repères du quart, de la moitié et des trois quarts.
+                  for (final k in const [0.25, 0.5, 0.75])
+                    Align(
+                      alignment: Alignment(k * 2 - 1, 0),
+                      child: Container(width: 1, height: 8, color: const Color(0x66FFFFFF)),
+                    ),
+                  Center(
+                    child: Text(
+                      '${fuel.clamp(0, 100).round()} %',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        shadows: [Shadow(color: Colors.black87, blurRadius: 3)],
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            reserve >= 1 ? '+ réserve ${reserve.round()} %' : 'pas de réserve',
+            style: TextStyle(
+              color: reserve >= 1 ? const Color(0xFF9CF0B8) : Colors.white.withValues(alpha: 0.5),
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Dial extends StatelessWidget {
-  const _Dial({required this.label, required this.painter, this.value, this.alert = false});
+  const _Dial({required this.label, required this.painter, this.value});
 
   final String label;
   final String? value;
-  final bool alert;
   final CustomPainter painter;
 
   @override
@@ -132,7 +256,7 @@ class _Dial extends StatelessWidget {
           Text(
             value ?? label,
             style: TextStyle(
-              color: alert ? const Color(0xFFFF7A7A) : Colors.white,
+              color: Colors.white,
               fontSize: value == null ? 8.5 : 10.5,
               fontWeight: FontWeight.w900,
               letterSpacing: value == null ? 1 : 0,
@@ -263,89 +387,4 @@ class _AltimeterPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_AltimeterPainter old) => old.feet != feet;
-}
-
-/// La jauge de kérosène : de V (vide) à P (plein), zone rouge sous 25 %.
-class _FuelPainter extends CustomPainter {
-  _FuelPainter(this.level, this.low);
-
-  final double level;
-  final bool low;
-
-  @override
-  void paint(Canvas c, Size s) {
-    final o = s.center(Offset.zero);
-    final r = s.shortestSide / 2;
-    _bezel(c, o, r);
-    const start = math.pi * 0.75, sweep = math.pi * 1.5;
-    final arc = Rect.fromCircle(center: o, radius: r * 0.78);
-    c.drawArc(
-      arc,
-      start,
-      sweep,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4
-        ..color = const Color(0x33FFFFFF),
-    );
-    c.drawArc(
-      arc,
-      start,
-      sweep * 0.25,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4
-        ..color = ChachaColors.red,
-    );
-    c.drawArc(
-      arc,
-      start,
-      sweep * level.clamp(0, 1),
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4
-        ..strokeCap = StrokeCap.round
-        ..color = low ? ChachaColors.red : ChachaColors.yellow,
-    );
-    final a = start + sweep * level.clamp(0, 1);
-    c.drawLine(
-      o,
-      o + Offset(math.cos(a), math.sin(a)) * r * 0.62,
-      Paint()
-        ..color = low ? const Color(0xFFFF7A7A) : Colors.white
-        ..strokeWidth = 2.5
-        ..strokeCap = StrokeCap.round,
-    );
-    c.drawCircle(o, 3, Paint()..color = Colors.white);
-    for (final (t, label) in [(0.0, 'V'), (1.0, 'P')]) {
-      final la = start + sweep * t;
-      final tp = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(c, o + Offset(math.cos(la), math.sin(la)) * r * 0.5 - Offset(tp.width / 2, tp.height / 2 - r * 0.25));
-    }
-    // La pompe au centre bas
-    final icon = TextPainter(
-      text: TextSpan(
-        text: String.fromCharCode(Icons.local_gas_station_rounded.codePoint),
-        style: TextStyle(
-          fontSize: r * 0.5,
-          fontFamily: Icons.local_gas_station_rounded.fontFamily,
-          color: Colors.white70,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    icon.paint(c, o + Offset(-icon.width / 2, r * 0.3));
-  }
-
-  @override
-  bool shouldRepaint(_FuelPainter old) => old.level != level || old.low != low;
 }

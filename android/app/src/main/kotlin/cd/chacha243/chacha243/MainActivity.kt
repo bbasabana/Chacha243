@@ -5,6 +5,9 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.View
 import android.provider.Settings
 import android.telephony.TelephonyManager
 import io.flutter.embedding.android.FlutterActivity
@@ -47,12 +50,29 @@ class MainActivity : FlutterActivity() {
         cap60()
     }
 
+    // L'écran verrouillé est en portrait : au déverrouillage, certains téléphones rendent le jeu
+    // à l'ancienne taille, écrasé dans un coin. On redemande la taille de la vue quand l'app revient
+    // au premier plan, puis encore un instant après, quand la rotation est finie.
+    private val main = Handler(Looper.getMainLooper())
+
+    private fun refit() {
+        val v = findViewById<View>(FLUTTER_VIEW_ID) ?: window.decorView
+        v.requestLayout()
+        v.invalidate()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (!hasFocus) return
+        lockLandscape()
+        refit()
+        main.postDelayed({ refit() }, 350)
+        main.postDelayed({ refit() }, 900)
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            lockLandscape()
-        }
+        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) main.postDelayed({ refit() }, 200)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

@@ -101,6 +101,11 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if ((state == AppLifecycleState.paused || state == AppLifecycleState.hidden) && !_paused) _pause(true);
+    // Au retour (écran déverrouillé), on redemande le jeu couché et en plein écran.
+    if (state == AppLifecycleState.resumed) {
+      SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
   }
 
   /// La pause : le vol s'arrête, on règle le son, puis on reprend là où on était.
@@ -425,7 +430,7 @@ class _Hud extends StatelessWidget {
                 dim: hud.planeLow,
                 from: const Offset(0, 0.4),
                 child: Transform.scale(
-                  scale: 0.78,
+                  scale: 0.9,
                   alignment: Alignment.bottomLeft,
                   child: CockpitPanel(hud: hud),
                 ),

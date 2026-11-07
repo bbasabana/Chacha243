@@ -15,6 +15,9 @@ class AboutScreen extends StatelessWidget {
   static const supportUrl = '';
   static const storeUrl = '';
 
+  /// Le code du jeu, ouvert à tous.
+  static const sourceUrl = 'https://github.com/bbasabana/Chacha243';
+
   /// La toute première version du jeu, publiée en 2014.
   static const firstVersionUrl = 'https://apkpure.com/chacha-243/com.overlookdev.BalloonDefense';
 
@@ -91,6 +94,31 @@ class AboutScreen extends StatelessWidget {
                           'une zone à traverser, et l\'avion change avec les compagnies de chaque époque.',
                           style: body,
                         ),
+                      ]),
+                      section('Open source', [
+                        const Text(
+                          'Chacha243 est open source : son code est ouvert à tous sur GitHub. Tu peux le lire, '
+                          'proposer une correction ou une date d\'histoire, et aider à l\'améliorer.',
+                          style: body,
+                        ),
+                        const SizedBox(height: 10),
+                        GlassButton(
+                          onTap: () async {
+                            final ok = await launchUrl(Uri.parse(sourceUrl), mode: LaunchMode.externalApplication);
+                            if (!ok) copy(sourceUrl, 'Lien copié');
+                          },
+                          tint: const Color(0x557CF0A6),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.code_rounded, color: Colors.white, size: 18),
+                              SizedBox(width: 8),
+                              Text('Voir le code sur GitHub', style: TextStyle(fontSize: 15)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(sourceUrl, style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11.5)),
                       ]),
                       section('Depuis 2014', [
                         const Text(
