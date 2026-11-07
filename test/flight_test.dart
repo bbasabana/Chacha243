@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:chacha243/data/aircraft_types.dart';
+import 'package:chacha243/data/history_events.dart';
 import 'package:chacha243/game/chacha_game.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/services.dart';
@@ -206,5 +207,87 @@ void main() {
     expect(songs.where((s) => s.startsWith('guerre:')), contains('guerre:louange'));
     expect(songs.where((s) => s.startsWith('guerre:') && s != 'guerre:louange'), isEmpty);
     expect(longest, lessThan(7), reason: 'trop de silence');
+  });
+
+  test('de 1985 à 2008, chaque fiche s\'affiche dans son année, et dans l\'ordre', () async {
+    final g = await start(year: 1985.0, autopilot: true);
+    final wrong = <String>[];
+    final shown = <String>[];
+    final banners = <String>[];
+    g.banner.addListener(() {
+      final b = g.banner.value;
+      if (b != null && b.title.startsWith('Bientôt 2') && g.year.floor() >= int.parse(b.title.substring(8))) {
+        banners.add('${b.title} en ${g.year}');
+      }
+    });
+    void check(HistoryEvent e) {
+      if (shown.contains(e.title)) return;
+      shown.add(e.title);
+      if (g.year.floor() != e.year.floor()) {
+        wrong.add('${e.title} (${e.year}) affichée en ${g.year.toStringAsFixed(2)}');
+      }
+    }
+
+    g.card.addListener(() => g.card.value == null ? null : check(g.card.value!.event));
+    g.turningPoint.addListener(() => g.turningPoint.value == null ? null : check(g.turningPoint.value!.event));
+    for (var i = 0; i < 60 * 60 * 120 && g.year < 2008; i++) {
+      g.condition = 100;
+      g.lives = 5;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+      if (g.phase == FlightPhase.crashed || g.phase == FlightPhase.finished) break;
+    }
+    // ignore: avoid_print
+    print('fiches : ${shown.join(' · ')}');
+    expect(g.year, greaterThanOrEqualTo(2008), reason: 'le vol s\'est arrêté en ${g.year}');
+    expect(wrong, isEmpty);
+    expect(banners, isEmpty);
+    for (final t in [
+      'Franco Luambo Makiadi nous quitte',
+      '« Comprenez mon émotion »',
+      'Les pillages',
+      'Mzee Laurent-Désiré Kabila prête serment',
+      'Mzee Laurent-Désiré Kabila est assassiné',
+      'Joseph Kabila prête serment',
+      'Kabila renvoie ses anciens alliés',
+      'Jean-Pierre Bemba et le MLC',
+      'L\'accord global de Pretoria',
+      'Kabila face à Bemba',
+      'Antoine Gizenga, Premier ministre',
+    ]) {
+      expect(shown, contains(t));
+    }
+    expect(
+      shown.indexOf('Mzee Laurent-Désiré Kabila est assassiné'),
+      lessThan(shown.indexOf('Joseph Kabila prête serment')),
+    );
+  });
+
+  test('de 1965 à 1985, les fiches restent dans leur année, et le MPR et Ali ont leur chanson', () async {
+    final g = await start(year: 1965.5, autopilot: true);
+    final wrong = <String>[];
+    final shown = <String>{};
+    final songs = <String>[];
+    g.onSong = ((key, {level, loop = false}) => songs.add(key));
+    void check(HistoryEvent e) {
+      if (!shown.add(e.title)) return;
+      if (g.year.floor() != e.year.floor()) {
+        wrong.add('${e.title} (${e.year}) affichée en ${g.year.toStringAsFixed(2)}');
+      }
+    }
+
+    g.card.addListener(() => g.card.value == null ? null : check(g.card.value!.event));
+    g.turningPoint.addListener(() => g.turningPoint.value == null ? null : check(g.turningPoint.value!.event));
+    for (var i = 0; i < 60 * 60 * 90 && g.year < 1985; i++) {
+      g.condition = 100;
+      g.lives = 5;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+      if (g.phase == FlightPhase.crashed || g.phase == FlightPhase.finished) break;
+    }
+    expect(g.year, greaterThanOrEqualTo(1985), reason: 'le vol s\'est arrêté en ${g.year}');
+    expect(wrong, isEmpty);
+    expect(shown, containsAll(['Naissance du MPR', 'Ali – Foreman']));
+    expect(songs, containsAll(['mpr', 'bomaye']));
   });
 }

@@ -380,18 +380,14 @@ const historyEvents = <HistoryEvent>[
   HistoryEvent(
     1989.78,
     EventKind.memory,
-    'octobre 1989',
-    'Kinshasa',
-    'Adieu Franco',
-    'Franco Luambo, le « Grand Maître » de la rumba, s\'éteint.',
-  ),
-  HistoryEvent(
-    1989.78,
-    EventKind.memory,
     '12 octobre 1989',
-    'Bruxelles',
-    'Franco nous quitte',
-    'Le « Grand Maître » Franco Luambo Makiadi meurt. Le pays pleure son musicien.',
+    'Bruxelles, Kinshasa',
+    'Franco Luambo Makiadi nous quitte',
+    'Le 12 octobre 1989, le « Grand Maître » Franco Luambo Makiadi, roi de la rumba et chef de l\'OK Jazz, meurt à Bruxelles. '
+        'Tout le Zaïre le pleure : quatre jours de deuil national, et des milliers de Kinois l\'accompagnent jusqu\'à la Gombe.',
+    photo: 'franco',
+    song: 'okjazz',
+    intro: 'Adieu au « Grand Maître » de la rumba',
   ),
   HistoryEvent(
     1990.31,
@@ -423,14 +419,6 @@ const historyEvents = <HistoryEvent>[
     'Kinshasa',
     'Les pillages',
     'Kinshasa et d\'autres villes sont pillées.',
-  ),
-  HistoryEvent(
-    1992.12,
-    EventKind.memory,
-    '16 février 1992',
-    'Kinshasa',
-    'Marche des chrétiens',
-    'Des chrétiens marchent pour la reprise de la Conférence nationale.',
   ),
   HistoryEvent(
     1992.12,
@@ -514,6 +502,18 @@ const historyEvents = <HistoryEvent>[
     big: true,
   ),
   HistoryEvent(
+    1997.41,
+    EventKind.life,
+    '29 mai 1997',
+    'Kinshasa, stade des Martyrs',
+    'Mzee Laurent-Désiré Kabila prête serment',
+    'Douze jours après l\'entrée de l\'AFDL à Kinshasa, Laurent-Désiré Kabila prête serment au stade des Martyrs '
+        'et devient président de la République démocratique du Congo. On l\'appelle Mzee, « le sage ».',
+    photo: 'ldkserment',
+    medal: 'Mzee · 1997',
+    intro: 'Mzee Laurent-Désiré Kabila devient président',
+  ),
+  HistoryEvent(
     1998.49,
     EventKind.life,
     '30 juin 1998',
@@ -523,13 +523,37 @@ const historyEvents = <HistoryEvent>[
     photo: 'billet1f',
   ),
   HistoryEvent(
+    1998.57,
+    EventKind.life,
+    '27 juillet 1998',
+    'Kinshasa',
+    'Kabila renvoie ses anciens alliés',
+    'Mzee Laurent-Désiré Kabila met fin à la coopération militaire avec le Rwanda et l\'Ouganda. '
+        'Leurs soldats, venus avec l\'AFDL jusqu\'au pouvoir, doivent quitter le pays : ils se replient vers Goma, à l\'est.',
+    medal: 'Juillet 1998',
+    intro: 'Kabila rompt avec le Rwanda et l\'Ouganda',
+  ),
+  HistoryEvent(
     1998.6,
     EventKind.obstacle,
-    'août 1998',
-    'Est, Kinshasa',
+    '2 août 1998',
+    'Goma, l\'est du Congo',
     'Deuxième guerre du Congo',
-    'Une guerre qui implique de nombreux pays de la région.',
+    'Depuis Goma, le RCD, une rébellion soutenue par le Rwanda et l\'Ouganda, prend les armes contre Kabila. '
+        'L\'Angola, le Zimbabwe et la Namibie viennent aider Kinshasa : de nombreux pays de la région entrent dans la guerre.',
     war: true,
+  ),
+  HistoryEvent(
+    1998.85,
+    EventKind.life,
+    'fin 1998',
+    'Gbadolite, Équateur',
+    'Jean-Pierre Bemba et le MLC',
+    'Jean-Pierre Bemba crée le Mouvement de libération du Congo, soutenu par l\'Ouganda. '
+        'Depuis l\'Équateur, ses troupes combattent elles aussi le pouvoir de Kinshasa.',
+    photo: 'bembamlc',
+    medal: 'Bemba · MLC',
+    intro: 'Jean-Pierre Bemba entre dans la guerre',
   ),
   HistoryEvent(
     1999.91,
@@ -552,10 +576,13 @@ const historyEvents = <HistoryEvent>[
     EventKind.memory,
     '16 janvier 2001',
     'Kinshasa',
-    'Mort de Mzee Laurent-Désiré Kabila',
-    'Le 16 janvier 2001, le président Laurent-Désiré Kabila, que l\'on appelle Mzee, est assassiné dans son palais à Kinshasa. Le pays lui rend hommage pendant ses obsèques.',
+    'Mzee Laurent-Désiré Kabila est assassiné',
+    'Le 16 janvier 2001, le président Laurent-Désiré Kabila, que l\'on appelle Mzee, est assassiné par balles '
+        'dans son palais de marbre, à Kinshasa. Le pays est en deuil : ses obsèques ont lieu le 23 janvier, '
+        'et il repose au mausolée près du palais de la Nation.',
     photo: 'obseques',
     song: 'fond',
+    intro: 'Le deuil de Mzee Laurent-Désiré Kabila',
   ),
   HistoryEvent(
     2001.07,
@@ -567,6 +594,7 @@ const historyEvents = <HistoryEvent>[
     photo: 'serment',
     medal: 'Joseph Kabila · 2001',
     intro: 'Joseph Kabila devient président',
+    big: true,
   ),
   HistoryEvent(
     2002.05,
@@ -579,12 +607,24 @@ const historyEvents = <HistoryEvent>[
     photo: 'nyiragongo',
   ),
   HistoryEvent(
-    2003.3,
+    2002.3,
     EventKind.life,
-    '2002 – 2003',
-    'Sun City, Pretoria',
-    'Accords de paix',
-    'Les accords ouvrent une période de transition.',
+    'avril 2002',
+    'Sun City, Afrique du Sud',
+    'Le dialogue intercongolais',
+    'À Sun City, le gouvernement de Joseph Kabila, le RCD, le MLC de Jean-Pierre Bemba, l\'opposition '
+        'et la société civile se retrouvent pour réunifier le pays.',
+    medal: 'Sun City · 2002',
+  ),
+  HistoryEvent(
+    2002.96,
+    EventKind.life,
+    '17 décembre 2002',
+    'Pretoria, Afrique du Sud',
+    'L\'accord global de Pretoria',
+    'L\'accord global et inclusif met fin à la guerre : le pays sera réunifié, et une transition commencera '
+        'avec un président et quatre vice-présidents.',
+    medal: 'Paix · 2002',
   ),
   HistoryEvent(
     2003.49,
@@ -624,6 +664,15 @@ const historyEvents = <HistoryEvent>[
     photo: 'bemba',
   ),
   HistoryEvent(
+    2006.96,
+    EventKind.life,
+    '16 décembre 2006',
+    'Kinshasa',
+    'Vital Kamerhe au perchoir',
+    'Vital Kamerhe est élu président de l\'Assemblée nationale. Il la dirige jusqu\'en 2009.',
+    photo: 'kamerhe',
+  ),
+  HistoryEvent(
     2006.99,
     EventKind.life,
     '30 décembre 2006',
@@ -631,15 +680,6 @@ const historyEvents = <HistoryEvent>[
     'Antoine Gizenga, Premier ministre',
     'Compagnon de Lumumba, Antoine Gizenga dirige le gouvernement jusqu\'en septembre 2008.',
     photo: 'gizenga',
-  ),
-  HistoryEvent(
-    2007.02,
-    EventKind.life,
-    '2006 – 2009',
-    'Kinshasa',
-    'Vital Kamerhe au perchoir',
-    'Vital Kamerhe préside l\'Assemblée nationale jusqu\'en 2009.',
-    photo: 'kamerhe',
   ),
   HistoryEvent(
     2007.1,

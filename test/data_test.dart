@@ -61,7 +61,7 @@ void main() {
     expect(emotion.year.floor(), 1990);
     expect(emotion.text, contains('multipartisme'));
     expect(emotion.photo, 'emotion');
-    final mzee = historyEvents.firstWhere((e) => e.title.contains('Mzee'));
+    final mzee = historyEvents.firstWhere((e) => e.title.contains('Mzee') && e.title.contains('assassiné'));
     expect(mzee.date, '16 janvier 2001');
     final oath = historyEvents.firstWhere((e) => e.title.contains('Joseph Kabila prête serment'));
     expect(oath.date, '26 janvier 2001');

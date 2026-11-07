@@ -61,6 +61,32 @@ const cabinTalks = <TalkMoment, List<List<TalkLine>>>{
         'Chers passagers, restez calmes : tout va bien.',
       ),
     ],
+    [
+      TalkLine('Un petit garçon', 'Papa, tokokoma malamu ?', 'Papa, on va bien arriver ?'),
+      TalkLine('Son papa', 'Ee, mwana na ngai. Tokokoma.', 'Oui, mon enfant. Nous allons arriver.'),
+    ],
+    [
+      TalkLine('Une grand-mère', 'Nzambe akamba biso na mobembo oyo.', 'Que Dieu nous guide pendant ce voyage.'),
+      TalkLine('Son petit-fils', 'Amen, koko !', 'Amen, grand-mère !'),
+      TalkLine('Hôtesse', 'Bokanga mikaba, tokei.', 'Attachez vos ceintures, nous partons.'),
+    ],
+    [
+      TalkLine('Un enfant', 'Mama, matoyi na ngai ezali kokangama !', 'Maman, mes oreilles se bouchent !'),
+      TalkLine('Sa maman', 'Mela mwa mai, ekoleka.', 'Bois un peu d\'eau, ça va passer.'),
+    ],
+    [
+      TalkLine('Une petite fille', 'Mama, tala engumba na nse !', 'Maman, regarde la ville en bas !'),
+      TalkLine('Sa maman', 'Ezali kitoko, mwana na ngai.', 'C\'est beau, mon enfant.'),
+      TalkLine('Commandant', 'Tokei liboso, mobembo malamu !', 'Nous repartons, bon voyage !'),
+    ],
+    [
+      TalkLine('Passager, rang 3', 'Ngai nazali kobanga mpepo.', 'Moi, j\'ai peur de l\'avion.'),
+      TalkLine('Sa voisine', 'Kanga miso, bondela, ekoleka.', 'Ferme les yeux, prie, ça va passer.'),
+    ],
+    [
+      TalkLine('Un enfant', 'Mama, pilote ayebi nzela ?', 'Maman, le pilote connaît le chemin ?'),
+      TalkLine('Sa maman', 'Ayebi yango malamu. Fanda kimia.', 'Il le connaît très bien. Reste tranquille.'),
+    ],
   ],
   TalkMoment.war: [
     [

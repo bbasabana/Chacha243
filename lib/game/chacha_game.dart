@@ -959,7 +959,7 @@ class ChachaGame extends FlameGame {
         if (showcase == 'fauche') money = 200;
         _failWhy = 'Missile';
         lives = 0;
-        _clearStage();
+        _clearStage(all: true);
         _setPhase(FlightPhase.crashed);
         for (var i = 0; i < 4 * 60; i++) {
           _tick(_step);
@@ -1135,15 +1135,21 @@ class ChachaGame extends FlameGame {
       _cues.removeAt(0);
     }
     if (_cueGap > 0 || _cues.isEmpty) return;
+    // Une fiche de 1991 ne s'affiche jamais en 1990 : elle attend que le calendrier arrive dans son année.
+    if (_cues.first.story case final s? when s.floor() > year.floor()) return;
     final next = _onStage = _cues.removeAt(0);
     _cueLeft = next.seconds;
     next.show();
   }
 
-  void _clearStage() {
-    _onStage?.hide?.call();
-    _onStage = null;
-    _cues.clear();
+  /// Fait place nette pour un message important. Les fiches d'histoire restent : elles passent après,
+  /// sinon un moment (« Comprenez mon émotion ») disparaîtrait sans jamais s'afficher.
+  void _clearStage({bool all = false}) {
+    if (all || _onStage?.story == null) {
+      _onStage?.hide?.call();
+      _onStage = null;
+    }
+    _cues.removeWhere((c) => all || c.story == null);
     _cueGap = 0;
   }
 
@@ -1189,7 +1195,14 @@ class ChachaGame extends FlameGame {
     return waiting >= 3 ? 0.5 : 1;
   }
 
-  bool get _storyLate => _cues.any((c) => c.story != null && c.story! < year - 0.2);
+  /// Le calendrier attend une fiche en retard, et ne passe jamais à l'année suivante tant qu'un moment
+  /// de l'année en cours (sa fiche, ou son médaillon encore dans le ciel) n'a pas été montré.
+  bool get _storyLate {
+    bool late(double story) => story < year - 0.2 || year >= story.floor() + 0.985;
+    if (_cues.any((c) => c.story != null && late(c.story!))) return true;
+    if (_onStage?.story case final s? when late(s)) return true;
+    return _pickups.any((p) => !p.taken && p.kind == _PickupKind.medal && p.event != null && late(p.event!.year));
+  }
 
   /// Le temps de lire une fiche : environ trois mots par seconde, jamais moins de 9 secondes, au plus 18.
   double _readTime(HistoryEvent e) {
@@ -1221,7 +1234,7 @@ class ChachaGame extends FlameGame {
     if (lives > 0) _talk(lives == 1 ? TalkMoment.danger : TalkMoment.hit, force: lives == 1);
     if (lives <= 0) {
       lives = 0;
-      _clearStage();
+      _clearStage(all: true);
       _setPhase(FlightPhase.crashed);
     }
     _pushHud();
@@ -1740,7 +1753,7 @@ class ChachaGame extends FlameGame {
       );
       lives = 0;
       _failWhy = 'Avion usé, sans entretien';
-      _clearStage();
+      _clearStage(all: true);
       _setPhase(FlightPhase.crashed);
       return;
     }
@@ -2014,7 +2027,8 @@ class ChachaGame extends FlameGame {
     _nextTalk = t + 20;
   }
 
-  final _talkBags = <TalkMoment, List<int>>{};
+  // Gardé d'un vol à l'autre : après un crash, la reprise ne répète pas la conversation qu'on vient d'entendre.
+  static final _talkBags = <TalkMoment, List<int>>{};
   int _chats = 0;
 
   /// La part du voyage qui reste jusqu'au 30 juin 2027, en pour cent.
@@ -2168,6 +2182,14 @@ class ChachaGame extends FlameGame {
           _showCard(e);
         case EventKind.memory:
           slowMo = 4.5;
+          if (e.intro != null) {
+            _cue(
+              () => banner.value = FlightBanner(e.intro!, e.date, color: const Color(0xFFB9C7FF)),
+              5,
+              hide: () => banner.value = null,
+              story: e.year,
+            );
+          }
           _showCard(e);
           // Le souvenir arrive avec un bidon : on garde de quoi continuer le voyage.
           if (_shortage == null) {
@@ -3488,7 +3510,7 @@ class ChachaGame extends FlameGame {
     cabin.value = null;
     lives = 0;
     _failWhy = 'Passager tombé : ceintures non attachées';
-    _clearStage();
+    _clearStage(all: true);
     _setPhase(FlightPhase.crashed);
   }
 
@@ -3968,7 +3990,12 @@ class ChachaGame extends FlameGame {
     if (!_exitSaid && budget - _zoneT < 30) {
       _exitSaid = true;
       _queueBanner(
-        FlightBanner('Bientôt ${z.to.floor()}', 'La sortie de la zone approche · encore un effort', color: _peaceGreen),
+        FlightBanner(
+          // Déjà en 2003 : on n'annonce plus « bientôt 2003 », mais la paix.
+          year.floor() < z.to.floor() ? 'Bientôt ${z.to.floor()}' : 'Bientôt la paix',
+          'La sortie de la zone approche · encore un effort',
+          color: _peaceGreen,
+        ),
         first: true,
       );
     }
@@ -4349,7 +4376,8 @@ class ChachaGame extends FlameGame {
         _showCard(p.event!, caught: false);
       }
     }
-    _pickups.removeWhere((p) => p.taken || p.x < -100);
+    // Un médaillon manqué ne s'en va qu'après avoir montré sa fiche (même quand l'avion est long).
+    _pickups.removeWhere((p) => p.taken || (p.x < -100 && p.x < -rx));
 
     for (final p in _particles) {
       p.age += dt;

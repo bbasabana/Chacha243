@@ -32,6 +32,9 @@ class Sfx {
     final pair = _players[name] ??= [
       for (var i = 0; i < 2; i++)
         AudioPlayer()
+          // Un petit son ne dit jamais qu'il est fini : sans cela, chaque lecteur demanderait sa position
+          // à Android à chaque image, pour toujours, et la mémoire du téléphone finirait par déborder.
+          ..positionUpdater = null
           ..setAudioContext(_context)
           ..setPlayerMode(PlayerMode.lowLatency),
     ];
