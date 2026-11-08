@@ -38,6 +38,7 @@ class AboutScreen extends StatefulWidget {
 class _AboutScreenState extends State<AboutScreen> with WidgetsBindingObserver {
   /// Le pilote vient d'ouvrir le lien de don : au retour, on regarde si le paiement est arrivé.
   bool _donating = false;
+  final _code = Telemetry.pilotCode();
 
   @override
   void initState() {
@@ -181,29 +182,29 @@ class _AboutScreenState extends State<AboutScreen> with WidgetsBindingObserver {
                           style: body,
                         ),
                         if (!appStoreRules) ...[
-                        const SizedBox(height: 10),
-                        GlassButton(
-                          onTap: () async {
-                            final ok = await launchUrl(
-                              Uri.parse(AboutScreen.firstVersionUrl),
-                              mode: LaunchMode.externalApplication,
-                            );
-                            if (!ok) copy(AboutScreen.firstVersionUrl, 'Lien copié');
-                          },
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.history_rounded, color: Colors.white, size: 18),
-                              SizedBox(width: 8),
-                              Text('Voir la version de 2014', style: TextStyle(fontSize: 15)),
-                            ],
+                          const SizedBox(height: 10),
+                          GlassButton(
+                            onTap: () async {
+                              final ok = await launchUrl(
+                                Uri.parse(AboutScreen.firstVersionUrl),
+                                mode: LaunchMode.externalApplication,
+                              );
+                              if (!ok) copy(AboutScreen.firstVersionUrl, 'Lien copié');
+                            },
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.history_rounded, color: Colors.white, size: 18),
+                                SizedBox(width: 8),
+                                Text('Voir la version de 2014', style: TextStyle(fontSize: 15)),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          AboutScreen.firstVersionUrl,
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11.5),
-                        ),
+                          const SizedBox(height: 6),
+                          Text(
+                            AboutScreen.firstVersionUrl,
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11.5),
+                          ),
                         ],
                       ]),
                       section('Soutenir le projet', [
@@ -229,25 +230,25 @@ class _AboutScreenState extends State<AboutScreen> with WidgetsBindingObserver {
                               ),
                             ),
                             if (!appStoreRules)
-                            GlassButton(
-                              onTap: () async {
-                                var url = AboutScreen.donateUrl;
-                                try {
-                                  url = '${AboutScreen.donateUrl}?client_reference_id=${await Telemetry.playerId()}';
-                                } catch (_) {}
-                                _donating = true;
-                                final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                                if (!ok) copy(AboutScreen.donateUrl, 'Lien copié');
-                              },
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.volunteer_activism_rounded, color: Colors.white, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Faire un don', style: TextStyle(fontSize: 15)),
-                                ],
+                              GlassButton(
+                                onTap: () async {
+                                  var url = AboutScreen.donateUrl;
+                                  try {
+                                    url = '${AboutScreen.donateUrl}?client_reference_id=${await Telemetry.playerId()}';
+                                  } catch (_) {}
+                                  _donating = true;
+                                  final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                                  if (!ok) copy(AboutScreen.donateUrl, 'Lien copié');
+                                },
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.volunteer_activism_rounded, color: Colors.white, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Faire un don', style: TextStyle(fontSize: 15)),
+                                  ],
+                                ),
                               ),
-                            ),
                             GlassButton(
                               // Une date, une photo ou une chanson : elle arrive dans le tableau de bord.
                               onTap: () => showDialog<void>(context: context, builder: (_) => const _ProposalDialog()),
@@ -276,6 +277,33 @@ class _AboutScreenState extends State<AboutScreen> with WidgetsBindingObserver {
                             style: body,
                           ),
                         ),
+                        const SizedBox(height: 10),
+                        FutureBuilder(
+                          future: _code,
+                          builder: (_, s) => s.data == null
+                              ? const SizedBox.shrink()
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Ton code pilote. Note-le : il te rend ta partie sur un autre téléphone. Ne le donne à personne.',
+                                      style: body,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    GlassButton(
+                                      onTap: () => copy(s.data!, 'Code copié'),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.copy_rounded, color: Colors.white, size: 18),
+                                          const SizedBox(width: 8),
+                                          Text(s.data!, style: const TextStyle(fontSize: 16, letterSpacing: 2)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
                       ]),
                       section('Confidentialité', [
                         const Text(
@@ -290,7 +318,9 @@ class _AboutScreenState extends State<AboutScreen> with WidgetsBindingObserver {
                           onTap: () async {
                             final id = await Telemetry.playerId();
                             final ok = await launchUrl(
-                              Uri.parse('mailto:${AboutScreen.contactEmail}?subject=${Uri.encodeComponent('Supprimer mes données Chacha 243 ($id)')}'),
+                              Uri.parse(
+                                'mailto:${AboutScreen.contactEmail}?subject=${Uri.encodeComponent('Supprimer mes données Chacha 243 ($id)')}',
+                              ),
                             );
                             if (!ok) copy(AboutScreen.contactEmail, 'Adresse copiée');
                           },
@@ -309,15 +339,24 @@ class _AboutScreenState extends State<AboutScreen> with WidgetsBindingObserver {
                           style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11.5),
                         ),
                       ]),
-                      section('Sources et droits', const [
-                        Text(
-                          'Le jeu est gratuit. Les photos, les sons et les chansons ont été téléchargés librement sur Internet, '
-                          'pour un usage gratuit : ils accompagnent le jeu, sans aucun usage commercial. '
-                          'Les dates viennent de Wikipédia et de la presse congolaise. '
-                          'Une erreur, une photo à retirer ? Propose ou signale-la depuis « Proposer une photo, une date ».',
-                          style: body,
-                        ),
-                      ]),
+                      if (appStoreRules)
+                        section('Sources', const [
+                          Text(
+                            'Le jeu est gratuit. Les dates viennent de Wikipédia et de la presse congolaise. '
+                            'Une erreur ? Signale-la depuis « Proposer une photo, une date ».',
+                            style: body,
+                          ),
+                        ])
+                      else
+                        section('Sources et droits', const [
+                          Text(
+                            'Le jeu est gratuit. Les photos, les sons et les chansons ont été téléchargés librement sur Internet, '
+                            'pour un usage gratuit : ils accompagnent le jeu, sans aucun usage commercial. '
+                            'Les dates viennent de Wikipédia et de la presse congolaise. '
+                            'Une erreur, une photo à retirer ? Propose ou signale-la depuis « Proposer une photo, une date ».',
+                            style: body,
+                          ),
+                        ]),
                     ],
                   ),
                 ),

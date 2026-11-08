@@ -20,12 +20,16 @@ class Telemetry {
   static const _url = 'https://waddiel.pro/api/v1/chacha';
   static const _version = '1.0.0';
   static const _channel = MethodChannel('chacha243/device');
+  static const _keptId = 'chacha243.pilot_id';
   static String? _id;
   static Map<String, String> _device = const {};
 
   /// The phone's id and details, read once.
   static Future<String> _playerId() async {
     if (_id != null) return _id!;
+    // Un pilote retrouvé par son code garde son identifiant, sur ce téléphone aussi.
+    final kept = (await SharedPreferences.getInstance()).getString(_keptId);
+    if (kept != null) return _id = kept;
     final ios = defaultTargetPlatform == TargetPlatform.iOS;
     if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || ios)) {
       try {
@@ -490,6 +494,54 @@ class Telemetry {
     money: cur?.money ?? 3000,
     seconds: cur?.seconds ?? 0,
   );
+
+  /// The pilot's secret code, shown as K7M2-Q9XD; null without a connection or before the first report.
+  static Future<String?> pilotCode() async {
+    try {
+      final r = await http
+          .post(
+            Uri.parse('$_url/code'),
+            headers: {'content-type': 'application/json'},
+            body: jsonEncode({'id': await _playerId()}),
+          )
+          .timeout(const Duration(seconds: 6));
+      if (r.statusCode != 200) return null;
+      final c = (jsonDecode(r.body) as Map<String, dynamic>)['code'] as String;
+      return '${c.substring(0, 4)}-${c.substring(4)}';
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Brings a pilot back on this phone from their code. True when the code was right.
+  static Future<bool> claimCode(String code) async {
+    try {
+      final r = await http
+          .post(
+            Uri.parse('$_url/code'),
+            headers: {'content-type': 'application/json'},
+            body: jsonEncode({'code': code}),
+          )
+          .timeout(const Duration(seconds: 6));
+      if (r.statusCode != 200) return false;
+      final b = jsonDecode(r.body) as Map<String, dynamic>;
+      final id = b['id'] as String;
+      await (await SharedPreferences.getInstance()).setString(_keptId, id);
+      _id = id;
+      await savePilotName((b['name'] as String?)?.trim() ?? 'Pilote');
+      final m = b['missions'];
+      if (m is int && m > missionsDone.value) await saveMissions(m);
+      if (b['photo'] == true) {
+        final ph = await http
+            .get(Uri.parse('$_url/photo?id=${Uri.encodeQueryComponent(id)}'))
+            .timeout(const Duration(seconds: 6));
+        if (ph.statusCode == 200 && ph.bodyBytes.length > 100) await savePilotPhoto(ph.bodyBytes);
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
   /// After a reinstall: no name on the phone yet, so ask the server for the pilot's name and resume point.
   static Future<void> restore() async {

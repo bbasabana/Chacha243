@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,7 +28,7 @@ Future<void> main() async {
   }
   // Au retour dans l'app, ce qui a été joué hors connexion part vers le tableau de bord.
   if (!kIsWeb) _resume = AppLifecycleListener(onResume: Telemetry.flush);
-  SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+  lockLandscape();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   runApp(const Chacha243App());
 }
@@ -60,7 +62,7 @@ class Chacha243App extends StatelessWidget {
       // Le jeu se joue couché. Sur le web, on ne peut pas tourner l'écran : on demande de tourner le téléphone.
       builder: (context, child) {
         final size = MediaQuery.sizeOf(context);
-        if (size.height <= size.width) return child!;
+        if (size.height <= size.width) return _fitTablet(MediaQuery.of(context), child!);
         if (kIsWeb && size.width <= 700) return const _TurnPhone();
         if (kIsWeb) return child!;
         // Sur le téléphone, si le système tourne quand même l'écran en portrait (en voiture, un réglage
@@ -68,14 +70,14 @@ class Chacha243App extends StatelessWidget {
         final mq = MediaQuery.of(context);
         return RotatedBox(
           quarterTurns: 1,
-          child: MediaQuery(
-            data: mq.copyWith(
+          child: _fitTablet(
+            mq.copyWith(
               size: Size(size.height, size.width),
               padding: EdgeInsets.zero,
               viewPadding: EdgeInsets.zero,
               viewInsets: EdgeInsets.zero,
             ),
-            child: child!,
+            child!,
           ),
         );
       },
@@ -86,6 +88,31 @@ class Chacha243App extends StatelessWidget {
       },
     );
   }
+}
+
+/// Sur tablette, tout le jeu est dessiné pour un écran de 844 points de large, puis agrandi :
+/// l'écran reste plein et les boutons gardent leur place, à la bonne taille.
+Widget _fitTablet(MediaQueryData mq, Widget child) {
+  final k = math.min(mq.size.width / 844, mq.size.height / 390);
+  if (kIsWeb || mq.size.shortestSide < 600 || k <= 1) return MediaQuery(data: mq, child: child);
+  final size = mq.size / k;
+  return FittedBox(
+    fit: BoxFit.fill,
+    child: SizedBox.fromSize(
+      size: size,
+      child: MediaQuery(
+        data: mq.copyWith(
+          size: size,
+          devicePixelRatio: mq.devicePixelRatio * k,
+          padding: mq.padding / k,
+          viewPadding: mq.viewPadding / k,
+          viewInsets: mq.viewInsets / k,
+          systemGestureInsets: mq.systemGestureInsets / k,
+        ),
+        child: child,
+      ),
+    ),
+  );
 }
 
 class _TurnPhone extends StatelessWidget {

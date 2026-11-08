@@ -611,6 +611,12 @@ class _NameDialog extends StatefulWidget {
 class _NameDialogState extends State<_NameDialog> {
   late final _field = TextEditingController(text: pilotName.value ?? '');
 
+  /// Sur un autre téléphone : le code pilote rend le nom, la photo et les missions.
+  Future<void> _comeBack() async {
+    final ok = await showDialog<bool>(context: context, builder: (_) => const _CodeDialog());
+    if (ok == true && mounted) Navigator.of(context).pop();
+  }
+
   @override
   void dispose() {
     _field.dispose();
@@ -744,6 +750,10 @@ class _NameDialogState extends State<_NameDialog> {
                             GlassButton(onTap: () => Navigator.of(context).pop(), child: const Text('Fermer')),
                             const SizedBox(width: 10),
                           ],
+                          if (pilotName.value == null) ...[
+                            GlassButton(onTap: _comeBack, child: const Text('J\'ai déjà un pilote')),
+                            const SizedBox(width: 10),
+                          ],
                           GlassButton(onTap: _done, tint: const Color(0x55CE1021), child: const Text('Enregistrer')),
                         ],
                       ),
@@ -757,6 +767,61 @@ class _NameDialogState extends State<_NameDialog> {
       ),
     );
   }
+}
+
+/// Le pilote revient avec son code pilote, noté dans À propos sur son ancien téléphone.
+class _CodeDialog extends StatefulWidget {
+  const _CodeDialog();
+
+  @override
+  State<_CodeDialog> createState() => _CodeDialogState();
+}
+
+class _CodeDialogState extends State<_CodeDialog> {
+  final _code = TextEditingController();
+  bool _busy = false, _bad = false;
+
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    setState(() {
+      _busy = true;
+      _bad = false;
+    });
+    final ok = await Telemetry.claimCode(_code.text);
+    if (!mounted) return;
+    if (ok) return Navigator.of(context).pop(true);
+    setState(() {
+      _busy = false;
+      _bad = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => SoftDialog(
+    title: 'Ton code pilote',
+    actions: [
+      SoftButton('Annuler', quiet: true, onTap: () => Navigator.of(context).pop(false)),
+      SoftButton(_busy ? 'Recherche…' : 'Retrouver', onTap: _busy ? null : _send),
+    ],
+    children: [
+      Text(
+        'Il est écrit dans À propos, sur ton ancien téléphone.',
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14),
+      ),
+      const SizedBox(height: 10),
+      TextField(
+        controller: _code,
+        textCapitalization: TextCapitalization.characters,
+        style: const TextStyle(color: Colors.white, fontSize: 18, letterSpacing: 2),
+        decoration: softField('K7M2-Q9XD').copyWith(errorText: _bad ? 'Code inconnu, ou pas de réseau' : null),
+      ),
+    ],
+  );
 }
 
 String _duration(int s) => s >= 3600

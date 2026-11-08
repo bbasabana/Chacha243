@@ -1,12 +1,24 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data/aircraft_types.dart';
 
 /// La version App Store : ni don, ni championnat à prix, ni enjeu, ni lien vers une autre boutique (règles d'Apple).
 bool get appStoreRules => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+/// Le jeu se joue couché. Un iPad tenu debout mettrait une appli verrouillée en paysage dans une bande :
+/// on le laisse libre, et l'écran entier est dessiné couché (voir le `builder` de l'application).
+void lockLandscape() {
+  final view = WidgetsBinding.instance.platformDispatcher.views.first;
+  final ipad = appStoreRules && (view.physicalSize / view.devicePixelRatio).shortestSide >= 600;
+  SystemChrome.setPreferredOrientations(
+    ipad ? const [] : const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight],
+  );
+}
 
 /// L'avion choisi pour le décollage de 1960 (parmi ceux qui volaient en 1960).
 final selectedAircraft = ValueNotifier<AircraftType>(aircraftById('dc6'));

@@ -122,7 +122,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if ((state == AppLifecycleState.paused || state == AppLifecycleState.hidden) && !_paused) _pause(true);
     // Au retour (écran déverrouillé), on redemande le jeu couché et en plein écran.
     if (state == AppLifecycleState.resumed) {
-      SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+      lockLandscape();
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
   }
@@ -573,7 +573,9 @@ class _YearPanel extends StatelessWidget {
                   // Le temps qui passe : tout le vol, et l'étape en cours.
                   Text(
                     '⏱ ${_clock(hud.flightSeconds)} · ${hud.inZone ? 'zone' : 'paix'} ${_clock(hud.stageSeconds)}'
-                    ' · 2027 : reste ${((2027.5 - hud.year) / 67 * 100).clamp(0, 100).ceil()} %',
+                    ' · reste ${((2027.5 - hud.year) / 67 * 100).clamp(0, 100).ceil()} %',
+                    maxLines: 1,
+                    softWrap: false,
                     style: TextStyle(
                       color: hud.inZone ? const Color(0xFFFF9A9A) : Colors.white.withValues(alpha: 0.8),
                       fontSize: 9.5,
@@ -1504,13 +1506,13 @@ class _Controls extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 32),
-                const SizedBox(height: 3),
+                const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 26),
+                const SizedBox(height: 1),
                 const Text('TURBO', style: TextStyle(fontSize: 15, letterSpacing: 1.4, fontWeight: FontWeight.w900)),
                 Text(
                   game.turboLock
-                      ? 'actif · touche\npour désactiver'
-                      : (hud.boost ? 'actif · lâche\npour désactiver' : 'touche ou\nmaintiens'),
+                      ? 'actif · touche\npour arrêter'
+                      : (hud.boost ? 'actif · lâche\npour arrêter' : 'touche ou\nmaintiens'),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10, height: 1.15, color: Colors.white.withValues(alpha: 0.9)),
                 ),
