@@ -2,6 +2,7 @@ import 'package:chacha243/data/medals.dart';
 import 'package:chacha243/game/checkpoint.dart';
 import 'package:chacha243/game/telemetry.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// La boîte d'envoi hors connexion : rien ne se perd, rien ne grossit sans fin.
 void main() {
@@ -64,5 +65,18 @@ void main() {
     expect(medalFor(2027, 1)?.name, 'Diamant');
     expect(nextMedal(1990, 0)?.name, 'Or');
     expect(nextMedal(2027, 1), isNull);
+  });
+
+  test('hors connexion, le classement garde la dernière place connue et la marque comme ancienne', () async {
+    SharedPreferences.setMockInitialValues({
+      'chacha243.standing':
+          '{"rank":3,"total":40,"bestYear":2016.5,"bestScore":900,"wins":0,"crashes":4,"flights":9,"seconds":3000}',
+    });
+    final s = await Telemetry.standing();
+    expect(s?.rank, 3);
+    expect(s?.total, 40);
+    expect(s?.stale, isTrue);
+    SharedPreferences.setMockInitialValues({});
+    expect(await Telemetry.standing(), isNull);
   });
 }

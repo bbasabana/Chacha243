@@ -1,3 +1,7 @@
+import 'package:flutter/painting.dart';
+
+import 'eras.dart';
+
 /// Les avions que le joueur peut piloter, du DC-3 de 1960 au Boeing 787 d'Air Congo.
 ///
 /// Sources : Wikipédia (Air Zaïre, Air Congo, Congo Airways), consultées en novembre 2026.
@@ -19,6 +23,8 @@ class AircraftType {
     required this.speed,
     required this.handling,
     required this.tank,
+    this.operator,
+    this.livery,
     this.hump = false,
     this.highWing = false,
   });
@@ -30,6 +36,12 @@ class AircraftType {
 
   /// Quand le type a volé sous les couleurs congolaises.
   final String inCongo;
+
+  /// La compagnie montrée au hangar quand ce n'est pas celle de l'époque (Hewa Bora, par exemple).
+  final String? operator;
+
+  /// La peinture propre à cette compagnie, quand elle ne suit pas celle de l'époque.
+  final Livery? livery;
 
   /// Les années où ce type vole pour le Congo : on ne peut le prendre qu'à ces dates.
   final double from, to;
@@ -169,6 +181,70 @@ const aircraftTypes = <AircraftType>[
     speed: 0.7,
     handling: 0.8,
     tank: 0.65,
+  ),
+  AircraftType(
+    id: 'l1011',
+    name: 'L-1011 TriStar',
+    maker: 'Lockheed',
+    layout: EngineLayout.triJet,
+    inCongo: '1998 – 2011',
+    operator: 'Hewa Bora Airways',
+    livery: Livery(
+      body: Color(0xFFF4F5F7),
+      belly: Color(0xFFC9D1DB),
+      stripe: Color(0x00000000),
+      stripe2: Color(0xFF1F2A5C),
+      tail: Color(0xFFF4F5F7),
+      emblem: TailEmblem.none,
+      word: 'HBA',
+      wordSub: 'HEWA BORA AIRWAYS',
+      wordColor: Color(0xFF1F3E8C),
+      wordX: 77,
+      wordSize: 7.2,
+      tailWord: 'HBA',
+      tailBase: Color(0xFF1F3E8C),
+    ),
+    from: 1998.3,
+    to: 2011.52,
+    seats: 246,
+    story: "Le trimoteur de Hewa Bora Airways, la grande compagnie privée de Kinshasa, de ses débuts en 1998 jusqu'à sa fin le 8 juillet 2011.",
+    length: 0.95,
+    bodyHeight: 12.5,
+    speed: 0.78,
+    handling: 0.5,
+    tank: 0.9,
+  ),
+  AircraftType(
+    id: 'b767',
+    name: '767',
+    maker: 'Boeing',
+    layout: EngineLayout.twinJets,
+    inCongo: '2005 – 2013',
+    operator: 'LAC',
+    livery: Livery(
+      body: Color(0xFFF1EEE6),
+      belly: Color(0xFFCFCCC4),
+      stripe: Color(0x00000000),
+      stripe2: Color(0x00000000),
+      tail: Color(0xFF2468D8),
+      emblem: TailEmblem.star,
+      engine: Color(0xFF2468D8),
+      word: 'LAC',
+      wordColor: Color(0xFF6B6B6B),
+      wordX: 77,
+      wordSize: 8.5,
+      wordSerif: true,
+      tailStars: true,
+    ),
+    from: 2005.0,
+    to: 2013.5,
+    seats: 200,
+    story: "Le biréacteur moyen-porteur des LAC (Lignes Aériennes Congolaises), la compagnie créée en 2005 et liquidée en 2013.",
+    length: 0.92,
+    bodyHeight: 12,
+    speed: 0.8,
+    handling: 0.65,
+    tank: 0.85,
   ),
   AircraftType(
     id: 'a320',

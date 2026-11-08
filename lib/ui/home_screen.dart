@@ -20,6 +20,7 @@ import 'duel_screen.dart';
 import 'glass.dart';
 import 'hangar_screen.dart';
 import 'ranking_screen.dart';
+import 'soft_dialog.dart';
 import 'timeline_screen.dart';
 
 /// L'accueil : l'avion dessine la diagonale du drapeau dans le ciel, comme sur l'icône.
@@ -134,6 +135,44 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Widget _content() {
+    return Stack(
+      children: [
+        Positioned.fill(child: _main()),
+        Positioned(
+          top: 14,
+          right: 22,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _Pill(
+                icon: Icons.menu_book_rounded,
+                tooltip: 'Les dates',
+                onTap: () => Navigator.of(context).push(_fade(const TimelineScreen())),
+              ),
+              const SizedBox(width: 8),
+              _Pill(
+                icon: Icons.favorite_rounded,
+                iconColor: const Color(0xFFFF8A9B),
+                tooltip: 'À propos · Soutenir',
+                onTap: () => Navigator.of(context).push(_fade(const AboutScreen())),
+              ),
+              const SizedBox(width: 8),
+              ListenableBuilder(
+                listenable: Listenable.merge([musicOn, soundsOn, vibrationsOn]),
+                builder: (_, _) => _Pill(
+                  icon: musicOn.value || soundsOn.value ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                  tooltip: 'Le son',
+                  onTap: _volume,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _main() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
       child: Row(
@@ -212,7 +251,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     color: Colors.white.withValues(alpha: 0.92),
                     fontSize: 17,
                     fontWeight: FontWeight.w500,
-                    shadows: const [Shadow(color: Color(0x66001433), blurRadius: 12)],
+                    shadows: const [Shadow(color: Color(0x40001433), blurRadius: 6)],
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -257,23 +296,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       _Pill(
                         icon: Icons.sports_score_rounded,
                         label: 'Duel',
+                        accent: true,
                         onTap: () => Navigator.of(context).push(_fade(const DuelScreen())),
                       ),
-                    _Pill(
-                      icon: Icons.menu_book_rounded,
-                      label: 'Les dates',
-                      onTap: () => Navigator.of(context).push(_fade(const TimelineScreen())),
-                    ),
-                    _Pill(
-                      icon: Icons.favorite_rounded,
-                      label: 'À propos · Soutenir',
-                      onTap: () => Navigator.of(context).push(_fade(const AboutScreen())),
-                    ),
-                    ValueListenableBuilder(
-                      valueListenable: musicVolume,
-                      builder: (_, v, _) =>
-                          _Pill(icon: v == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded, onTap: _volume),
-                    ),
                   ],
                 ),
               ],
@@ -330,7 +355,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 }
 
-/// Un bouton doux : un voile clair, un fin liseré, des bords tout ronds. Le principal est rouge, avec une date dessous.
+/// Un bouton de l'accueil en verre : un voile bleu nuit léger, un reflet clair et un liseré, sans aucune ombre.
+/// Le principal reste rouge, plus franc qu'avant pour se lire aussi sur la bande rouge du drapeau.
 class _Pill extends StatelessWidget {
   const _Pill({
     required this.icon,
@@ -338,63 +364,80 @@ class _Pill extends StatelessWidget {
     this.sub,
     this.onTap,
     this.primary = false,
+    this.accent = false,
     this.iconColor = Colors.white,
+    this.tooltip,
   });
 
   final IconData icon;
-  final String? label, sub;
+  final String? label, sub, tooltip;
   final VoidCallback? onTap;
-  final bool primary;
+  final bool primary, accent;
   final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
     final big = sub != null;
-    return Material(
+    final button = Material(
       color: Colors.transparent,
       child: Ink(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(999),
-          gradient: primary ? const LinearGradient(colors: [Color(0xCCE5263A), Color(0xCCB3101F)]) : null,
-          color: primary ? null : Colors.white.withValues(alpha: 0.13),
-          border: Border.all(color: Colors.white.withValues(alpha: primary ? 0.35 : 0.22)),
-          boxShadow: primary ? const [BoxShadow(color: Color(0x55B3101F), blurRadius: 18, offset: Offset(0, 6))] : null,
+          color: primary ? null : (accent ? const Color(0x99B8860B) : const Color(0x520A2A66)),
+          gradient: primary
+              ? const LinearGradient(colors: [Color(0xF2E5263A), Color(0xF2B3101F)])
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.white.withValues(alpha: 0.26), Colors.white.withValues(alpha: 0.08)],
+                ),
+          border: Border.all(
+            color: accent
+                ? ChachaColors.yellow.withValues(alpha: 0.9)
+                : Colors.white.withValues(alpha: primary ? 0.55 : 0.4),
+            width: accent ? 1.5 : 1.1,
+          ),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(999),
           onTap: onTap,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: label == null ? 14 : (big ? 22 : 18), vertical: big ? 9 : 9),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: iconColor, size: big ? 26 : 20),
-                if (label != null) ...[
-                  SizedBox(width: big ? 12 : 8),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label!,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: big ? 17 : 14.5,
-                          fontWeight: FontWeight.w800,
-                          height: 1.1,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: big ? 235 : 0),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: label == null ? 12 : (big ? 26 : 18), vertical: 9),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: iconColor, size: big ? 26 : (label == null ? 22 : 20)),
+                  if (label != null) ...[
+                    SizedBox(width: big ? 14 : 8),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label!,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: big ? 17 : 14.5,
+                            fontWeight: FontWeight.w800,
+                            height: 1.1,
+                          ),
                         ),
-                      ),
-                      if (sub != null)
-                        Text(sub!, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
-                    ],
-                  ),
+                        if (sub != null)
+                          Text(sub!, style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12)),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
       ),
     );
+    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
   }
 }
 
@@ -459,7 +502,7 @@ class _Title extends StatelessWidget {
             height: 1,
             fontWeight: FontWeight.w900,
             letterSpacing: -2,
-            shadows: [Shadow(color: Color(0x80001433), blurRadius: 24, offset: Offset(0, 6))],
+            shadows: [Shadow(color: Color(0x33001433), blurRadius: 8, offset: Offset(0, 2))],
           ),
         ),
         const SizedBox(width: 6),
@@ -811,38 +854,69 @@ class _NewsDialog extends StatelessWidget {
 class _VolumeDialog extends StatelessWidget {
   const _VolumeDialog();
 
+  Widget _row(String title, String sub, ValueNotifier<bool> which) => ValueListenableBuilder(
+    valueListenable: which,
+    builder: (_, on, _) => SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      activeThumbColor: ChachaColors.yellow,
+      title: Text(
+        title,
+        style: const TextStyle(color: Colors.white, fontSize: 15.5, fontWeight: FontWeight.w800),
+      ),
+      subtitle: Text(sub, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+      value: on,
+      onChanged: (v) => saveSwitch(which, v),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 380),
-        child: Glass(
-          tint: const Color(0x66001A40),
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: ValueListenableBuilder(
-            valueListenable: musicVolume,
-            builder: (_, v, _) => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Volume de la musique',
-                  style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900),
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.volume_mute_rounded, color: Colors.white),
-                    Expanded(
-                      child: Slider(value: v, onChanged: saveVolume, activeColor: ChachaColors.yellow),
-                    ),
-                    const Icon(Icons.volume_up_rounded, color: Colors.white),
-                  ],
-                ),
-              ],
+    return ListenableBuilder(
+      listenable: Listenable.merge([musicOn, soundsOn, vibrationsOn]),
+      builder: (_, _) {
+        final anyOn = musicOn.value || soundsOn.value || vibrationsOn.value;
+        return SoftDialog(
+          title: 'Le son',
+          actions: [
+            SoftButton(
+              anyOn ? 'Tout couper' : 'Tout rallumer',
+              quiet: true,
+              onTap: () {
+                saveSwitch(musicOn, !anyOn);
+                saveSwitch(soundsOn, !anyOn);
+                saveSwitch(vibrationsOn, !anyOn);
+              },
             ),
-          ),
-        ),
-      ),
+            SoftButton('Fermer', onTap: () => Navigator.of(context).pop()),
+          ],
+          children: [
+            _row('Musique', 'Les chansons de l\'histoire', musicOn),
+            ValueListenableBuilder(
+              valueListenable: musicVolume,
+              builder: (_, v, _) => Row(
+                children: [
+                  const Icon(Icons.volume_mute_rounded, color: Colors.white70, size: 20),
+                  Expanded(
+                    child: Slider(
+                      value: v,
+                      onChanged: musicOn.value ? saveVolume : null,
+                      activeColor: ChachaColors.yellow,
+                    ),
+                  ),
+                  const Icon(Icons.volume_up_rounded, color: Colors.white70, size: 20),
+                ],
+              ),
+            ),
+            _row('Effets sonores', 'Médailles, kérosène, étoiles', soundsOn),
+            _row('Vibrations', 'Les chocs et les crashs', vibrationsOn),
+            Text(
+              'Tes réglages sont gardés tout seuls.',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+            ),
+          ],
+        );
+      },
     );
   }
 }

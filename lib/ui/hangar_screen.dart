@@ -26,6 +26,8 @@ const _showcaseYear = {
   'b737': 2025.0,
   'a320': 2016.0,
   'atr72': 2025.0,
+  'l1011': 2008.0,
+  'b767': 2008.0,
   'b787': 2026.0,
 };
 
@@ -124,7 +126,7 @@ class _HangarScreenState extends State<HangarScreen> with SingleTickerProviderSt
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Au Congo : ${type.inCongo} · livrée ${era.name}',
+                              'Au Congo : ${type.inCongo} · ${type.operator ?? 'livrée ${era.name}'}',
                               style: const TextStyle(color: ChachaColors.yellow, fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 6),

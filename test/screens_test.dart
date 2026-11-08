@@ -2,6 +2,7 @@ import 'package:chacha243/app_state.dart';
 import 'package:chacha243/ui/about_screen.dart';
 import 'package:chacha243/ui/duel_screen.dart';
 import 'package:chacha243/ui/hangar_screen.dart';
+import 'package:chacha243/ui/ranking_screen.dart';
 import 'package:chacha243/ui/home_screen.dart';
 import 'package:chacha243/ui/timeline_screen.dart';
 import 'dart:io';
@@ -52,6 +53,7 @@ void main() {
     'le hangar': () => const HangarScreen(),
     'les dates': () => const TimelineScreen(),
     'à propos': () => const AboutScreen(),
+    'le classement hors connexion': () => const RankingScreen(),
   };
 
   for (final p in phones.entries) {

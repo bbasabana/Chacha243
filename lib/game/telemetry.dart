@@ -429,29 +429,32 @@ class Telemetry {
   }
 
   /// The pilot's place in the ranking; null when offline or not known yet.
+  static const _standingBox = 'chacha243.standing';
+
+  /// The pilot's place. Offline, the last standing the phone knew comes back marked [Standing.stale]
+  /// (null when there never was one), and the screen asks again by itself.
   static Future<Standing?> standing() async {
     try {
       final id = await _playerId();
       final r = await _http
           .get(Uri.parse('$_url?id=${Uri.encodeQueryComponent(id)}'))
           .timeout(const Duration(seconds: 6));
-      if (r.statusCode != 200) return null;
-      final s = (jsonDecode(r.body) as Map<String, dynamic>)['standing'] as Map<String, dynamic>?;
-      if (s == null) return null;
-      int n(String k) => (s[k] as num?)?.toInt() ?? 0;
-      return Standing(
-        rank: n('rank'),
-        total: n('total'),
-        bestYear: (s['bestYear'] as num?)?.toDouble() ?? 1960,
-        bestScore: n('bestScore'),
-        wins: n('wins'),
-        crashes: n('crashes'),
-        flights: n('flights'),
-        seconds: n('seconds'),
-      );
-    } catch (_) {
-      return null;
-    }
+      if (r.statusCode == 200) {
+        final s = (jsonDecode(r.body) as Map<String, dynamic>)['standing'] as Map<String, dynamic>?;
+        if (s != null) {
+          final st = Standing.fromJson(s);
+          try {
+            await (await SharedPreferences.getInstance()).setString(_standingBox, jsonEncode(st.toJson()));
+          } catch (_) {}
+          return st;
+        }
+      }
+    } catch (_) {}
+    try {
+      final j = (await SharedPreferences.getInstance()).getString(_standingBox);
+      if (j != null) return Standing.fromJson(jsonDecode(j) as Map<String, dynamic>, stale: true);
+    } catch (_) {}
+    return null;
   }
 
   /// A jump asked from the dashboard for this pilot (the designer): the resume point moves to that year, once.
@@ -525,10 +528,40 @@ class Standing {
     required this.crashes,
     required this.flights,
     required this.seconds,
+    this.stale = false,
   });
 
   final int rank, total, bestScore, wins, crashes, flights, seconds;
   final double bestYear;
+
+  /// True when the phone is offline and this is the last standing it knew.
+  final bool stale;
+
+  Map<String, Object> toJson() => {
+    'rank': rank,
+    'total': total,
+    'bestYear': bestYear,
+    'bestScore': bestScore,
+    'wins': wins,
+    'crashes': crashes,
+    'flights': flights,
+    'seconds': seconds,
+  };
+
+  static Standing fromJson(Map<String, dynamic> s, {bool stale = false}) {
+    int n(String k) => (s[k] as num?)?.toInt() ?? 0;
+    return Standing(
+      rank: n('rank'),
+      total: n('total'),
+      bestYear: (s['bestYear'] as num?)?.toDouble() ?? 1960,
+      bestScore: n('bestScore'),
+      wins: n('wins'),
+      crashes: n('crashes'),
+      flights: n('flights'),
+      seconds: n('seconds'),
+      stale: stale,
+    );
+  }
 }
 
 /// A message from the dashboard: the champion, the rewards.

@@ -178,6 +178,16 @@ const historyEvents = <HistoryEvent>[
     photo: 'mulele',
   ),
   HistoryEvent(
+    1964.46,
+    EventKind.glory,
+    'juin 1964',
+    'Kamanyola, Sud-Kivu',
+    'La bataille de Kamanyola',
+    'Face aux rebelles Simba qui tiennent l\'Est, l\'armée de Mobutu garde le pont de Kamanyola, à la frontière du Rwanda et du Burundi, '
+        'et remporte une victoire qui compte. Mobutu en fera le nom de sa division d\'élite, puis celui du grand stade de Kinshasa.',
+    photo: 'kamanyola',
+  ),
+  HistoryEvent(
     1964.47,
     EventKind.life,
     '22 juin 1964',
@@ -281,6 +291,17 @@ const historyEvents = <HistoryEvent>[
     photo: 'zaire',
     song: 'hymne',
     big: true,
+  ),
+  HistoryEvent(
+    1972.4,
+    EventKind.life,
+    '1972',
+    'Kinshasa',
+    'Mama Yemo, l\'hôpital de la capitale',
+    'Né comme dispensaire pour les Congolais au début du siècle (1912 ou 1924, selon les sources), l\'Hôpital général de '
+        'Kinshasa prend en 1972 le nom de Mama Yemo, la mère de Mobutu. Le nom est abandonné en 1997 ; la population, elle, '
+        'continue de dire « Mama Yemo ».',
+    photo: 'mamayemo',
   ),
   HistoryEvent(
     1974.2,
@@ -387,6 +408,16 @@ const historyEvents = <HistoryEvent>[
     photo: 'kester',
     medal: 'King Kester',
     song: 'kester',
+  ),
+  HistoryEvent(
+    1983.38,
+    EventKind.glory,
+    '20 mai 1983',
+    'Matadi',
+    'Le pont Maréchal',
+    'Construit avec le Japon, le pont suspendu de Matadi est ouvert : 722 mètres au-dessus du fleuve Congo, le seul passage '
+        'entre Kinshasa et le port. Il s\'appelle d\'abord pont Maréchal, en l\'honneur de Mobutu.',
+    photo: 'pontmarechal',
   ),
   HistoryEvent(
     1983.5,
@@ -504,7 +535,10 @@ const historyEvents = <HistoryEvent>[
     '14 septembre 1994',
     'Kinshasa',
     'Naissance du stade',
-    'Le grand stade de Kinshasa ouvre ses 80 000 places. Il prendra en 1997 le nom de stade des Martyrs.',
+    'Construit avec la Chine de 1988 à 1993, le grand stade de Kinshasa ouvre ses 80 000 places. Il s\'appelle d\'abord '
+        'stade Kamanyola, du nom d\'une bataille de 1964 contre les rebelles Simba, dont Mobutu a fait celui de sa division d\'élite. '
+        'Il prendra en 1997 le nom de stade des Martyrs de la Pentecôte.',
+    photo: 'stade',
   ),
   HistoryEvent(1995.4, EventKind.obstacle, '1995', 'Kikwit', 'Ebola à Kikwit', 'Nouvelle épidémie d\'Ebola.'),
   HistoryEvent(
@@ -557,6 +591,15 @@ const historyEvents = <HistoryEvent>[
     photo: 'ldkserment',
     medal: 'Mzee · 1997',
     intro: 'Mzee Laurent-Désiré Kabila devient président',
+  ),
+  HistoryEvent(
+    1998.3,
+    EventKind.life,
+    '1998',
+    'Kinshasa',
+    'Hewa Bora Airways',
+    'Trois petites compagnies, Zaire Airlines, Zaire Express et Congo Airlines, se réunissent et donnent Hewa Bora Airways, « le meilleur vent ». Elle deviendra la grande compagnie privée de Kinshasa, avec ses TriStar.',
+    photo: 'hewabora',
   ),
   HistoryEvent(
     1998.49,
@@ -704,6 +747,15 @@ const historyEvents = <HistoryEvent>[
     'Pendant la transition, les forces armées sont réunies dans une seule armée : les FARDC.',
   ),
   HistoryEvent(
+    2005.3,
+    EventKind.life,
+    '2005',
+    'Kinshasa',
+    'Les LAC repartent',
+    'Le gouvernement crée de nouveau les Lignes Aériennes Congolaises, avec des avions loués comme ce Boeing 767. La compagnie sera liquidée en 2013.',
+    photo: 'lac767',
+  ),
+  HistoryEvent(
     2006.13,
     EventKind.glory,
     '2006',
@@ -776,6 +828,15 @@ const historyEvents = <HistoryEvent>[
     'Kinshasa',
     'La MONUC devient la MONUSCO',
     'La mission de l\'ONU change de nom et de mandat : stabiliser le pays.',
+  ),
+  HistoryEvent(
+    2011.52,
+    EventKind.life,
+    '8 juillet 2011',
+    'Kinshasa',
+    'Fin de Hewa Bora',
+    'Hewa Bora Airways cesse ses vols. Son certificat est suspendu le 16 juillet 2011.',
+    photo: 'hewabora',
   ),
   HistoryEvent(
     2011.91,

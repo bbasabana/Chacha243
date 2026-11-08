@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
+import '../app_state.dart';
 import '../data/medals.dart';
 import '../game/telemetry.dart';
 import '../theme/chacha_colors.dart';
@@ -15,6 +19,24 @@ class RankingScreen extends StatefulWidget {
 
 class _RankingScreenState extends State<RankingScreen> {
   late Future<Standing?> _standing = Telemetry.standing();
+  Timer? _retry;
+
+  @override
+  void initState() {
+    super.initState();
+    // Hors connexion, on redemande tout seul : dès que le réseau revient, la vraie place s'affiche.
+    _retry = Timer.periodic(const Duration(seconds: 12), (_) async {
+      final s = await _standing;
+      if (!mounted || (s != null && !s.stale)) return;
+      setState(() => _standing = Telemetry.standing());
+    });
+  }
+
+  @override
+  void dispose() {
+    _retry?.cancel();
+    super.dispose();
+  }
 
   String _clock(int s) =>
       s >= 3600 ? '${s ~/ 3600} h ${(s % 3600 ~/ 60).toString().padLeft(2, '0')}' : '${s ~/ 60} min';
@@ -69,21 +91,74 @@ class _RankingScreenState extends State<RankingScreen> {
                         return const Center(child: CircularProgressIndicator(color: ChachaColors.yellow));
                       }
                       final s = snap.data;
-                      if (s == null || s.total == 0) {
-                        return Center(
-                          child: Text(
-                            'Vole une première fois, connecté à Internet, pour entrer dans le classement.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 15),
-                          ),
-                        );
-                      }
-                      return _content(s);
+                      if (s == null || s.total == 0) return _offline();
+                      return Column(
+                        children: [
+                          if (s.stale) _banner(),
+                          Expanded(child: _content(s)),
+                        ],
+                      );
                     },
                   ),
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Hors connexion : un bandeau doux, les données gardées sur le téléphone, et une nouvelle demande toute seule.
+  Widget _banner() => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Glass(
+      radius: 14,
+      tint: const Color(0x55F7D618),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_rounded, color: Colors.white, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Pas de connexion : voici ta dernière place connue. Elle se met à jour toute seule dès que tu es en ligne.',
+              style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  /// Jamais classé en ligne et pas de connexion : on montre au moins ce que le téléphone sait de ses vols.
+  Widget _offline() {
+    final list = flights.value;
+    final best = list.isEmpty ? null : list.map((f) => f.year).reduce(math.max);
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Glass(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off_rounded, color: ChachaColors.yellow, size: 34),
+              const SizedBox(height: 8),
+              const Text(
+                'Pas de connexion',
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                best == null
+                    ? 'Vole une première fois, puis connecte-toi à Internet : ta place dans le classement apparaîtra toute seule.'
+                    : 'Ton meilleur vol : ${best.floor()} · ${list.length} vol${list.length > 1 ? 's' : ''}.\n'
+                          'Ta place dans le classement apparaîtra toute seule dès que tu seras en ligne.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14, height: 1.4),
+              ),
+            ],
           ),
         ),
       ),

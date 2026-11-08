@@ -3894,7 +3894,7 @@ class ChachaGame extends FlameGame {
 
   void _showPlaneCard(String title) {
     _cue(
-      () => planeCard.value = PlaneCard(type, _airline.name, passengers, title),
+      () => planeCard.value = PlaneCard(type, type.operator ?? _airline.name, passengers, title),
       5,
       hide: () => planeCard.value = null,
     );
@@ -3924,7 +3924,7 @@ class ChachaGame extends FlameGame {
     _cue(
       () => banner.value = FlightBanner(
         'Nouvel avion · ${t.maker} ${t.name}',
-        'En ${year.floor()}, ${_airline.name} vole en ${t.maker} ${t.name} · ${t.seats} places',
+        'En ${year.floor()}, ${type.operator ?? _airline.name} vole en ${t.maker} ${t.name} · ${t.seats} places',
         color: ChachaColors.skyLight,
       ),
       8,

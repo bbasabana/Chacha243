@@ -24,6 +24,7 @@ class AircraftPainter {
     bool landingLight = false,
     double blink = 0,
   }) {
+    livery = type.livery ?? livery;
     final u = box.width / 100;
     canvas.save();
     canvas.translate(0, box.height * 0.5);
@@ -130,6 +131,12 @@ class AircraftPainter {
         Paint()..color = ChachaColors.yellow,
       );
     }
+    if (l.word != null) {
+      _paintWord(canvas, l.word!, l.wordX, -h * 0.62, l.wordSize, l.wordColor, serif: l.wordSerif, weight: FontWeight.w900);
+      if (l.wordSub != null) {
+        _paintWord(canvas, l.wordSub!, l.wordX - 27, -h * 0.62, l.wordSize * 0.36, l.wordColor, weight: FontWeight.w800, spacing: 0.5);
+      }
+    }
     if (l.fuselageFlag) {
       FlagPainter.paintFlag(canvas, Rect.fromLTWH(17, -h * 0.05, 3.6, 2.4), FlagStyle.current2006);
     }
@@ -174,6 +181,45 @@ class AircraftPainter {
         ..strokeWidth = 0.18
         ..color = const Color(0x55001433),
     );
+  }
+
+  static final _words = <String, TextPainter>{};
+
+  /// Écrit un nom sur le fuselage ou la dérive, centré sur (x, y), dans les unités du dessin.
+  static void _paintWord(
+    Canvas canvas,
+    String text,
+    double x,
+    double y,
+    double size,
+    Color color, {
+    bool serif = false,
+    FontWeight weight = FontWeight.w800,
+    double spacing = 0,
+    double angle = 0,
+  }) {
+    final tp = _words.putIfAbsent(
+      '$text|$size|${color.toARGB32()}|$serif|$spacing',
+      () => TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(
+            color: color,
+            fontSize: size,
+            fontWeight: weight,
+            letterSpacing: spacing,
+            fontFamily: serif ? 'serif' : null,
+            height: 1,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(),
+    );
+    canvas.save();
+    canvas.translate(x, y);
+    canvas.rotate(angle);
+    tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+    canvas.restore();
   }
 
   static void _drawWindows(Canvas canvas, AircraftType t, double h) {
@@ -294,6 +340,32 @@ class AircraftPainter {
         }
       }
       canvas.restore();
+    }
+
+    if (l.tailBase != null) {
+      canvas.save();
+      canvas.clipPath(fin);
+      canvas.drawPath(
+        Path()
+          ..moveTo(0, -h * 0.2)
+          ..lineTo(0, base - finH * 0.42)
+          ..lineTo(30, -h * 0.95)
+          ..lineTo(30, -h * 0.2)
+          ..close(),
+        Paint()..color = l.tailBase!,
+      );
+      canvas.restore();
+    }
+    if (l.tailWord != null) {
+      _paintWord(canvas, l.tailWord!, 14, base - finH * 0.62, finH * 0.2, l.tailBase ?? l.wordColor, angle: -0.42);
+    }
+    if (l.tailStars) {
+      for (var i = 0; i < 6; i++) {
+        canvas.drawPath(
+          FlagPainter.starPath(Offset(5.4 + i * 0.05, base - finH * (0.86 - i * 0.12)), 0.85),
+          Paint()..color = ChachaColors.yellow,
+        );
+      }
     }
 
     final center = Offset(9.5, base - finH * 0.52);

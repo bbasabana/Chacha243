@@ -21,6 +21,15 @@ class Livery {
     this.fuselageFlag = false,
     this.tailBands = const [],
     this.tailDots,
+    this.word,
+    this.wordSub,
+    this.wordColor = const Color(0xFF1F2A5C),
+    this.wordX = 74,
+    this.wordSize = 7,
+    this.wordSerif = false,
+    this.tailWord,
+    this.tailBase,
+    this.tailStars = false,
   });
 
   final Color body;
@@ -44,6 +53,21 @@ class Livery {
 
   /// Des pastilles semées sur la dérive.
   final Color? tailDots;
+
+  /// Le nom peint sur le fuselage (comme « LAC » ou « HBA »), et sa petite ligne en dessous.
+  final String? word, wordSub;
+  final Color wordColor;
+
+  /// Centre du nom le long du fuselage (0 = arrière, 100 = nez) et sa hauteur de lettres.
+  final double wordX, wordSize;
+  final bool wordSerif;
+
+  /// Lettres peintes sur la dérive, et couleur du bas de la dérive.
+  final String? tailWord;
+  final Color? tailBase;
+
+  /// Une rangée de petites étoiles au bord arrière de la dérive.
+  final bool tailStars;
 }
 
 /// Une compagnie nationale et la période où elle vole.
