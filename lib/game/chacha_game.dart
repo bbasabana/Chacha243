@@ -3017,7 +3017,7 @@ class ChachaGame extends FlameGame {
 
   String _fillerSong() {
     if (_francOn) return 'franc';
-    if (_zone != null) return 'louange';
+    if (_zone != null) return _zone!.from >= 2021 ? 'm23' : 'louange';
     if (_eraSongDue) {
       _eraSongDue = false;
       return _eraSong();
@@ -4395,11 +4395,11 @@ class ChachaGame extends FlameGame {
       ),
     );
     _talk(TalkMoment.peace, force: true);
-    // La guerre finie, la louange laisse la place : « Franc congolais » pour le nouveau Congo, sinon Indépendance.
+    // La guerre finie, la louange laisse la place : Indépendance pour le nouveau Congo, sinon le réveil des tam-tams.
     if (z.to > 1997 && z.to < 1998) {
       _startFranc();
     } else {
-      _song('fond');
+      _song('victoire');
     }
     _queueBanner(
       const FlightBanner('Étape de paix', '+1 vie · +500 points · la réconciliation continue', color: _peaceGreen),

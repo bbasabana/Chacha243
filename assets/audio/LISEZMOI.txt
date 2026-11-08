@@ -1,5 +1,4 @@
- Musique de la finale (30 juin 2027)
+Musiques du jeu
 
-Déposer ici le fichier « independance-cha-cha.mp3 » une fois la licence obtenue
-(Le Grand Kallé et l'African Jazz, 1960 : droits d'auteur et droits voisins).
-Le jeu le joue à l'arrivée ; sans fichier, la finale reste silencieuse.
+afrique/ : les tam-tams, les harpes et la forêt.
+independance-cha-cha.mp3, zaire-hymne.mp3, congo-hymne.mp3 : Indépendance Cha Cha et les hymnes.

@@ -53,6 +53,8 @@ app.*.map.json
 !/assets/audio/LISEZMOI.txt
 !/assets/audio/zaire-hymne.mp3
 !/assets/audio/congo-hymne.mp3
+!/assets/audio/independance-cha-cha.mp3
+!/assets/audio/afrique/
 
 # Réglages locaux des outils
 /.claude/

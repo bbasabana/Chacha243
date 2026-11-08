@@ -68,6 +68,7 @@ flutter:
 
   assets:
     - assets/audio/
+    - assets/audio/afrique/
     - assets/photos/
     - assets/notes/
     - assets/sfx/
