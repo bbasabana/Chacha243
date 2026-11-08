@@ -835,8 +835,16 @@ class ChachaGame extends FlameGame {
   }
 
   int _fuelCans = 0;
-  double _nextSponsor = 0, _sponsorAt = 0;
-  Ad? _sponsor;
+  double _nextSponsor = 0, _sponsorAt = 0, _sponsorTop = 0.36, _nextTow = 20, _towAt = 0, _nextArrivalAd = 0;
+  String _sponsorLabel = '';
+  Ad? _sponsor, _tow;
+
+  void _showSponsor(Ad ad, String label, double top) {
+    _sponsor = ad;
+    _sponsorAt = t;
+    _sponsorLabel = label;
+    _sponsorTop = top;
+  }
   bool _comfortOnStorm = false;
   bool _impact = false;
 
@@ -2355,11 +2363,15 @@ class ChachaGame extends FlameGame {
         first: true,
       );
     }
+    if (t >= _nextTow && card.value == null && turningPoint.value == null) {
+      _nextTow = t + 60;
+      _tow = Ads.next('ciel', year);
+      _towAt = t;
+    }
     if (t >= _nextFuel && short == null) {
       _nextFuel = t + 7 + _rng.nextDouble() * 4;
-      // Une marque au plus toutes les 30 s, et jamais en zone de guerre ni à l'approche d'un événement d'histoire.
-      final ad = t >= _nextSponsor && _zone == null && _quiet && !_eventSoon ? Ads.nextKit(year) : null;
-      if (ad != null) _nextSponsor = t + 30;
+      // Tant que le bidon n'est pas attrapé, le suivant porte encore une marque ; après une prise, 50 s de pause.
+      final ad = t >= _nextSponsor ? Ads.next('kerosene', year) : null;
       _pickups.add(_Pickup(_PickupKind.fuel, _w + 40, _h * (0.2 + _rng.nextDouble() * 0.6), ad: ad));
     }
     final decor = _clouds.where((c) => !c.storm).length;
@@ -2523,6 +2535,8 @@ class ChachaGame extends FlameGame {
       () {
         _boil = 3;
         turningPoint.value = TurningPoint(e, flagAt(1960.4).style, flagAt(1960.52).style);
+        final partner = Ads.next('independance', year);
+        if (partner != null) _showSponsor(partner, 'Ce moment t\'est offert par', 0.2);
       },
       8,
       hide: () {
@@ -4698,9 +4712,9 @@ class ChachaGame extends FlameGame {
             ),
           );
         }
-        if (p.ad != null && card.value == null && turningPoint.value == null && banner.value == null) {
-          _sponsor = p.ad;
-          _sponsorAt = t;
+        if (p.ad != null && _fuelCans > 1 && card.value == null && turningPoint.value == null) {
+          _nextSponsor = t + 50;
+          _showSponsor(p.ad!, 'Kérosène offert par', 0.36);
         }
         _burst(p.x, p.y, 10, const [ChachaColors.red, Colors.white], speed: 160, size: 3);
       case _PickupKind.repair:
@@ -4909,6 +4923,14 @@ class ChachaGame extends FlameGame {
       _drawBird(canvas, b);
     }
 
+    if (_tow != null) {
+      final x = _w + 60 * _unit - (t - _towAt) * 150 * _unit;
+      if (x < -420 * _unit) {
+        _tow = null;
+      } else {
+        Ads.towed(canvas, x, _h * 0.3, _unit, _tow!);
+      }
+    }
     for (final p in _pickups) {
       final at = Offset(p.x, p.y);
       switch (p.kind) {
@@ -4945,7 +4967,13 @@ class ChachaGame extends FlameGame {
       }
     }
 
-    if (_sponsor != null) Ads.thanks(canvas, s, _unit, _sponsor!, t - _sponsorAt);
+    // À l'arrivée du 30 juin 2027, les partenaires passent l'un après l'autre.
+    if (_finaleT >= 0 && t >= _nextArrivalAd) {
+      _nextArrivalAd = t + 4;
+      final partner = Ads.next('arrivee', year);
+      if (partner != null) _showSponsor(partner, 'Partenaire de l\'arrivée', 0.2);
+    }
+    if (_sponsor != null) Ads.thanks(canvas, s, _unit, _sponsor!, t - _sponsorAt, _sponsorLabel, _sponsorTop);
     _drawTrail(canvas);
     if (phase == FlightPhase.approach) _drawGlidePath(canvas);
     if (phase == FlightPhase.ground) _drawCrew(canvas, behind: true);
