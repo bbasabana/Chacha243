@@ -49,15 +49,11 @@ app.*.map.json
 
 # Gardés en local par l'auteur : designs, captures, références, médias sous droits
 /design/
-/assets/photos/*
-!/assets/photos/LISEZMOI.txt
-/assets/notes/*
-!/assets/notes/LISEZMOI.txt
 /assets/audio/*
 !/assets/audio/LISEZMOI.txt
+!/assets/audio/zaire-hymne.mp3
+!/assets/audio/congo-hymne.mp3
 
 # Réglages locaux des outils
 /.claude/
-/assets/sfx/*
-!/assets/sfx/LISEZMOI.txt
 /originaux/

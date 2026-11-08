@@ -315,6 +315,14 @@ const momentSongs = <String, MomentSong>{
     fadeIn: 1,
     then: 'mpr',
   ),
+  'congo': MomentSong(
+    'congo-hymne.mp3',
+    'Debout Congolais',
+    'Hymne national de la RDC',
+    seconds: 85,
+    level: 0.6,
+    fadeIn: 1,
+  ),
   'mpr': MomentSong('mpr-chant.mp3', 'Chant du MPR', 'MPR', seconds: 75, level: 0.5, fadeIn: 2),
   // Le passage des années 1970 aux années 1980 : l'extrait de 7 min 32 à 8 min, puis Indépendance Cha Cha.
   'ngwasuma': MomentSong(

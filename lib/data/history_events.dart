@@ -578,6 +578,7 @@ const historyEvents = <HistoryEvent>[
     'Le Zaïre redevient le Congo',
     'L\'AFDL de Laurent-Désiré Kabila entre à Kinshasa, Mobutu part. Le Zaïre redevient la République démocratique du Congo, et les FAZ deviennent les FAC.',
     photo: 'ldk',
+    song: 'congo',
     big: true,
   ),
   HistoryEvent(

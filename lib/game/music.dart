@@ -132,7 +132,10 @@ class Music {
   /// [level] remplace le volume prévu pour la chanson (la finale la joue plus fort).
   Future<bool> play(String key, {bool loop = false, double? level}) async {
     final song = momentSongs[key];
-    if (song == null || (_playing == key && busy) || !await _has(song.file)) return false;
+    if (song == null) return false;
+    // Une chanson absente de cette version laisse la place à la musique de fond.
+    if (!await _has(song.file)) return key == 'fond' ? false : play('fond');
+    if (_playing == key && busy) return false;
     final order = ++_order;
     return _serial(() => _start(key, song, order, loop: loop, level: level));
   }

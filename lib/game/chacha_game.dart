@@ -3030,7 +3030,7 @@ class ChachaGame extends FlameGame {
     for (var i = _nextEvent - 1; i >= 0; i--) {
       final e = historyEvents[i];
       // Le chant pour Mobutu n'accompagne que sa fiche : il ne revient pas pour l'époque.
-      if (e.song == 'desire') continue;
+      if (e.song == 'desire' || e.song == 'congo') continue;
       if (e.song != null && e.kind != EventKind.memory && momentSongs.containsKey(e.song)) return e.song!;
     }
     return 'chacha';
@@ -3039,6 +3039,7 @@ class ChachaGame extends FlameGame {
   void _startApproach() {
     // On descend vers l'aéroport avec la louange de la paix.
     _peaceSong();
+    onSwell?.call(0.2, 4);
     _offerPending = false;
     cabin.value = null;
     _approachT = 0;
