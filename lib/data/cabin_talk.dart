@@ -350,9 +350,9 @@ const cabinTalks = <TalkMoment, List<List<TalkLine>>>{
   ],
   TalkMoment.arrival: [
     [
-      TalkLine('Passagers', 'Eeeeh ! Matondo, pilote !', 'Bravo ! Merci, pilote !'),
-      TalkLine('Une maman', 'Esengo mingi !', 'Quelle grande joie !'),
-      TalkLine('Un enfant', 'Dipanda cha cha !', 'Indépendance cha cha !'),
+      TalkLine('Commandant', 'Merci Nzambe ! Elonga eza ya biso', 'Merci Dieu ! La victoire est à nous.'),
+      TalkLine('Un papa', 'Vive Lipanda, To longi', 'Vive l\'indépendance ! Nous avons gagné !'),
+      TalkLine('Une maman', 'Nzambe ya Simon Kimbangu', 'Le Dieu de Simon Kimbangu !'),
     ],
   ],
 };

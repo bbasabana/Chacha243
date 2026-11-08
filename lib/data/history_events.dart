@@ -1145,14 +1145,6 @@ const historyEvents = <HistoryEvent>[
     'Le pape qui était venu à Kinshasa s\'éteint.',
   ),
   HistoryEvent(
-    2025.48,
-    EventKind.life,
-    'juin 2025',
-    'Washington',
-    'Accord de paix',
-    'La RDC et le Rwanda signent un accord de paix.',
-  ),
-  HistoryEvent(
     2025.67,
     EventKind.memory,
     '2 septembre 2025',
@@ -1164,12 +1156,33 @@ const historyEvents = <HistoryEvent>[
     photo: 'mutamba',
   ),
   HistoryEvent(
+    2025.92,
+    EventKind.glory,
+    '4 décembre 2025',
+    'Washington',
+    'Les Accords de Washington',
+    'Sous la médiation de Donald Trump, Félix Tshisekedi et Paul Kagame signent à Washington un accord de paix entre la RDC et le Rwanda, '
+        'après des mois de négociations. Kagame prévient qu\'il y aura « des hauts et des bas » : la paix reste à construire.',
+    photo: 'washington',
+  ),
+  HistoryEvent(
     2026.14,
     EventKind.glory,
     '20 février 2026',
     'Kinshasa',
     'Air Congo s\'envole loin',
     'Air Congo annonce Cotonou, Douala, Johannesburg et Kampala.',
+  ),
+  HistoryEvent(
+    2026.16,
+    EventKind.glory,
+    '26 février 2026',
+    'Kinshasa',
+    'Juliana Lumumba à la Francophonie',
+    'Le gouvernement présente Juliana Amato Lumumba, fille de Patrice Lumumba, comme candidate au secrétariat général de l\'Organisation '
+        'internationale de la Francophonie. La RDC est le premier pays francophone d\'Afrique et l\'un des tout premiers au monde. '
+        'Le vote est prévu au sommet de Phnom Penh, à la mi-novembre 2026 : rien n\'est encore joué.',
+    photo: 'julianalumumba',
   ),
   HistoryEvent(
     2026.33,

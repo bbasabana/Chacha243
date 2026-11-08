@@ -370,7 +370,10 @@ class _FinaleViewState extends State<FinaleView> with SingleTickerProviderStateM
     if (_scroll.hasClients && e < _messageEnd + 0.5) _scroll.jumpTo(_scroll.position.maxScrollExtent);
   }
 
-  double get _elapsed => _clock.value * 180;
+  /// La fête attend la fin des trois messages de la cabine, juste après l'atterrissage.
+  static const _lead = 15.0;
+
+  double get _elapsed => _clock.value * 180 - _lead;
 
   @override
   void dispose() {

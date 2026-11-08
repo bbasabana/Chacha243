@@ -1201,7 +1201,7 @@ class ChachaGame extends FlameGame {
       if (!finished && (_cueLeft > 0 || c.hold)) return;
       c.hide?.call();
       _onStage = null;
-      _cueGap = _breath;
+      _cueGap = homecoming.value ? 0.4 : _breath;
     }
     _cueGap -= dt;
     // Les messages qui ne sont plus vrais s'en vont sans s'afficher.
@@ -2071,6 +2071,9 @@ class ChachaGame extends FlameGame {
     year = _endYear;
     vy = 0;
     pitch = 0;
+    // Plus aucun autre message (l'enfant de l'orage, un conseil) : seuls les trois de l'arrivée passent.
+    _clearStage(all: true);
+    talk.value = null;
     _setPhase(FlightPhase.finished);
     homecoming.value = true;
     if (!_offRecord) Checkpoint.clear();
@@ -2084,7 +2087,7 @@ class ChachaGame extends FlameGame {
       speed: 120,
       size: 5,
     );
-    _talk(TalkMoment.arrival, force: true, seconds: 9);
+    _talk(TalkMoment.arrival, force: true, seconds: 13.5, first: true);
   }
 
   /// Une fête : des confettis aux couleurs du drapeau, appelée par l'écran à chaque « Vive… ».

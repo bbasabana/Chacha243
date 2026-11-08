@@ -159,6 +159,13 @@ const archivePhotos = <String, ArchivePhoto>{
     credit: 'Lignes Aériennes Congolaises',
     wide: true,
   ),
+  'washington': ArchivePhoto(
+    'accord-washington-2025.jpg',
+    'Félix Tshisekedi, Donald Trump et Paul Kagame à la Maison-Blanche',
+    credit: 'Accords de Washington',
+    wide: true,
+  ),
+  'julianalumumba': ArchivePhoto('juliana-lumumba.jpg', 'Juliana Lumumba, candidate de la RDC à la Francophonie'),
   'equity': ArchivePhoto('logo-equity-bcdc.png', 'Equity BCDC', credit: 'Logo Equity BCDC', wide: true),
   'fally2006': ArchivePhoto('fally-ipupa-2006.jpg', 'Fally Ipupa, « Droit chemin », 2006'),
   'fallysdf': ArchivePhoto('fally-stade-de-france-2026.jpg', 'Fally Ipupa au Stade de France, 2 et 3 mai 2026'),
