@@ -229,11 +229,6 @@ class _AboutScreenState extends State<AboutScreen> with WidgetsBindingObserver {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Tu peux aussi proposer depuis le site : waddiel.pro/chacha243/proposer',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 12),
-                        ),
                       ]),
                       section('Ton pilote', [
                         ValueListenableBuilder(
