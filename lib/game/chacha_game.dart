@@ -16,6 +16,7 @@ import '../data/traffic.dart';
 import '../data/war_zones.dart';
 import '../painting/aircraft_painter.dart';
 import '../theme/chacha_colors.dart';
+import 'ads.dart';
 import 'checkpoint.dart';
 import 'scenery.dart';
 import 'telemetry.dart';
@@ -322,7 +323,10 @@ class _Jet {
 enum _PickupKind { medal, star, fuel, repair }
 
 class _Pickup {
-  _Pickup(this.kind, this.x, this.y, {this.event, this.label, this.slow = false});
+  _Pickup(this.kind, this.x, this.y, {this.event, this.label, this.slow = false, this.ad});
+
+  /// La marque qui offre ce bidon, s'il y en a une.
+  final Ad? ad;
 
   /// Lumumba et Kasa-Vubu passent lentement : on a le temps de les voir et de les attraper.
   final bool slow;
@@ -831,6 +835,8 @@ class ChachaGame extends FlameGame {
   }
 
   int _fuelCans = 0;
+  double _nextSponsor = 0, _sponsorAt = 0;
+  Ad? _sponsor;
   bool _comfortOnStorm = false;
   bool _impact = false;
 
@@ -917,6 +923,7 @@ class ChachaGame extends FlameGame {
     planeY = _planeOnGroundY;
     _loadPortraits();
     Scenery.loadSkyline();
+    Ads.refresh();
     if (startYear != null && resumed && !autopilot) {
       // Après un crash, on repart d'un aéroport, le réservoir presque vide : d'abord le plein.
       year = startYear!;
@@ -2350,7 +2357,10 @@ class ChachaGame extends FlameGame {
     }
     if (t >= _nextFuel && short == null) {
       _nextFuel = t + 7 + _rng.nextDouble() * 4;
-      _pickups.add(_Pickup(_PickupKind.fuel, _w + 40, _h * (0.2 + _rng.nextDouble() * 0.6)));
+      // Une marque au plus toutes les 30 s, et jamais en zone de guerre ni à l'approche d'un événement d'histoire.
+      final ad = t >= _nextSponsor && _zone == null && _quiet && !_eventSoon ? Ads.nextKit(year) : null;
+      if (ad != null) _nextSponsor = t + 30;
+      _pickups.add(_Pickup(_PickupKind.fuel, _w + 40, _h * (0.2 + _rng.nextDouble() * 0.6), ad: ad));
     }
     final decor = _clouds.where((c) => !c.storm).length;
     if (decor < 10 && _rng.nextDouble() < 0.04) {
@@ -4688,6 +4698,10 @@ class ChachaGame extends FlameGame {
             ),
           );
         }
+        if (p.ad != null && card.value == null && turningPoint.value == null && banner.value == null) {
+          _sponsor = p.ad;
+          _sponsorAt = t;
+        }
         _burst(p.x, p.y, 10, const [ChachaColors.red, Colors.white], speed: 160, size: 3);
       case _PickupKind.repair:
         _addFuel(100);
@@ -4860,6 +4874,10 @@ class ChachaGame extends FlameGame {
           Scenery.palm(canvas, Offset(x, groundY - 5 * _unit), (46 + (i * 37) % 30) * _unit, const Color(0xFF16261C));
         }
       }
+      for (var i = 0; i < Ads.panelCount; i++) {
+        final x = (620 + i * 520) * _unit - gx * 0.92;
+        if (x > -120 * _unit && x < _w + 120 * _unit) Ads.board(canvas, Offset(x, groundY - 5 * _unit), _unit, t, i, year, dusk);
+      }
       Scenery.runway(canvas, s, gx, groundY, _runwayStart * _unit, _runwayEnd * _unit, _unit, t);
       // Ombre de l'avion sur la piste
       final alt = (groundY - planeY) / _h;
@@ -4921,11 +4939,13 @@ class ChachaGame extends FlameGame {
             textDirection: TextDirection.ltr,
           )..layout();
           label.paint(canvas, at + Offset(-label.width / 2, p.radius * _unit + 3 * _unit));
+          if (p.ad != null) Ads.chip(canvas, at - Offset(0, (p.radius + 13) * _unit), 11 * _unit, p.ad!);
         case _PickupKind.repair:
           Scenery.repairKit(canvas, at, p.radius * _unit, t);
       }
     }
 
+    if (_sponsor != null) Ads.thanks(canvas, s, _unit, _sponsor!, t - _sponsorAt);
     _drawTrail(canvas);
     if (phase == FlightPhase.approach) _drawGlidePath(canvas);
     if (phase == FlightPhase.ground) _drawCrew(canvas, behind: true);

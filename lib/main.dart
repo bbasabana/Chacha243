@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'app_state.dart';
 import 'data/aircraft_types.dart';
+import 'game/ads.dart';
 import 'game/chacha_game.dart';
 import 'game/telemetry.dart';
 import 'theme/chacha_colors.dart';
@@ -28,6 +29,7 @@ Future<void> main() async {
   }
   // Au retour dans l'app, ce qui a été joué hors connexion part vers le tableau de bord.
   if (!kIsWeb) _resume = AppLifecycleListener(onResume: Telemetry.flush);
+  Ads.load();
   lockLandscape();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   runApp(const Chacha243App());
