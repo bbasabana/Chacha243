@@ -216,7 +216,7 @@ class Telemetry {
       if (r.statusCode != 200) return null;
       final b = jsonDecode(r.body) as Map<String, dynamic>;
       final ch = b['championship'] as Map<String, dynamic>?;
-      championship.value = ch == null
+      championship.value = ch == null || appStoreRules
           ? null
           : Championship(
               ch['title'] as String? ?? '',
@@ -228,7 +228,7 @@ class Telemetry {
       if (id is! int) return null;
       final p = await SharedPreferences.getInstance();
       if (p.getInt('chacha243.news') == id) return null;
-      final c = b['champion'] as Map<String, dynamic>?;
+      final c = appStoreRules ? null : b['champion'] as Map<String, dynamic>?;
       Uint8List? photo;
       if (c != null && c['photo'] == true) {
         final ph = await http

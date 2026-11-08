@@ -706,7 +706,7 @@ class _NameDialogState extends State<_NameDialog> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Ils vont au classement des pilotes et restent même si tu réinstalles le jeu.',
+                        'Ils sont envoyés sur notre serveur pour le classement des pilotes et restent même si tu réinstalles le jeu. Détails dans À propos.',
                         style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12.5),
                       ),
                       const SizedBox(height: 12),

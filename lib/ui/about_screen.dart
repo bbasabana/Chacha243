@@ -25,6 +25,9 @@ class AboutScreen extends StatefulWidget {
   static const donateUrl = 'https://donate.stripe.com/dRmeVebRTcK35ct0dlcbC00';
   static String get storeUrl => defaultTargetPlatform == TargetPlatform.iOS ? appStoreUrl : playUrl;
 
+  /// L'adresse de contact, aussi donnée à l'App Store.
+  static const contactEmail = 'bbasabana@gmail.com';
+
   /// Le code du jeu, ouvert à tous.
   static const sourceUrl = 'https://github.com/bbasabana/Chacha243';
 
@@ -177,6 +180,7 @@ class _AboutScreenState extends State<AboutScreen> with WidgetsBindingObserver {
                           'nouveaux avions, nouvelles époques, et toute l\'histoire du pays jusqu\'en 2027.',
                           style: body,
                         ),
+                        if (!appStoreRules) ...[
                         const SizedBox(height: 10),
                         GlassButton(
                           onTap: () async {
@@ -200,6 +204,7 @@ class _AboutScreenState extends State<AboutScreen> with WidgetsBindingObserver {
                           AboutScreen.firstVersionUrl,
                           style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11.5),
                         ),
+                        ],
                       ]),
                       section('Soutenir le projet', [
                         const Text(
@@ -223,6 +228,7 @@ class _AboutScreenState extends State<AboutScreen> with WidgetsBindingObserver {
                                 ],
                               ),
                             ),
+                            if (!appStoreRules)
                             GlassButton(
                               onTap: () async {
                                 var url = AboutScreen.donateUrl;
@@ -269,6 +275,38 @@ class _AboutScreenState extends State<AboutScreen> with WidgetsBindingObserver {
                             '${pilotName.value ?? 'Pilote'} · ${pilotRank(m)} · $m mission${m > 1 ? 's' : ''} réussie${m > 1 ? 's' : ''}',
                             style: body,
                           ),
+                        ),
+                      ]),
+                      section('Confidentialité', [
+                        const Text(
+                          'Le jeu n\'a ni compte ni publicité. Notre serveur reçoit ton nom de pilote, ta photo si tu en choisis une, '
+                          'ta progression (années atteintes, échecs, missions), un identifiant technique, le modèle du téléphone et '
+                          'son système, ainsi que ce que tu nous envoies toi-même (note, proposition). Rien n\'est vendu ni partagé. '
+                          'Ces données servent à retrouver ta partie, au classement et à corriger les bugs.',
+                          style: body,
+                        ),
+                        const SizedBox(height: 10),
+                        GlassButton(
+                          onTap: () async {
+                            final id = await Telemetry.playerId();
+                            final ok = await launchUrl(
+                              Uri.parse('mailto:${AboutScreen.contactEmail}?subject=${Uri.encodeComponent('Supprimer mes données Chacha 243 ($id)')}'),
+                            );
+                            if (!ok) copy(AboutScreen.contactEmail, 'Adresse copiée');
+                          },
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.delete_outline_rounded, color: Colors.white, size: 18),
+                              SizedBox(width: 8),
+                              Text('Demander la suppression de mes données', style: TextStyle(fontSize: 15)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          AboutScreen.contactEmail,
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11.5),
                         ),
                       ]),
                       section('Sources et droits', const [

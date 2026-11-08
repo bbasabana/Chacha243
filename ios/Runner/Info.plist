@@ -3,7 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Chacha243 cherche tes amis sur le même Wi-Fi pour les duels.</string>
+	<string>Chacha243 cherche tes amis sur le même réseau Wi-Fi pour jouer des duels entre vos téléphones.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Chacha243 utilise l'inclinaison du téléphone pour piloter l'avion.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -58,9 +62,9 @@
 	<key>UIRequiresFullScreen</key>
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Choisir ta photo de pilote.</string>
+	<string>Chacha243 ouvre ta photothèque pour que tu choisisses une photo de pilote, affichée dans le jeu et enregistrée avec ta partie.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Prendre ta photo de pilote.</string>
+	<string>Chacha243 utilise l'appareil photo pour que tu prennes ta photo de pilote, affichée dans le jeu et enregistrée avec ta partie.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationLandscapeLeft</string>

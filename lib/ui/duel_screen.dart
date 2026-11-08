@@ -206,7 +206,7 @@ class _DuelScreenState extends State<DuelScreen> {
         ],
         children: [
           Text(_rulesText(r.rules), style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.45)),
-          if (r.rules.stake.isNotEmpty) ...[
+          if (r.rules.stake.isNotEmpty && !appStoreRules) ...[
             const SizedBox(height: 8),
             Text(
               'Enjeu écrit : « ${r.rules.stake} »',
@@ -398,7 +398,8 @@ class _DuelScreenState extends State<DuelScreen> {
         _text(
           '• Si tu mets le jeu en pause, le duel continue sans toi : tu perds du temps. Une minute de pause au total, puis le vol reprend.',
         ),
-        _text(
+        if (!appStoreRules)
+          _text(
           '• L\'enjeu (un repas, un gage, de l\'argent) est écrit par vous et reste entre vous : Chacha243 ne le gère pas, ne le garde pas et n\'en est pas responsable.',
         ),
         _text(
@@ -516,13 +517,15 @@ class _DuelScreenState extends State<DuelScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          TextField(
-            controller: _stake,
-            maxLength: 80,
-            style: const TextStyle(color: Colors.white),
-            decoration: softField('Enjeu écrit (facultatif) : un repas, un gage…'),
-          ),
-          _text('L\'enjeu reste entre vous : le jeu ne le gère pas.', size: 12, color: Colors.white60),
+          if (!appStoreRules) ...[
+            TextField(
+              controller: _stake,
+              maxLength: 80,
+              style: const TextStyle(color: Colors.white),
+              decoration: softField('Enjeu écrit (facultatif) : un repas, un gage…'),
+            ),
+            _text('L\'enjeu reste entre vous : le jeu ne le gère pas.', size: 12, color: Colors.white60),
+          ],
           SoftButton(_busy ? 'Ouverture…' : 'Ouvrir la salle', onTap: _busy ? null : _create),
           _errorLine(),
         ],
@@ -642,7 +645,7 @@ class _DuelScreenState extends State<DuelScreen> {
         children: [
           _text(net.isHost ? 'Ta salle est ouverte' : 'Tu es dans la salle', size: 18, weight: FontWeight.w900),
           _text(_rulesText(net.rules), size: 13.5),
-          if (net.rules.stake.isNotEmpty)
+          if (net.rules.stake.isNotEmpty && !appStoreRules)
             _text('Enjeu écrit : « ${net.rules.stake} »', size: 13.5, color: ChachaColors.yellow),
           if (net.isHost)
             FutureBuilder(

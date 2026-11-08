@@ -5,6 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data/aircraft_types.dart';
 
+/// La version App Store : ni don, ni championnat à prix, ni enjeu, ni lien vers une autre boutique (règles d'Apple).
+bool get appStoreRules => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
 /// L'avion choisi pour le décollage de 1960 (parmi ceux qui volaient en 1960).
 final selectedAircraft = ValueNotifier<AircraftType>(aircraftById('dc6'));
 
