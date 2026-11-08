@@ -268,7 +268,7 @@ class _AboutScreenState extends State<AboutScreen> with WidgetsBindingObserver {
                       ]),
                       section('Confidentialité', [
                         const Text(
-                          'Le jeu n\'a ni compte ni publicité. Notre serveur reçoit ton nom de pilote, ta photo si tu en choisis une, '
+                          'Le jeu n\'a pas de compte. Les publicités font partie du décor, sans suivi des joueurs. Notre serveur reçoit ton nom de pilote, ta photo si tu en choisis une, '
                           'ta progression (années atteintes, échecs, missions), un identifiant technique, le modèle du téléphone et '
                           'son système, ainsi que ce que tu nous envoies toi-même (note, proposition). Rien n\'est vendu ni partagé. '
                           'Ces données servent à retrouver ta partie, au classement et à corriger les bugs.',
