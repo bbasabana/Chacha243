@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_state.dart';
+import '../data/history_events.dart';
 import 'checkpoint.dart';
 
 /// Tells the Chacha 243 board on waddiel.pro how a flight goes: takeoff, each new year, a failure, the arrival.
@@ -295,6 +296,198 @@ class Telemetry {
     } catch (_) {}
   }
 
+  /// A proposal for the game (a date, a photo, a song), sent to the dashboard. Answers the server's status:
+  /// 204 kept, 429 too many in an hour, 0 no connection.
+  static Future<int> sendProposal({
+    required String kind,
+    required String title,
+    String happened = '',
+    String link = '',
+    String message = '',
+    Uint8List? image,
+  }) async {
+    try {
+      final r = await _http
+          .post(
+            Uri.parse('$_url/proposal'),
+            headers: {'content-type': 'application/json'},
+            body: jsonEncode({
+              'id': await _playerId(),
+              'source': 'app',
+              'name': pilotName.value ?? '',
+              'kind': kind,
+              'title': title,
+              'happened': happened,
+              'link': link,
+              'message': message,
+              'image': image == null ? '' : base64Encode(image),
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      return r.statusCode;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  static const _duelBox = 'chacha243.duelq';
+
+  /// A duel record for the dashboard: the terms accepted, a room joined, a final result. Tiny, and kept on the
+  /// phone only while the network is down (at most six, tried again at the next launch).
+  static Future<bool> sendDuel(Map<String, Object?> body, {bool queue = true}) async {
+    try {
+      body['id'] = await _playerId();
+      body['name'] = pilotName.value ?? '';
+      body['platform'] = _platform;
+      final r = await _http
+          .post(Uri.parse('$_url/duel'), headers: {'content-type': 'application/json'}, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 8));
+      // The pilot is not known to the server yet: a first report creates it, then once more.
+      if (r.statusCode == 404 && queue) {
+        await hello();
+        return sendDuel(body, queue: false);
+      }
+      // 4xx: the server will never take it, so it is not kept.
+      if (r.statusCode < 500) return r.statusCode == 204;
+    } catch (_) {}
+    if (queue) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final list = prefs.getStringList(_duelBox) ?? [];
+        list.add(jsonEncode(body));
+        await prefs.setStringList(_duelBox, list.length > 6 ? list.sublist(list.length - 6) : list);
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  /// Sends again what could not leave during a duel.
+  static Future<void> flushDuels() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_duelBox) ?? [];
+      if (list.isEmpty) return;
+      await prefs.remove(_duelBox);
+      for (final j in list) {
+        await sendDuel(Map<String, Object?>.from(jsonDecode(j) as Map), queue: true);
+      }
+    } catch (_) {}
+  }
+
+  /// True once when the server knows of a donation this pilot made and the phone did not thank for yet.
+  static Future<bool> newGift() async {
+    try {
+      final id = await _playerId();
+      final r = await _http
+          .get(Uri.parse('$_url?id=${Uri.encodeQueryComponent(id)}'))
+          .timeout(const Duration(seconds: 6));
+      if (r.statusCode != 200) return false;
+      final gifts = ((jsonDecode(r.body) as Map<String, dynamic>)['gifts'] as num?)?.toInt() ?? 0;
+      final p = await SharedPreferences.getInstance();
+      if (gifts <= (p.getInt('chacha243.gifts') ?? 0)) return false;
+      await p.setInt('chacha243.gifts', gifts);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// The phone's id, for the donation link: the dashboard shows which pilot gave.
+  static Future<String> playerId() => _playerId();
+
+  /// The pilot rates the game: 1 to 5 stars and a short message. True once the server kept it.
+  static Future<bool> sendRating(int stars, String comment) async {
+    try {
+      final id = await _playerId();
+      for (var i = 0; i < 2; i++) {
+        final r = await _http
+            .post(
+              Uri.parse('$_url/rating'),
+              headers: {'content-type': 'application/json'},
+              body: jsonEncode({'id': id, 'stars': stars, 'comment': comment, 'platform': _platform}),
+            )
+            .timeout(const Duration(seconds: 10));
+        if (r.statusCode == 204) {
+          await (await SharedPreferences.getInstance()).setInt('chacha243.stars', stars);
+          return true;
+        }
+        if (r.statusCode != 404) return false;
+        // the pilot does not exist on the server yet: a first report creates it
+        await hello();
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /// The stars this pilot gave before, or 0.
+  static Future<int> myStars() async {
+    try {
+      return (await SharedPreferences.getInstance()).getInt('chacha243.stars') ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// The pilot's place in the ranking; null when offline or not known yet.
+  static Future<Standing?> standing() async {
+    try {
+      final id = await _playerId();
+      final r = await _http
+          .get(Uri.parse('$_url?id=${Uri.encodeQueryComponent(id)}'))
+          .timeout(const Duration(seconds: 6));
+      if (r.statusCode != 200) return null;
+      final s = (jsonDecode(r.body) as Map<String, dynamic>)['standing'] as Map<String, dynamic>?;
+      if (s == null) return null;
+      int n(String k) => (s[k] as num?)?.toInt() ?? 0;
+      return Standing(
+        rank: n('rank'),
+        total: n('total'),
+        bestYear: (s['bestYear'] as num?)?.toDouble() ?? 1960,
+        bestScore: n('bestScore'),
+        wins: n('wins'),
+        crashes: n('crashes'),
+        flights: n('flights'),
+        seconds: n('seconds'),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// A jump asked from the dashboard for this pilot (the designer): the resume point moves to that year, once.
+  /// Forward or back (2016, 2017, 2018, 2023…): the designer chose it. The server forgets the jump once it was taken.
+  static Future<void> jump() async {
+    try {
+      final id = await _playerId();
+      final r = await _http
+          .get(Uri.parse('$_url?id=${Uri.encodeQueryComponent(id)}'))
+          .timeout(const Duration(seconds: 4));
+      if (r.statusCode != 200) return;
+      final b = jsonDecode(r.body) as Map<String, dynamic>;
+      final y = (b['jump'] as num?)?.toDouble();
+      if (y == null || y < 1961 || y > 2027) return;
+      final cur = await Checkpoint.load();
+      await jumpedCheckpoint(y, cur).save();
+      await _post({'kind': 'jumped', 'year': y});
+    } catch (_) {}
+  }
+
+  /// The resume point after a jump to [year]: the medals of the moments passed, the money and flight time kept.
+  @visibleForTesting
+  static Checkpoint jumpedCheckpoint(double year, Checkpoint? cur) => Checkpoint(
+    year,
+    math.max(cur?.score ?? 0, 0),
+    () {
+      // Medals of the moments passed before [year]; a pilot already further keeps theirs when jumping ahead only.
+      final passed = historyEvents
+          .where((e) => e.year < year && (e.kind == EventKind.life || e.kind == EventKind.glory))
+          .length;
+      return cur != null && cur.year < year ? math.max(cur.medals, passed) : passed;
+    }(),
+    money: cur?.money ?? 3000,
+    seconds: cur?.seconds ?? 0,
+  );
+
   /// After a reinstall: no name on the phone yet, so ask the server for the pilot's name and resume point.
   static Future<void> restore() async {
     if (pilotName.value != null) return;
@@ -319,6 +512,23 @@ class Telemetry {
       // Le point de reprise ne revient pas : sur un téléphone neuf, le premier vol part toujours de 1960.
     } catch (_) {}
   }
+}
+
+/// Where the pilot stands among everyone who flew, as the dashboard ranks them.
+class Standing {
+  const Standing({
+    required this.rank,
+    required this.total,
+    required this.bestYear,
+    required this.bestScore,
+    required this.wins,
+    required this.crashes,
+    required this.flights,
+    required this.seconds,
+  });
+
+  final int rank, total, bestScore, wins, crashes, flights, seconds;
+  final double bestYear;
 }
 
 /// A message from the dashboard: the champion, the rewards.

@@ -3,12 +3,21 @@
 /// Une photo ne s'affiche dans l'application publiée que si ses droits sont réglés
 /// ([cleared]) ; en développement, toutes s'affichent pour juger de la mise en page.
 class ArchivePhoto {
-  const ArchivePhoto(this.file, this.caption, {this.credit = 'Source à confirmer', this.cleared = false});
+  const ArchivePhoto(
+    this.file,
+    this.caption, {
+    this.credit = 'Source à confirmer',
+    this.cleared = false,
+    this.wide = false,
+  });
 
   final String file;
   final String caption;
   final String credit;
   final bool cleared;
+
+  /// Un bâtiment ou un logo : il se montre en rectangle, pas dans un rond de visage.
+  final bool wide;
 
   String get asset => file.contains('/') ? 'assets/$file' : 'assets/photos/$file';
 
@@ -20,7 +29,7 @@ class ArchivePhoto {
   bool get isNote => file.startsWith('notes/');
 
   /// Un portrait de personne, qu'on peut mettre dans un médaillon.
-  bool get isPortrait => !isNote && !file.startsWith('logo');
+  bool get isPortrait => !isNote && !wide && !file.startsWith('logo');
 }
 
 const archivePhotos = <String, ArchivePhoto>{
@@ -46,6 +55,7 @@ const archivePhotos = <String, ArchivePhoto>{
     'La carte d\'identité pour citoyen, République du Zaïre',
     credit: 'République du Zaïre',
   ),
+  'papawemba': ArchivePhoto('papa-wemba-2016.jpg', 'Papa Wemba, le roi de la Sape, sur scène'),
   'koffi': ArchivePhoto('koffi-olomide.jpg', 'Koffi Olomidé, « le Grand Mopao »'),
   'kester': ArchivePhoto('king-kester-emeneya.jpg', 'King Kester Emeneya'),
   'wenge': ArchivePhoto('wenge-musica.jpg', 'Wenge Musica, l\'orchestre de la jeunesse kinoise'),
@@ -85,9 +95,39 @@ const archivePhotos = <String, ArchivePhoto>{
   'unplusquatre': ArchivePhoto('un-plus-quatre.jpg', 'Le « 1 + 4 » : Joseph Kabila et ses quatre vice-présidents'),
   'gizenga': ArchivePhoto('antoine-gizenga.jpg', 'Antoine Gizenga'),
   'mukwege': ArchivePhoto('denis-mukwege.jpg', 'Le Dr Denis Mukwege à Panzi'),
+  'marche2016': ArchivePhoto('marche-opposition-2016.jpg', 'La marche de l\'opposition, Kinshasa, septembre 2016'),
+  'conclave': ArchivePhoto(
+    'opposition-conclave-2018.jpg',
+    'Les leaders de l\'opposition réunis pour choisir un candidat commun, novembre 2018',
+  ),
+  'cach': ArchivePhoto('cach-kamerhe-tshisekedi-2018.jpg', 'Vital Kamerhe et Félix Tshisekedi, le « Cach »'),
+  'dokolo': ArchivePhoto('sindika-dokolo.jpg', 'Sindika Dokolo'),
+  'elections2018': ArchivePhoto('elections-2018.jpg', 'Les élections du 30 décembre 2018'),
+  'serment2019': ArchivePhoto('serment-felix-tshisekedi-2019.jpg', 'Félix Tshisekedi prête serment, 24 janvier 2019'),
+  'passation': ArchivePhoto(
+    'passation-kabila-tshisekedi-2019.jpg',
+    'Joseph Kabila et Félix Tshisekedi : la passation du pouvoir, 24 janvier 2019',
+  ),
+  'afc': ArchivePhoto('afc-nangaa.jpg', 'Corneille Nangaa, à la tête de l\'AFC'),
+  'frn': ArchivePhoto('joseph-kabila-2027.jpg', 'Joseph Kabila'),
+  'suminwa': ArchivePhoto('judith-suminwa-2024.jpg', 'Judith Suminwa Tuluka, première femme Première ministre'),
+  'serment2024': ArchivePhoto('serment-tshisekedi-2024-a.jpg', 'Félix Tshisekedi prête serment, 20 janvier 2024'),
+  'serment2024b': ArchivePhoto('serment-tshisekedi-2024-b.jpg', 'Félix Tshisekedi à la tribune, stade des Martyrs'),
+  'servicenational': ArchivePhoto('service-national-2024.jpg', 'Un officier du Service national'),
+  'mutamba': ArchivePhoto('constant-mutamba.jpg', 'Constant Mutamba, ancien ministre de la Justice'),
   // Logos et billets : marques et signes monétaires, à n'afficher qu'avec l'accord de la banque.
-  'bcc': ArchivePhoto('logo-banque-centrale.png', 'Banque centrale du Congo', credit: 'Logo BCC'),
-  'bcdc': ArchivePhoto('logo-banque-commerciale.png', 'Banque commerciale du Congo', credit: 'Logo BCDC'),
+  'bcc': ArchivePhoto(
+    'banque-centrale-immeuble.jpg',
+    'Le siège de la Banque centrale du Congo',
+    credit: 'BCC',
+    wide: true,
+  ),
+  'bcdc': ArchivePhoto('logo-banque-commerciale.png', 'Banque commerciale du Congo', credit: 'Logo BCDC', wide: true),
+  'equity': ArchivePhoto('logo-equity-bcdc.png', 'Equity BCDC', credit: 'Logo Equity BCDC', wide: true),
+  'fally2006': ArchivePhoto('fally-ipupa-2006.jpg', 'Fally Ipupa, « Droit chemin », 2006'),
+  'fallysdf': ArchivePhoto('fally-stade-de-france-2026.jpg', 'Fally Ipupa au Stade de France, 2 et 3 mai 2026'),
+  'fallychevalier': ArchivePhoto('fally-chevalier-2026.jpg', 'Fally Ipupa reçoit les insignes de chevalier du Léopard'),
+  'president': ArchivePhoto('tshisekedi-president.jpg', 'Félix Tshisekedi, président de la République'),
   'billet1f': ArchivePhoto('notes/billet-1-franc-1997.jpg', 'Billet de 1 franc congolais', credit: 'BCC, 1997'),
   'billet1z': ArchivePhoto('notes/billet-1-zaire-1977.jpg', 'Billet de 1 zaïre', credit: 'Banque du Zaïre, 1977'),
   'billetnz': ArchivePhoto(
@@ -296,5 +336,8 @@ const momentSongs = <String, MomentSong>{
     fadeIn: 6,
   ),
   // La dernière ligne droite, jusqu'au 30 juin 2027 : elle commence bas, puis remonte.
+  // 2006 : Fally Ipupa quitte le Quartier Latin et se lance en solo. 2026 : il est fait chevalier du Léopard.
+  'fally2006': MomentSong('fally-droit-chemin.mp3', 'Droit chemin', 'Fally Ipupa', seconds: 70, level: 0.7, fadeIn: 2),
+  'fally2026': MomentSong('fally-miss-lolo.mp3', 'Miss Lolo', 'Fally Ipupa', seconds: 60, level: 0.7, fadeIn: 2),
   'moloto': MomentSong('moloto-kitisa-moto.mp3', 'Kitisa Moto', 'Alain Moloto', seconds: 90, level: 0.4, fadeIn: 3),
 };

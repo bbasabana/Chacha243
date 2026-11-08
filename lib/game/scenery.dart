@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 import '../painting/flag_painter.dart';
 import '../theme/chacha_colors.dart';
@@ -76,7 +78,63 @@ class Scenery {
     return list;
   }();
 
-  static void city(Canvas c, Size s, double offsetX, double groundY, double unit, double dusk) {
+  /// La silhouette de Kinshasa dessinée par un designer (et ses fenêtres), chargée au lancement du jeu.
+  static ui.Image? skyline, skylineWindows;
+
+  static Future<void> loadSkyline() async {
+    if (skyline != null) return;
+    Future<ui.Image> load(String name) async {
+      final data = await rootBundle.load('assets/scenery/$name');
+      return (await ui.instantiateImageCodec(data.buffer.asUint8List())).getNextFrame().then((f) => f.image);
+    }
+
+    try {
+      skyline = await load('kinshasa-skyline.png');
+      skylineWindows = await load('kinshasa-windows.png');
+    } catch (_) {
+      // Sans l'image, on garde les petits immeubles dessinés à la main.
+    }
+  }
+
+  /// Deux plans de skyline qui défilent à des vitesses différentes, avec un léger balancement ;
+  /// au crépuscule, les fenêtres s'allument et scintillent.
+  static void _skyline(Canvas c, Size s, double offsetX, double groundY, double unit, double dusk, double t) {
+    final img = skyline!;
+    final aspect = img.width / img.height;
+    void layer(double h, double speed, double lift, Color color, double lights, double phase) {
+      final w = h * aspect;
+      final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+      final sway = math.sin(t * 0.5 + phase) * 1.6 * unit;
+      final x0 = -((offsetX * speed) % (2 * w));
+      final body = Paint()..colorFilter = ColorFilter.mode(color, BlendMode.srcIn);
+      final glass = Paint()
+        ..colorFilter = ColorFilter.mode(
+          Color.fromRGBO(255, 214, 130, (0.95 * lights * (0.82 + 0.18 * math.sin(t * 2.3 + phase))).clamp(0, 1)),
+          BlendMode.srcIn,
+        );
+      for (var i = 0; i < 4; i++) {
+        final x = x0 + i * w;
+        if (x > s.width || x + w < 0) continue;
+        final dst = Rect.fromLTWH(x, groundY - h + lift + sway, w, h);
+        c.save();
+        if (i.isOdd) {
+          // Une image sur deux est retournée : la ville se raccorde sans coupure.
+          c.translate(dst.center.dx, 0);
+          c.scale(-1, 1);
+          c.translate(-dst.center.dx, 0);
+        }
+        c.drawImageRect(img, src, dst, body);
+        if (lights > 0.02 && skylineWindows != null) c.drawImageRect(skylineWindows!, src, dst, glass);
+        c.restore();
+      }
+    }
+
+    layer(120 * unit, 0.6, 4 * unit, _mix(const Color(0xFF6E8FB8), const Color(0xFF3A4478), dusk), 0, 1.7);
+    layer(185 * unit, 1.0, 10 * unit, _mix(const Color(0xFF2E3F66), const Color(0xFF181D45), dusk), dusk, 0);
+  }
+
+  static void city(Canvas c, Size s, double offsetX, double groundY, double unit, double dusk, [double t = 0]) {
+    if (skyline != null) return _skyline(c, s, offsetX, groundY, unit, dusk, t);
     final body = Paint()..color = _mix(const Color(0xFF2A2F55), const Color(0xFF5E7FA8), 1 - dusk);
     final lit = Paint()..color = Color.fromRGBO(255, 214, 130, 0.9 * dusk);
     for (var i = 0; i < _buildings.length; i++) {

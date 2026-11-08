@@ -122,6 +122,93 @@ const foreignAirlines = <ForeignAirline>[
     ),
     ['Istanbul', 'Douala', 'Entebbe'],
   ),
+  // D'après la photo : dérive bleu nuit qui descend sur l'arrière du fuselage, disque de la grue.
+  ForeignAirline(
+    'Lufthansa',
+    1960,
+    Livery(
+      body: _white,
+      belly: _belly,
+      stripe: Color(0xFF0B1B5C),
+      stripe2: _white,
+      tail: Color(0xFF0B1B5C),
+      emblem: TailEmblem.disc,
+    ),
+    ['Francfort', 'Nairobi', 'Johannesburg'],
+  ),
+  // D'après la photo : dérive et arrière du fuselage rouge-orangé.
+  ForeignAirline(
+    'Angola Airlines',
+    1975,
+    Livery(
+      body: _white,
+      belly: _belly,
+      stripe: Color(0xFFE8451E),
+      stripe2: _white,
+      tail: Color(0xFFE8451E),
+      emblem: TailEmblem.none,
+    ),
+    ['Luanda', 'Brazzaville', 'Lubumbashi'],
+  ),
+  // D'après la photo : grande bande verte le long des hublots, dérive blanche à bande orange et verte.
+  ForeignAirline(
+    'Air Côte d\'Ivoire',
+    2012,
+    Livery(
+      body: _white,
+      belly: _belly,
+      stripe: Color(0xFF009A44),
+      stripe2: Color(0xFF009A44),
+      tail: _white,
+      emblem: TailEmblem.none,
+      tailBands: [Color(0xFFF77F00), _white, Color(0xFF009A44)],
+    ),
+    ['Abidjan', 'Lomé', 'Accra'],
+  ),
+  // D'après la photo : dérive noire, jaune, rouge, jaune, noire, et le disque de la grue.
+  ForeignAirline(
+    'Uganda Airlines',
+    2019,
+    Livery(
+      body: _white,
+      belly: _belly,
+      stripe: Color(0xFFFCDC04),
+      stripe2: Color(0xFFD90000),
+      tail: Color(0xFF111111),
+      emblem: TailEmblem.disc,
+      tailBands: [Color(0xFFFCDC04), Color(0xFFD90000), Color(0xFFFCDC04)],
+    ),
+    ['Entebbe', 'Kigali', 'Nairobi'],
+  ),
+  // D'après la photo : dérive jaune, bas de la dérive brun, nom brun et jaune.
+  ForeignAirline(
+    'ASKY',
+    2010,
+    Livery(
+      body: _white,
+      belly: _belly,
+      stripe: Color(0xFF5B3A29),
+      stripe2: Color(0xFFF2B705),
+      tail: Color(0xFFF2B705),
+      emblem: TailEmblem.none,
+      tailBands: [Color(0xFF5B3A29)],
+    ),
+    ['Lomé', 'Abidjan', 'Accra'],
+  ),
+  // D'après la photo : fuselage gris clair, dérive bordeaux à l'oryx.
+  ForeignAirline(
+    'Qatar',
+    2000,
+    Livery(
+      body: Color(0xFFE9EAEC),
+      belly: Color(0xFFB9BDC2),
+      stripe: Color(0xFFE9EAEC),
+      stripe2: Color(0xFFE9EAEC),
+      tail: Color(0xFF5C0632),
+      emblem: TailEmblem.none,
+    ),
+    ['Doha', 'Entebbe', 'Nairobi'],
+  ),
 ];
 
 /// Un échange entre leur pilote (à la radio) et notre commandant (dans la cabine).

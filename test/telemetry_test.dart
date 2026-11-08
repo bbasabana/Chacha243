@@ -1,3 +1,5 @@
+import 'package:chacha243/data/medals.dart';
+import 'package:chacha243/game/checkpoint.dart';
 import 'package:chacha243/game/telemetry.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -36,5 +38,31 @@ void main() {
     Telemetry.sent(box, box);
     Telemetry.keep(box, r('year', 2), save: false);
     expect(box, [r('year', 1)]);
+  });
+
+  test('le saut du concepteur garde l\'argent et le temps, et compte les médaillons passés', () {
+    final cp = Telemetry.jumpedCheckpoint(2023, Checkpoint(1980, 500, 3, money: 9000, seconds: 700));
+    expect(cp.year, 2023);
+    expect(cp.money, 9000);
+    expect(cp.seconds, 700);
+    expect(cp.medals, greaterThan(20));
+    expect(Telemetry.jumpedCheckpoint(2023, null).money, 3000);
+    // Retour en arrière : 2016, 2017, 2018 ramènent le pilote, avec moins de médaillons.
+    for (final y in [2016.0, 2017.0, 2018.0]) {
+      final back = Telemetry.jumpedCheckpoint(y, Checkpoint(2023, 900, 99, money: 9000, seconds: 700));
+      expect(back.year, y);
+      expect(back.medals, lessThan(99));
+      expect(back.money, 9000);
+    }
+  });
+
+  test('la médaille suit jusqu\'où le pilote a volé', () {
+    expect(medalFor(1965, 0), isNull);
+    expect(medalFor(1970, 0)?.name, 'Bronze');
+    expect(medalFor(2023.4, 0)?.name, 'Platine');
+    expect(medalFor(2026.9, 0)?.name, 'Platine');
+    expect(medalFor(2027, 1)?.name, 'Diamant');
+    expect(nextMedal(1990, 0)?.name, 'Or');
+    expect(nextMedal(2027, 1), isNull);
   });
 }

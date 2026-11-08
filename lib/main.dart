@@ -16,7 +16,14 @@ Future<void> main() async {
   await loadProfile();
   // Réinstallé ? Le nom du pilote et son point de reprise reviennent depuis le serveur.
   if (!kIsWeb) await Telemetry.restore();
-  if (!kIsWeb) Telemetry.hello().then((_) => Telemetry.syncPhoto());
+  // Le concepteur : un saut demandé depuis le tableau de bord le ramène à 2023 (ou à l'année choisie).
+  if (!kIsWeb) await Telemetry.jump();
+  if (!kIsWeb) {
+    Telemetry.hello().then((_) {
+      Telemetry.syncPhoto();
+      Telemetry.flushDuels();
+    });
+  }
   // Au retour dans l'app, ce qui a été joué hors connexion part vers le tableau de bord.
   if (!kIsWeb) _resume = AppLifecycleListener(onResume: Telemetry.flush);
   SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);

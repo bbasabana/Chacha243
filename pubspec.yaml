@@ -42,6 +42,7 @@ dependencies:
   vibration: ^3.2.1
   http: ^1.6.0
   image_picker: ^1.2.4
+  crypto: ^3.0.6
 
 dev_dependencies:
   flutter_test:
@@ -70,6 +71,7 @@ flutter:
     - assets/photos/
     - assets/notes/
     - assets/sfx/
+    - assets/scenery/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

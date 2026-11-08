@@ -16,8 +16,10 @@ import '../painting/flag_painter.dart';
 import '../theme/chacha_colors.dart';
 import 'about_screen.dart';
 import 'game_screen.dart';
+import 'duel_screen.dart';
 import 'glass.dart';
 import 'hangar_screen.dart';
+import 'ranking_screen.dart';
 import 'timeline_screen.dart';
 
 /// L'accueil : l'avion dessine la diagonale du drapeau dans le ciel, comme sur l'icône.
@@ -41,6 +43,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (pilotName.value == null) await _askName();
       if (mounted && !kIsWeb) await _showNews();
+      // Un don fait pendant que l'app était fermée : le merci arrive à l'ouverture.
+      if (mounted && !kIsWeb && await Telemetry.newGift() && mounted) await showGiftThanks(context);
     });
   }
 
@@ -211,78 +215,64 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     shadows: const [Shadow(color: Color(0x66001433), blurRadius: 12)],
                   ),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 12),
                 Wrap(
-                  spacing: 14,
+                  spacing: 12,
                   runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     // Une reprise en dette n'est pas possible : il faut recommencer et récolter.
                     if (_saved case final cp? when cp.money >= 0)
-                      GlassButton(
+                      _Pill(
+                        icon: Icons.play_arrow_rounded,
+                        label: 'Continuer',
+                        sub: 'Reprendre en ${cp.year.floor()}',
+                        primary: true,
                         onTap: () => _play(from: cp),
-                        tint: const Color(0x55CE1021),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.play_arrow_rounded, color: Colors.white),
-                            const SizedBox(width: 10),
-                            Text('Continuer · ${cp.year.floor()}'),
-                          ],
-                        ),
                       ),
-                    GlassButton(
+                    _Pill(
+                      icon: Icons.flight_takeoff_rounded,
+                      label: _saved == null ? 'Décoller' : 'Recommencer',
+                      sub: '30 juin 1960',
+                      primary: _saved == null,
                       onTap: _play,
-                      tint: _saved == null ? const Color(0x55CE1021) : ChachaColors.glassFill,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.flight_takeoff_rounded, color: Colors.white),
-                          const SizedBox(width: 10),
-                          Text(_saved == null ? 'Décoller · 1960' : 'Recommencer · 1960'),
-                        ],
-                      ),
                     ),
-                    GlassButton(
-                      onTap: _hangar,
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.warehouse_rounded, color: Colors.white),
-                          SizedBox(width: 10),
-                          Text('Hangar'),
-                        ],
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _Pill(icon: Icons.warehouse_rounded, label: 'Hangar', onTap: _hangar),
+                    if (!kIsWeb)
+                      _Pill(
+                        icon: Icons.workspace_premium_rounded,
+                        label: 'Classement',
+                        iconColor: ChachaColors.yellow,
+                        onTap: () => Navigator.of(context).push(_fade(const RankingScreen())),
                       ),
-                    ),
-                    GlassButton(
+                    if (!kIsWeb)
+                      _Pill(
+                        icon: Icons.sports_score_rounded,
+                        label: 'Duel',
+                        onTap: () => Navigator.of(context).push(_fade(const DuelScreen())),
+                      ),
+                    _Pill(
+                      icon: Icons.menu_book_rounded,
+                      label: 'Les dates',
                       onTap: () => Navigator.of(context).push(_fade(const TimelineScreen())),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.menu_book_rounded, color: Colors.white),
-                          SizedBox(width: 10),
-                          Text('Les dates'),
-                        ],
-                      ),
                     ),
-                    GlassButton(
+                    _Pill(
+                      icon: Icons.favorite_rounded,
+                      label: 'À propos · Soutenir',
                       onTap: () => Navigator.of(context).push(_fade(const AboutScreen())),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.favorite_rounded, color: Colors.white),
-                          SizedBox(width: 10),
-                          Text('À propos · Soutenir'),
-                        ],
-                      ),
                     ),
-                    GlassButton(
-                      onTap: _volume,
-                      padding: const EdgeInsets.all(14),
-                      child: ValueListenableBuilder(
-                        valueListenable: musicVolume,
-                        builder: (_, v, _) =>
-                            Icon(v == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded, color: Colors.white),
-                      ),
+                    ValueListenableBuilder(
+                      valueListenable: musicVolume,
+                      builder: (_, v, _) =>
+                          _Pill(icon: v == 0 ? Icons.volume_off_rounded : Icons.volume_up_rounded, onTap: _volume),
                     ),
                   ],
                 ),
@@ -291,19 +281,155 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
           ValueListenableBuilder(
             valueListenable: selectedAircraft,
-            builder: (_, type, _) => Glass(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('TON AVION', style: _label),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${type.maker} ${type.name}',
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
+            builder: (_, type, _) => GestureDetector(
+              onTap: _hangar,
+              child: Glass(
+                radius: 22,
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+                child: SizedBox(
+                  width: 210,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('TON AVION', style: _label),
+                          const Spacer(),
+                          Icon(Icons.chevron_right_rounded, color: Colors.white.withValues(alpha: 0.6), size: 18),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${type.maker} ${type.name}',
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Au Congo : ${type.inCongo}',
+                        style: const TextStyle(color: ChachaColors.yellow, fontSize: 12.5, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${type.seats} passagers',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12.5),
+                      ),
+                      const SizedBox(height: 10),
+                      _Bar('Vitesse', type.speed),
+                      _Bar('Maniabilité', type.handling),
+                      _Bar('Réservoir', type.tank),
+                    ],
                   ),
-                  Text('Au Congo : ${type.inCongo}', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
-                  Text('${type.seats} passagers', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Un bouton doux : un voile clair, un fin liseré, des bords tout ronds. Le principal est rouge, avec une date dessous.
+class _Pill extends StatelessWidget {
+  const _Pill({
+    required this.icon,
+    this.label,
+    this.sub,
+    this.onTap,
+    this.primary = false,
+    this.iconColor = Colors.white,
+  });
+
+  final IconData icon;
+  final String? label, sub;
+  final VoidCallback? onTap;
+  final bool primary;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final big = sub != null;
+    return Material(
+      color: Colors.transparent,
+      child: Ink(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          gradient: primary ? const LinearGradient(colors: [Color(0xCCE5263A), Color(0xCCB3101F)]) : null,
+          color: primary ? null : Colors.white.withValues(alpha: 0.13),
+          border: Border.all(color: Colors.white.withValues(alpha: primary ? 0.35 : 0.22)),
+          boxShadow: primary ? const [BoxShadow(color: Color(0x55B3101F), blurRadius: 18, offset: Offset(0, 6))] : null,
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: label == null ? 14 : (big ? 22 : 18), vertical: big ? 9 : 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: iconColor, size: big ? 26 : 20),
+                if (label != null) ...[
+                  SizedBox(width: big ? 12 : 8),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label!,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: big ? 17 : 14.5,
+                          fontWeight: FontWeight.w800,
+                          height: 1.1,
+                        ),
+                      ),
+                      if (sub != null)
+                        Text(sub!, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Une jauge de l'avion : vitesse, maniabilité, réservoir.
+class _Bar extends StatelessWidget {
+  const _Bar(this.label, this.value);
+
+  final String label;
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 78,
+            child: Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11.5)),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Stack(
+                children: [
+                  Container(height: 6, color: const Color(0x33FFFFFF)),
+                  FractionallySizedBox(
+                    widthFactor: value.clamp(0.05, 1.0),
+                    child: Container(
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(colors: [ChachaColors.yellow, ChachaColors.red]),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

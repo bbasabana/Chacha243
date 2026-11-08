@@ -60,3 +60,4 @@ app.*.map.json
 /.claude/
 /assets/sfx/*
 !/assets/sfx/LISEZMOI.txt
+/originaux/

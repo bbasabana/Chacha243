@@ -10,6 +10,7 @@ import '../data/archive.dart';
 import '../data/history_events.dart';
 import '../game/chacha_game.dart';
 import '../game/checkpoint.dart';
+import '../game/duel.dart';
 import '../game/music.dart';
 import '../game/sfx.dart';
 import '../game/telemetry.dart';
@@ -18,13 +19,18 @@ import '../painting/flag_painter.dart';
 import '../theme/chacha_colors.dart';
 import '../app_state.dart';
 import 'cockpit_panel.dart';
+import 'duel_overlay.dart';
+import 'duel_screen.dart' show markGuideRead;
 import 'finale.dart';
 import 'glass.dart';
 import 'timeline_screen.dart';
 
 /// L'écran de vol : le jeu Flame, avec par-dessus le tableau de bord en verre.
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key, required this.type, this.resume});
+  const GameScreen({super.key, required this.type, this.resume, this.duel});
+
+  /// Un duel entre amis sur le Wi-Fi : le vol ne s'enregistre pas, et l'écran montre où en sont les autres.
+  final DuelNet? duel;
 
   final AircraftType type;
 
@@ -41,10 +47,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   /// Sur le web, `?demo=1&vitesse=3&annee=1974` lance le pilote automatique (bande-annonce, tests).
   ChachaGame _newGame(Checkpoint? from) {
     final q = ChachaGame.bench.isNotEmpty ? Uri.splitQueryString(ChachaGame.bench) : Uri.base.queryParameters;
-    return ChachaGame(widget.type)
+    final d = widget.duel;
+    final game = ChachaGame(widget.type)
+      ..duel = d != null
       ..autopilot = q['demo'] == '1' && q['montrer'] != 'plein'
-      ..timeScale = double.tryParse(q['vitesse'] ?? '') ?? 1
-      ..startYear = from?.year ?? double.tryParse(q['annee'] ?? '')
+      ..timeScale = d != null ? 1 : double.tryParse(q['vitesse'] ?? '') ?? 1
+      ..startYear = d != null
+          ? (d.rules.start > 1960 ? d.rules.start.toDouble() : null)
+          : from?.year ?? double.tryParse(q['annee'] ?? '')
       ..warmup = double.tryParse(q['avance'] ?? '') ?? 0
       ..startFuel = double.tryParse(q['kerosene'] ?? '')
       ..startScore = from?.score ?? 0
@@ -59,11 +69,13 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       ..showcase = q['montrer']
       // « Indépendance Cha Cha » pour l'arrivée du 30 juin 2027, en boucle pendant la fête ;
       // les chansons des moments quand leur fichier est là.
-      ..onFinale = (() => Music.instance.play('chacha', loop: true, level: 0.95))
+      ..onFinale = (() => Music.instance.finale())
       ..onSong = ((key, {level, loop = false}) => Music.instance.play(key, level: level, loop: loop))
       ..onSwell = Music.instance.swell
       ..songBusy = (() => Music.instance.busy)
       ..onHush = Music.instance.stop;
+    if (d != null) game.duelSeed = d.seed;
+    return game;
   }
 
   final _focus = FocusNode();
@@ -80,6 +92,10 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _pauseTimer?.cancel();
+    // Le duel reste ouvert un instant : le dernier état part avant la fermeture.
+    final d = widget.duel;
+    if (d != null) Timer(const Duration(milliseconds: 800), d.close);
     Glass.cheap = false;
     _focus.dispose();
     Music.instance.stop();
@@ -91,6 +107,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   /// Le guide met le vol en pause le temps de le lire.
   void _showGuide(bool open) {
+    if (open) markGuideRead();
+    _budget(open || _paused);
     _game.paused = open || _paused;
     if (!_paused) open ? Music.instance.pause() : Music.instance.resume();
     setState(() => _guide = open);
@@ -111,10 +129,54 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
 
   /// La pause : le vol s'arrête, on règle le son, puis on reprend là où on était.
   void _pause(bool on) {
+    _budget(on || _guide);
     _game.paused = on;
     on ? Music.instance.pause() : Music.instance.resume();
     if (on) Sfx.instance.still();
     setState(() => _paused = on);
+  }
+
+  // ---------------------------------------------------------- duel : la pause coûte du temps
+
+  /// Le duel continue pendant que ton vol attend : une minute de pause en tout, puis le vol reprend tout seul.
+  final _pauseLeft = ValueNotifier<int?>(null);
+  Timer? _pauseTimer;
+  int _pausedFor = 0;
+  bool _holding = false;
+
+  void _budget(bool on) {
+    if (widget.duel == null || on == _holding) return;
+    _holding = on;
+    _pauseTimer?.cancel();
+    if (!on) {
+      _pauseLeft.value = null;
+      return;
+    }
+    _pauseLeft.value = duelPauseBudget - _pausedFor;
+    _pauseTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _pausedFor++;
+      final left = duelPauseBudget - _pausedFor;
+      if (left <= 0) {
+        _pauseTimer?.cancel();
+        _holding = false;
+        _pauseLeft.value = null;
+        _guide = false;
+        _pause(false);
+        return;
+      }
+      _pauseLeft.value = left;
+    });
+  }
+
+  /// On quitte le duel : s'il n'est pas fini, on s'y arrête, et le résultat part au tableau de bord.
+  void _leaveDuel() {
+    final d = widget.duel;
+    if (d == null) return Navigator.of(context).pop();
+    if (!d.me.out && d.outcome == null) {
+      d.report(year: _game.hud.value?.year ?? d.me.year, lives: _game.hud.value?.lives ?? 0, state: Pilot.stopped);
+    }
+    if (d.outcome == null) Telemetry.sendDuel({'kind': 'result', ...d.result()});
+    Navigator.of(context).pop();
   }
 
   void _restart(Checkpoint? from) {
@@ -182,14 +244,20 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
             IgnorePointer(
               child: TalkBubbles(key: ObjectKey(_game), game: _game),
             ),
+            if (widget.duel case final d?)
+              Positioned.fill(
+                child: DuelOverlay(
+                  key: ObjectKey(_game),
+                  net: d,
+                  game: _game,
+                  pauseLeft: _pauseLeft,
+                  onQuit: _leaveDuel,
+                ),
+              ),
             if (_paused && !_guide)
               Positioned.fill(
                 child: _Scaled(
-                  child: _PauseView(
-                    onResume: () => _pause(false),
-                    onGuide: () => _showGuide(true),
-                    onHome: () => Navigator.of(context).pop(),
-                  ),
+                  child: _PauseView(onResume: () => _pause(false), onGuide: () => _showGuide(true), onHome: _leaveDuel),
                 ),
               ),
             if (_guide)
@@ -2052,16 +2120,19 @@ class _Thumb extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // Un visage dans un rond doré ; un billet reste un rectangle.
-          if (photo.isNote)
+          if (photo.isNote || photo.wide)
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
-              child: Image.asset(
-                photo.asset,
-                width: width,
-                height: width * 0.5,
-                fit: BoxFit.cover,
-                cacheWidth: (width * 2.5).round(),
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              child: ColoredBox(
+                color: photo.file.startsWith('logo') ? Colors.white : Colors.transparent,
+                child: Image.asset(
+                  photo.asset,
+                  width: width,
+                  height: photo.wide ? width * 0.7 : width * 0.5,
+                  fit: photo.file.startsWith('logo') ? BoxFit.contain : BoxFit.cover,
+                  cacheWidth: (width * 2.5).round(),
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
               ),
             )
           else

@@ -39,4 +39,6 @@ const airports = <Airport>[
   Airport('Bunia', 'Bunia'),
   Airport('Gemena', 'Gemena'),
   Airport('Matadi', 'Tshimpi'),
+  Airport('Kikwit', 'Kikwit'),
+  Airport('Likasi', 'Likasi', oldCity: 'Jadotville'),
 ];

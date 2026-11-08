@@ -237,7 +237,8 @@ void main() {
       if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
       // Chaque chanson « joue » 20 secondes dans ce test.
       if (playing && songs.isNotEmpty) silent = 0;
-      if (!playing) longest = math.max(longest, silent += 1 / 60);
+      // Au sol, pendant une escale, l'aéroport a ses propres bruits : on ne compte que le vol.
+      if (!playing && g.phase != FlightPhase.ground) longest = math.max(longest, silent += 1 / 60);
       if (i % (60 * 20) == 0) playing = false;
     }
     expect(songs.where((s) => s.startsWith('guerre:')), contains('guerre:louange'));
@@ -497,5 +498,23 @@ void main() {
     expect(death, greaterThanOrEqualTo(0), reason: '$seen');
     expect(joseph, greaterThan(death), reason: '$seen');
     expect(seen.indexOf('Le procès de l\'assassinat de Mzee'), greaterThan(joseph), reason: '$seen');
+  });
+
+  test('de 2016 à 2019, l\'avion descend encore prendre des passagers dans d\'autres villes', () async {
+    final g = await start(year: 2015.9, autopilot: true);
+    final missions = <String>[];
+    g.radio.addListener(() {
+      final r = g.radio.value;
+      if (r != null && r.offer != null && r.french.startsWith('Mission')) missions.add('${g.year.floor()} ${r.french}');
+    });
+    for (var i = 0; i < 60 * 60 * 30 && g.year < 2019.0; i++) {
+      g.lives = 5;
+      g.condition = 100;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+    }
+    expect(g.year, greaterThanOrEqualTo(2019.0));
+    expect(missions.length, greaterThanOrEqualTo(2), reason: '$missions');
+    expect(missions.where((m) => m.startsWith('2017') || m.startsWith('2018')), isNotEmpty, reason: '$missions');
   });
 }

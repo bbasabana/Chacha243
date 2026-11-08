@@ -133,6 +133,16 @@ const historyEvents = <HistoryEvent>[
     'Le pays fabrique sa bière et son savon : la Marsavco naît en 1922, la Bralima le 23 octobre 1923, et la première Primus sort en 1926.',
   ),
   HistoryEvent(
+    1960.82,
+    EventKind.life,
+    'depuis 1909',
+    'Léopoldville',
+    'La Banque commerciale du Congo',
+    'Née en 1909 sous le nom de Banque du Congo belge, la BCDC est la plus ancienne banque commerciale du pays : '
+        'elle garde l\'argent des familles et des commerces avant et après l\'indépendance.',
+    photo: 'bcdc',
+  ),
+  HistoryEvent(
     1960.9,
     EventKind.life,
     'années 1960',
@@ -704,6 +714,19 @@ const historyEvents = <HistoryEvent>[
     big: true,
   ),
   HistoryEvent(
+    2006.45,
+    EventKind.life,
+    'juin 2006',
+    'Kinshasa',
+    'Fally Ipupa se lance en solo',
+    'Depuis 1999, Fally Ipupa chante dans le Quartier Latin de Koffi Olomidé. En 2006, il sort son premier album solo, '
+        '« Droit chemin », et quitte le groupe : de tous les musiciens du Quartier Latin, il devient celui qui '
+        'tient le mieux seul.',
+    photo: 'fally2006',
+    medal: 'Fally Ipupa · 2006',
+    song: 'fally2006',
+  ),
+  HistoryEvent(
     2006.83,
     EventKind.life,
     '29 octobre 2006',
@@ -787,7 +810,11 @@ const historyEvents = <HistoryEvent>[
     'avril 2016',
     'Abidjan',
     'Adieu Papa Wemba',
-    'Le roi de la rumba et de la Sape s\'éteint sur scène.',
+    'Le 24 avril 2016, Papa Wemba, le roi de la rumba et de la Sape, s\'effondre sur scène à Abidjan, '
+        'pendant le festival FEMUA. Tout le Congo pleure le « Mzee Fula Ngenge » de Viva la Musica.',
+    photo: 'papawemba',
+    song: 'viva',
+    intro: 'Adieu au roi de la Sape',
   ),
   HistoryEvent(
     2016.6,
@@ -796,6 +823,17 @@ const historyEvents = <HistoryEvent>[
     'Kasaï',
     'Kamuina Nsapu',
     'Après la mort du chef coutumier Kamuina Nsapu, des violences touchent le Kasaï jusqu\'en 2017.',
+  ),
+  HistoryEvent(
+    2016.72,
+    EventKind.memory,
+    '19 septembre 2016',
+    'Kinshasa',
+    'La marche de l\'opposition',
+    'L\'opposition marche pour exiger des élections et le départ de Joseph Kabila à la fin de son mandat, en décembre. '
+        'La répression fait des dizaines de morts. Les élections sont reportées, encore et encore.',
+    photo: 'marche2016',
+    intro: 'La marche de l\'opposition',
   ),
   HistoryEvent(
     2017.08,
@@ -832,13 +870,45 @@ const historyEvents = <HistoryEvent>[
     photo: 'mukwege',
   ),
   HistoryEvent(
+    2018.86,
+    EventKind.life,
+    'novembre 2018',
+    'Genève',
+    'L\'opposition cherche un candidat',
+    'Pour la présidentielle, les leaders de l\'opposition se retrouvent pour trouver un candidat commun. '
+        'Ils choisissent Martin Fayulu au nom de la coalition Lamuka, mais Félix Tshisekedi et Vital Kamerhe se retirent.',
+    photo: 'conclave',
+  ),
+  HistoryEvent(
+    2018.89,
+    EventKind.life,
+    '23 novembre 2018',
+    'Nairobi',
+    'Le Cach',
+    'Félix Tshisekedi et Vital Kamerhe s\'allient dans le « Cap pour le changement », le Cach. '
+        'Félix sera le candidat, Vital Kamerhe le soutient.',
+    photo: 'cach',
+    medal: 'Cach · 2018',
+  ),
+  HistoryEvent(
+    2018.99,
+    EventKind.life,
+    '30 décembre 2018',
+    'Tout le pays',
+    'Les élections de 2018',
+    'Les troisièmes élections organisées sous Joseph Kabila, après 2006 et 2011, repoussées de 2016 à 2018. '
+        'Le 10 janvier 2019, Félix Tshisekedi est proclamé président.',
+    photo: 'elections2018',
+  ),
+  HistoryEvent(
     2019.07,
     EventKind.glory,
     '24 janvier 2019',
     'Kinshasa',
     'Passation pacifique',
-    'Joseph Kabila passe le pouvoir à Félix Tshisekedi : une première.',
-    photo: 'tshisekedi',
+    'Félix Tshisekedi prête serment et Joseph Kabila lui passe le pouvoir : une première.',
+    photo: 'serment2019',
+    photo2: 'passation',
     big: true,
   ),
   HistoryEvent(
@@ -848,6 +918,26 @@ const historyEvents = <HistoryEvent>[
     'Tout le pays',
     'Covid-19',
     'Confinement, masques, frontières fermées : le monde entier s\'arrête.',
+  ),
+  HistoryEvent(
+    2020.83,
+    EventKind.memory,
+    '29 octobre 2020',
+    'Dubaï',
+    'Mort de Sindika Dokolo',
+    'L\'homme d\'affaires et collectionneur d\'art congolais, qui se battait pour le retour des œuvres africaines, '
+        'se noie pendant une plongée à Dubaï.',
+    photo: 'dokolo',
+  ),
+  HistoryEvent(
+    2021.11,
+    EventKind.life,
+    '11 février 2021',
+    'Kinshasa',
+    'Equity BCDC',
+    'Equity Group, venu du Kenya, rachète la majorité de la BCDC en 2020. La fusion avec Equity Bank Congo est '
+        'approuvée le 30 décembre 2020, et Equity BCDC lance ses activités le 11 février 2021.',
+    photo: 'equity',
   ),
   HistoryEvent(
     2021.4,
@@ -900,12 +990,45 @@ const historyEvents = <HistoryEvent>[
     'Félix Tshisekedi est réélu.',
   ),
   HistoryEvent(
+    2024.0,
+    EventKind.life,
+    'décembre 2023 – 2024',
+    'Nairobi, Goma',
+    'L\'AFC revendique la légitimité',
+    'Corneille Nangaa, qui présidait la CENI en 2018, devient rebelle et fonde l\'Alliance Fleuve Congo, l\'AFC. '
+        'Alliée au M23, elle conteste la légitimité du pouvoir et réclame ses droits.',
+    photo: 'afc',
+  ),
+  HistoryEvent(
+    2024.05,
+    EventKind.glory,
+    '20 janvier 2024',
+    'Kinshasa',
+    'Le deuxième serment de Félix Tshisekedi',
+    'Réélu en décembre 2023, Félix Tshisekedi prête serment pour un second mandat au stade des Martyrs, '
+        'devant la foule et une vingtaine de chefs d\'État africains.',
+    photo: 'serment2024',
+    photo2: 'serment2024b',
+    medal: 'Second mandat · 2024',
+  ),
+  HistoryEvent(
     2024.1,
     EventKind.glory,
     'février 2024',
     'Côte d\'Ivoire',
     'Demi-finale de la CAN',
     'Les Léopards atteignent le dernier carré.',
+  ),
+  HistoryEvent(
+    2024.25,
+    EventKind.glory,
+    '1er avril 2024',
+    'Kinshasa',
+    'Une première femme Première ministre',
+    'Judith Suminwa Tuluka, économiste et ministre du Plan, est nommée Première ministre : '
+        'la première femme à ce poste dans l\'histoire du pays.',
+    photo: 'suminwa',
+    medal: 'Judith Suminwa · 2024',
   ),
   HistoryEvent(
     2024.39,
@@ -924,6 +1047,16 @@ const historyEvents = <HistoryEvent>[
     'Bemba aux Transports',
     'Jean-Pierre Bemba devient vice-Premier ministre chargé des Transports.',
     photo: 'bemba',
+  ),
+  HistoryEvent(
+    2024.47,
+    EventKind.life,
+    '20 juin 2024',
+    'Lubumbashi',
+    'Les trains du Service national',
+    'Le Service national, rattaché à la Présidence, lance à Lubumbashi ses trains : ils doivent amener '
+        'sa production agricole vers les grands centres de consommation du pays.',
+    photo: 'servicenational',
   ),
   HistoryEvent(
     2024.92,
@@ -959,11 +1092,56 @@ const historyEvents = <HistoryEvent>[
     'La RDC et le Rwanda signent un accord de paix.',
   ),
   HistoryEvent(
+    2025.67,
+    EventKind.memory,
+    '2 septembre 2025',
+    'Kinshasa',
+    'Constant Mutamba condamné',
+    'Ancien ministre de la Justice, Constant Mutamba avait démissionné le 17 juin 2025 après la levée de son immunité. '
+        'La Cour de cassation le condamne à trois ans de travaux forcés pour des fonds détournés '
+        'd\'une prison à Kisangani. Il nie et dénonce un procès politique.',
+    photo: 'mutamba',
+  ),
+  HistoryEvent(
     2026.14,
     EventKind.glory,
     '20 février 2026',
     'Kinshasa',
     'Air Congo s\'envole loin',
     'Air Congo annonce Cotonou, Douala, Johannesburg et Kampala.',
+  ),
+  HistoryEvent(
+    2026.33,
+    EventKind.glory,
+    '2 et 3 mai 2026',
+    'Saint-Denis (Paris)',
+    'Double Stade de France',
+    'Pour ses vingt ans de carrière, Fally Ipupa remplit le Stade de France le 2 mai 2026. Le concert est complet : '
+        'il en ajoute un second, le 3 mai. Un exploit pour un artiste congolais.',
+    photo: 'fallysdf',
+    medal: 'Stade de France',
+  ),
+  HistoryEvent(
+    2026.43,
+    EventKind.glory,
+    '6 juin 2026',
+    'Kinshasa',
+    'Fally Ipupa, chevalier',
+    'Le président Félix Tshisekedi élève Fally Ipupa au grade de chevalier de l\'Ordre national du Léopard '
+        '(ordonnance du 3 juin) et lui remet ses insignes.',
+    photo: 'fallychevalier',
+    medal: 'Chevalier · 2026',
+    song: 'fally2026',
+  ),
+  HistoryEvent(
+    2026.78,
+    EventKind.life,
+    '12 octobre 2026',
+    'Goma',
+    'Kabila prend la tête du FRN',
+    'L\'ancien président Joseph Kabila prend la tête du Front pour la refondation de la nation, le FRN, '
+        'un mouvement politico-militaire qui rassemble l\'AFC/M23. Kinshasa l\'accuse de déstabiliser le pays ; '
+        'lui conteste sa condamnation à mort par contumace.',
+    photo: 'frn',
   ),
 ];

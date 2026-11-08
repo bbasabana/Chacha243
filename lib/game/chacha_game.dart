@@ -483,7 +483,14 @@ class ChachaGame extends FlameGame {
   final checkpoint = ValueNotifier<Checkpoint?>(null);
 
   final tilt = TiltControl();
-  final _rng = math.Random();
+  math.Random _rng = math.Random();
+
+  /// Un duel entre amis : rien n'est enregistré (ni point de reprise, ni classement), et tous partent de la même graine.
+  bool duel = false;
+
+  set duelSeed(int seed) => _rng = math.Random(seed);
+
+  bool get _offRecord => autopilot || duel;
 
   // Entrées
   bool boost = false;
@@ -621,7 +628,7 @@ class ChachaGame extends FlameGame {
 
   /// L'argent dépensé est perdu pour de bon : le point de reprise garde ce qui reste.
   void _keepMoney() {
-    if (autopilot) return;
+    if (_offRecord) return;
     final cp = checkpoint.value;
     if (cp == null) return;
     cp.money = money;
@@ -785,6 +792,7 @@ class ChachaGame extends FlameGame {
 
   // Le ciel vivant : autres avions, oiseaux, éclairs
   final _traffic = <_Traffic>[];
+  String? _lastForeign;
   final _birds = <_Bird>[];
   double _nextTraffic = 40, _nextBirds = 25, _bolt = 0, _boltX = 0;
   int _banterIndex = 0, _warnedZone = 0;
@@ -866,9 +874,10 @@ class ChachaGame extends FlameGame {
   /// Reprise après un crash : on repart d'un aéroport, et il faut d'abord faire le plein.
   bool resumed = false;
 
-  /// Un moment d'histoire arrive bientôt : on lui laisse la place.
+  /// Un grand tournant arrive dans les six mois : on lui laisse la place, pas d'escale juste avant.
+  /// (Plus loin, il bloquerait les escales des années entières : de fin 2016 à 2019 avant Tshisekedi.)
   bool get _bigSoon {
-    for (var i = _nextEvent; i < historyEvents.length && historyEvents[i].year < year + 40 / _yearSeconds; i++) {
+    for (var i = _nextEvent; i < historyEvents.length && historyEvents[i].year < year + 0.5; i++) {
       if (historyEvents[i].big) return true;
     }
     return false;
@@ -907,6 +916,7 @@ class ChachaGame extends FlameGame {
     planeX = _w * 0.2;
     planeY = _planeOnGroundY;
     _loadPortraits();
+    Scenery.loadSkyline();
     if (startYear != null && resumed && !autopilot) {
       // Après un crash, on repart d'un aéroport, le réservoir presque vide : d'abord le plein.
       year = startYear!;
@@ -1059,7 +1069,7 @@ class ChachaGame extends FlameGame {
   }
 
   void _report(String kind, [String detail = '']) {
-    if (autopilot) return;
+    if (_offRecord) return;
     Telemetry.send(
       kind,
       year: year,
@@ -1086,7 +1096,7 @@ class ChachaGame extends FlameGame {
     if (p == FlightPhase.crashed && phase != p) {
       onBuzz?.call(700, 255);
       _impact = false;
-      if (!autopilot) {
+      if (!_offRecord) {
         saveFlight(FlightRecord(DateTime.now(), score, medals, money, currencyAt(year), false, year));
         // On reprendra au dernier point de reprise, avec l'argent qui reste maintenant,
         // moins la réparation de l'avion : l'argent d'abord, puis les points du point de reprise.
@@ -1167,6 +1177,21 @@ class ChachaGame extends FlameGame {
 
   /// Rien à l'écran, rien qui attend : on peut lancer un nouveau moment.
   bool get _quiet => _onStage == null && _cues.isEmpty && _cueGap <= 0;
+
+  /// L'heure de la dernière escale proposée.
+  double _lastStopAt = 0;
+
+  /// Assez calme pour proposer une escale : le ciel est libre. Après une minute sans escale (hors 1960),
+  /// les petites paroles de la cabine peuvent attendre : l'escale passe devant elles, mais jamais devant
+  /// une fiche d'histoire ou un message urgent (sinon, de 2015 à 2018, la cabine parle sans arrêt et on ne descend plus).
+  bool get _calmForStop =>
+      _quiet ||
+      year >= 1961 &&
+          t - _lastStopAt > 60 &&
+          _onStage?.story == null &&
+          !(_onStage?.urgent ?? false) &&
+          card.value == null &&
+          !_cues.any((c) => c.story != null || c.urgent);
 
   void _runStage(double dt) {
     final c = _onStage;
@@ -1812,7 +1837,9 @@ class ChachaGame extends FlameGame {
       _setPhase(FlightPhase.crashed);
       return;
     }
-    if (_zone == null && !_offerPending && _quiet && t >= _nextOffer && (fuel < 35 || condition < 30)) _offerStopover();
+    if (_zone == null && !_offerPending && _calmForStop && t >= _nextOffer && (fuel < 35 || condition < 30)) {
+      _offerStopover();
+    }
     _checkMission();
     _updateCabin(dt);
     if (fuel < 50 && !_halfFuelSaid) {
@@ -1875,7 +1902,7 @@ class ChachaGame extends FlameGame {
     if (year >= _endYear) {
       year = _endYear;
       _setPhase(FlightPhase.finished);
-      if (!autopilot) {
+      if (!_offRecord) {
         Checkpoint.clear();
         saveFlight(FlightRecord(DateTime.now(), score, medals, money, currencyAt(year), true, year));
       }
@@ -2046,8 +2073,8 @@ class ChachaGame extends FlameGame {
     pitch = 0;
     _setPhase(FlightPhase.finished);
     homecoming.value = true;
-    if (!autopilot) Checkpoint.clear();
-    if (!autopilot) saveFlight(FlightRecord(DateTime.now(), score, medals, money, currencyAt(year), true, year));
+    if (!_offRecord) Checkpoint.clear();
+    if (!_offRecord) saveFlight(FlightRecord(DateTime.now(), score, medals, money, currencyAt(year), true, year));
     _confetti();
     _burst(
       planeX - planeLength * 0.1,
@@ -2118,10 +2145,11 @@ class ChachaGame extends FlameGame {
   /// Le ciel n'est pas vide : un avion étranger qui salue, une volée d'oiseaux.
   void _spawnSkyLife() {
     if (_zone == null && t >= _nextTraffic && t >= _calmUntil - 10 && _quiet && !_eventSoon) {
-      _nextTraffic = t + 60 + _rng.nextDouble() * 40;
+      _nextTraffic = t + 45 + _rng.nextDouble() * 35;
+      // Une autre compagnie que la dernière croisée : le ciel change au fil des années.
       final open = [
         for (final a in foreignAirlines)
-          if (year >= a.from && year <= a.to) a,
+          if (year >= a.from && year <= a.to && a.name != _lastForeign) a,
       ];
       final types = [
         for (final ty in aircraftTypes)
@@ -2129,6 +2157,7 @@ class ChachaGame extends FlameGame {
       ];
       if (open.isNotEmpty && types.isNotEmpty) {
         final a = open[_rng.nextInt(open.length)];
+        _lastForeign = a.name;
         // Loin dans le ciel, au-dessus ou au-dessous de nous, il vient en face.
         final high = planeY > _h * 0.45;
         _traffic.add(
@@ -2485,9 +2514,10 @@ class ChachaGame extends FlameGame {
       8,
       hide: () {
         turningPoint.value = null;
-        // La cabine crie sa joie, l'enfant demande à son papa, puis les deux visages passent.
-        _talk(TalkMoment.independence, force: true, first: true);
+        // Les deux visages passent tout de suite après l'annonce, puis la cabine crie sa joie
+        // et l'enfant demande à son papa.
         _independenceFaces();
+        _talk(TalkMoment.independence, force: true, first: true);
       },
       first: true,
     );
@@ -2864,6 +2894,7 @@ class ChachaGame extends FlameGame {
   bool get atWar => _zone != null;
 
   void _offerStopover() {
+    _lastStopAt = t;
     final open = [
       for (final a in airports)
         if (a.openAt(year)) a,
@@ -2882,6 +2913,7 @@ class ChachaGame extends FlameGame {
       '$why. Aéroport le plus proche : ${_airport!.titleAt(year)}, à $km km.',
       offer: _airport!.cityAt(year),
       seconds: 10,
+      first: true,
     );
   }
 
@@ -2904,8 +2936,18 @@ class ChachaGame extends FlameGame {
   /// De la fin de la guerre de l'AFDL (1997) à la mort de Mzee (2001), seule « Franc congolais » joue.
   bool _francOn = false, _francDone = false;
 
+  /// Les chansons des fiches d'histoire (Mario pour Franco, le chant pour Mobutu…).
+  static final _storySongs = {
+    for (final e in historyEvents)
+      if (e.song != null && e.song != 'fond') e.song!,
+  };
+
+  /// L'heure de la dernière chanson d'histoire : on la laisse jouer avant de proposer une mission.
+  double _storySongAt = -1e9;
+
   void _song(String key, {double? level, bool loop = false}) {
     if (_francOn && key != 'franc') return;
+    if (_storySongs.contains(key)) _storySongAt = t;
     onSong?.call(key, level: level, loop: loop);
   }
 
@@ -3528,8 +3570,9 @@ class ChachaGame extends FlameGame {
         _zone == null &&
         !_offerPending &&
         passengers > 0 &&
-        _cues.length <= 2) {
+        (_cues.length <= 2 || t > _nextMeal + 40 && !_cues.any((c) => c.urgent))) {
       // Le repas ne demande pas un ciel vide de messages : il prend sa place dans la file, entre deux fiches.
+      // En retard de 40 s (les escales et la cabine bavarde), il passe même si la file est longue.
       _offerMeal();
     }
   }
@@ -3908,10 +3951,12 @@ class ChachaGame extends FlameGame {
 
   void _checkMission() {
     final m = mission.value;
-    if (_zone != null || _offerPending || !_quiet) return;
+    if (_zone != null || _offerPending || !_calmForStop) return;
     if (m == null) {
       // Pas d'escale juste avant un grand tournant (Mobutu, le Zaïre…) : on le vit en vol, puis on descend.
-      if (t < _nextMission || _bigSoon) return;
+      // Le repas est servi d'abord : une mission attend jusqu'à 30 s qu'il trouve sa place.
+      final mealFirst = t >= _nextMeal && t < _nextMeal + 30 && passengers > 0;
+      if (t < _nextMission || _bigSoon || t - _storySongAt < 40 || mealFirst) return;
       final open = [
         for (final a in airports)
           if (a.openAt(year)) a,
@@ -3960,10 +4005,11 @@ class ChachaGame extends FlameGame {
   }
 
   void _openOffer(String lingala, String french, String city) {
+    _lastStopAt = t;
     _offerPending = true;
     _offerAt = t;
     _nextKit = math.max(_nextKit, t + 15);
-    _say('Tour de $city', lingala, french, offer: city, seconds: 18);
+    _say('Tour de $city', lingala, french, offer: city, seconds: 18, first: true);
   }
 
   void _askQuiz() {
@@ -4036,7 +4082,7 @@ class ChachaGame extends FlameGame {
   void _saveCheckpoint(double y) {
     final cp = Checkpoint(y, score, medals, money: money, seconds: _flightT);
     checkpoint.value = cp;
-    if (!autopilot) cp.save();
+    if (!_offRecord) cp.save();
   }
 
   void _checkDecade() {
@@ -4803,7 +4849,7 @@ class ChachaGame extends FlameGame {
     if (groundY < _h + 300 * _unit) {
       final dusk = 1 - day;
       final gx = worldX - _runwayOrigin;
-      Scenery.city(canvas, s, gx * 0.5, groundY - 8 * _unit, _unit, dusk);
+      Scenery.city(canvas, s, gx * 0.5, groundY - 8 * _unit, _unit, dusk, t);
       Scenery.tower(canvas, Offset(260 * _unit - gx * 0.85, groundY - 6 * _unit), _unit, t, dusk);
       for (var i = 0; i < 26; i++) {
         final x = i * 230 * _unit + 80 * _unit - gx * 0.92;

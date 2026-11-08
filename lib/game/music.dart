@@ -235,8 +235,35 @@ class Music {
     });
   }
 
+  /// Les chansons religieuses de la fin du voyage : elles vont jusqu'au bout avant la fête.
+  static const _praise = {'moloto', 'louange'};
+  bool _finaleQueued = false;
+
+  /// La fin du voyage : la chanson religieuse (« Kitisa Moto », « Kumama ») joue jusqu'à sa fin, sans être coupée,
+  /// puis « Indépendance Cha Cha » prend le relais en boucle. Elle joue toujours, même si le joueur n'a pas fini
+  /// d'écouter ; sauf s'il a quitté le vol entre-temps.
+  Future<void> finale() async {
+    if (_finaleQueued) return;
+    _finaleQueued = true;
+    final left = _leaves;
+    try {
+      final until = DateTime.now().add(const Duration(minutes: 3));
+      while (_praise.contains(_playing) && busy && DateTime.now().isBefore(until)) {
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      }
+      if (left != _leaves) return;
+      await play('chacha', loop: true, level: 0.95);
+    } finally {
+      _finaleQueued = false;
+    }
+  }
+
+  /// Compte les sorties du vol (décollage, retour à l'accueil) : une attente de la finale ne leur survit pas.
+  int _leaves = 0;
+
   /// Arrête la musique en fondu court (décollage, retour à l'accueil).
   Future<void> stop() {
+    _leaves++;
     final order = ++_order;
     return _serial(() => _stop(order));
   }

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../app_state.dart';
+import '../data/archive.dart';
 import '../data/cabin_talk.dart';
 import '../game/chacha_game.dart';
 import '../theme/chacha_colors.dart';
@@ -404,6 +405,54 @@ class _FinaleViewState extends State<FinaleView> with SingleTickerProviderStateM
                 label: const Text('Passer', style: TextStyle(color: Colors.white)),
               ),
             ),
+            // Le président en fonction à l'arrivée, avec sa photo, dès que le message commence.
+            if (message > 0)
+              Align(
+                alignment: Alignment.bottomLeft,
+                child: Opacity(
+                  opacity: message,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 0, 0, 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          padding: const EdgeInsets.all(2.5),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(colors: [Color(0xFFFFF1A8), Color(0xFFE0A100), Color(0xFFFFD34D)]),
+                          ),
+                          child: ClipOval(
+                            child: Image.asset(
+                              archivePhotos['president']!.asset,
+                              fit: BoxFit.cover,
+                              alignment: const Alignment(0, -0.6),
+                              errorBuilder: (_, _, _) => const ColoredBox(color: Color(0x33FFFFFF)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Félix Tshisekedi',
+                              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900),
+                            ),
+                            Text(
+                              'Président de la République',
+                              style: TextStyle(color: ChachaColors.yellow, fontSize: 11, fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 640),
