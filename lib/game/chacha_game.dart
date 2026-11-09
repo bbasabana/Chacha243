@@ -197,10 +197,14 @@ class MealOffer {
 
 /// Un grand tournant : le drapeau d'avant, celui d'après.
 class TurningPoint {
-  const TurningPoint(this.event, this.before, this.after);
+  const TurningPoint(this.event, this.before, this.after, {this.kicker = 'UN GRAND TOURNANT', this.line});
 
   final HistoryEvent event;
   final FlagStyle before, after;
+  final String kicker;
+
+  /// À la place de la date et de la ville.
+  final String? line;
 }
 
 /// Un message de la tour de contrôle : la phrase en lingala, puis sa traduction.
@@ -216,6 +220,14 @@ class RadioCall {
 
   /// Kérosène en alerte : le prix du plein en vol, sur le bouton « Acheter ».
   final String? fuelPrice;
+}
+
+/// Une réplique vue sur la caméra de la cabine, et le siège de celui qui parle.
+class CabinCameraShot {
+  const CabinCameraShot(this.line, this.seat);
+
+  final TalkLine line;
+  final int seat;
 }
 
 /// L'escale au sol : le plein, l'entretien, les contrôles.
@@ -465,6 +477,9 @@ class ChachaGame extends FlameGame {
   final meal = ValueNotifier<MealOffer?>(null);
   final talk = ValueNotifier<CabinTalk?>(null);
 
+  /// La caméra de la cabine : qui parle en ce moment (null : l'écran est rangé).
+  final cabinCamera = ValueNotifier<CabinCameraShot?>(null);
+
   /// Vrai une fois l'avion posé à Kinshasa le 30 juin 2027 : l'écran joue la fête.
   final homecoming = ValueNotifier<bool>(false);
 
@@ -590,8 +605,8 @@ class ChachaGame extends FlameGame {
   double _maintT = -1, _maintFrom = 100;
   static const _maintTime = 3.2;
 
-  /// Après l'Indépendance, plus d'une minute de vol libre avant d'annoncer la sécession du Katanga.
-  static const _katangaWait = 75.0;
+  /// Après l'Indépendance, quelques secondes seulement avant d'annoncer la sécession du Katanga.
+  static const _katangaWait = 1.0;
   double _indepDone = -1;
   // Seulement pour un vol parti du 30 juin 1960 : une reprise en 1961 ou 1962 retrouve la guerre tout de suite.
   bool get _katangaWaiting => _nextZone == 0 && _indepDone >= 0 && t - _indepDone < _katangaWait;
@@ -685,6 +700,9 @@ class ChachaGame extends FlameGame {
 
   void Function()? onHush;
 
+  /// Le grondement de la guerre, en boucle sous la musique.
+  void Function(bool on)? onSuspense;
+
   /// Le réservoir de secours : ce qui déborde du plein y va, on le verse quand le kérosène manque.
   double reserve = 0;
   bool _reserveSaid = false;
@@ -715,6 +733,18 @@ class ChachaGame extends FlameGame {
 
   // Le camion-citerne au sol : il arrive, branche le tuyau, remplit, puis repart.
   double _truckT = -1, _fuelFrom = 0, _fuelTo = 0;
+
+  // L'embarquement : la file monte à bord avant le premier décollage, et aux escales de mission.
+  static const _boardTime = 5.5;
+  double _boardT = -1, _boardK = -1;
+  int _boardTarget = 0, _boardCount = 0;
+
+  // La caméra de la cabine : une conversation à la fois, à la place de tout autre message.
+  double _camNext = 0, _camLineEnd = 0;
+  bool _camClosed = false;
+  List<TalkLine>? _camTalk;
+  int _camLine = 0, _camFrom = 0;
+  final _camUsed = <int, int>{};
   static const _truckIn = 3.2, _truckPlug = 1.0, _truckOut = 3.0;
   double get _truckFill => math.max(2.5, (_fuelTo - _fuelFrom) / 100 * 9);
   int get _truckStep => _truckT < _truckIn + _truckPlug
@@ -983,6 +1013,12 @@ class ChachaGame extends FlameGame {
     if (startFuel != null) fuel = startFuel!;
     if (!type.fliesIn(year)) type = aircraftById(airlineAt(year).flagship);
     passengers = (type.seats * 0.55).round();
+    if (phase == FlightPhase.ready && _takeoffs == 0) {
+      _boardTarget = _boardCount = passengers;
+      passengers = 0;
+      _boardT = 0;
+      _boardK = 0;
+    }
     _lastCurrency = currencyAt(year);
     _nextMission = 30;
     _airline = airlineAt(year);
@@ -1119,6 +1155,7 @@ class ChachaGame extends FlameGame {
       _yearSent = year.floor();
       _report('start');
     }
+    if (p == FlightPhase.crashed || p == FlightPhase.finished) onSuspense?.call(false);
     if (p == FlightPhase.crashed && phase != p) _report('crash', _failWhy.isEmpty ? 'Plus de vies' : _failWhy);
     if (p == FlightPhase.finished && phase != p) _report('win');
     if (p == FlightPhase.crashed && phase != p) {
@@ -1328,6 +1365,7 @@ class ChachaGame extends FlameGame {
 
   /// Le temps de lire une fiche : environ quatre mots par seconde, jamais moins de 6 secondes, au plus 13.
   double _readTime(HistoryEvent e) {
+    if (independenceFaces.contains(e)) return 5.5;
     final words = '${e.title} ${e.date} ${e.city} ${e.text}'.split(' ').length;
     // Un grand tournant ou une photo à regarder : on laisse le temps de lire et de voir.
     final least = e.big ? 9.0 : (e.kind == EventKind.memory || e.photo != null ? 8.0 : 6.0);
@@ -1507,6 +1545,7 @@ class ChachaGame extends FlameGame {
       final life = f.$4 - dt;
       life <= 0 ? _floats.removeAt(i) : _floats[i] = (f.$1, f.$2, f.$3 - 34 * _unit * dt, life);
     }
+    _updateCamera();
     if (phase == FlightPhase.cruising) {
       _updateMaint(dt);
       _updateStraight(dt);
@@ -1523,7 +1562,13 @@ class ChachaGame extends FlameGame {
     switch (phase) {
       case FlightPhase.ready:
         _updateTruck(dt);
-        if (boost && _truckT >= 0) {
+        _updateBoarding(dt);
+        if (boost && _boardT >= 0) {
+          if (!_refuelSaid) {
+            _refuelSaid = true;
+            _say('Tour de ${_airport?.cityAt(year) ?? 'contrôle'}', Lingala.zelaMoke, 'Les passagers montent à bord.');
+          }
+        } else if (boost && _truckT >= 0) {
           if (!_refuelSaid) {
             _refuelSaid = true;
             _say('Tour de ${_airport?.cityAt(year) ?? 'contrôle'}', Lingala.zelaMoke, 'Attends la fin du plein.');
@@ -1723,7 +1768,7 @@ class ChachaGame extends FlameGame {
       _setPhase(FlightPhase.cruising);
       _nextOffer = t + 20;
       // La cabine parle juste après le décollage, derrière les messages de la tour et de l'Indépendance.
-      if (passengers > 0) _talk(TalkMoment.takeoff, force: true);
+      if (passengers > 0 && _takeoffs > 0) _talk(TalkMoment.takeoff, force: true);
       if (_takeoffs++ == 0) {
         // Le premier vol commence par l'Indépendance : le commandant donne la mission après.
         // Pendant ce temps, la tour explique les commandes, une chose à la fois.
@@ -1802,7 +1847,7 @@ class ChachaGame extends FlameGame {
       _updateZone(dt * ts);
     }
     if (_indep == 1) _updateIndependence();
-    // Après l'Indépendance, un vrai moment de calme avant l'annonce de la sécession du Katanga.
+    // Après l'Indépendance, un court moment de calme avant l'annonce de la sécession du Katanga.
     if ((_nextZone == 0 ? !_katangaWaiting : _airT >= 10) && _indep != 1) _checkZone();
     if (_zone == null && year >= _finaleFrom && year < _homeYear) return _startFinale();
     _steer(dt);
@@ -2279,9 +2324,22 @@ class ChachaGame extends FlameGame {
     final secondsToPlane = (_w + 60 - planeX) / _scroll;
     final lead = secondsToPlane / _yearSeconds * _calendarBoost;
     while (_nextEvent < historyEvents.length && historyEvents[_nextEvent].year <= year + lead) {
+      // Déjà rappelés au début du vol du 30 juin 1960.
+      if (_indep == 2 &&
+          const ['Bralima et Marsavco', 'La Banque commerciale du Congo'].contains(historyEvents[_nextEvent].title)) {
+        _nextEvent++;
+        continue;
+      }
       // Le 30 juin 1960 d'abord : rien d'autre (ni la sécession du Katanga) tant que l'Indépendance n'est pas finie.
-      // Puis plus d'une minute de vol libre avant que la sécession du Katanga s'annonce.
+      // Puis quelques secondes de vol libre avant que la sécession du Katanga s'annonce.
       if ((_indep == 1 || _katangaWaiting) && historyEvents[_nextEvent].year > 1960.5) break;
+      // Rien de nouveau tant que les passagers parlent.
+      if (_camTalk != null) break;
+      // La fiche d'une crise dans la crise attend son annonce, après les premiers avions.
+      final part = (_zone ?? (_nextZone < warZones.length ? warZones[_nextZone] : null))?.part;
+      if (part != null && !_partSaid && _wavesCleared < part.from && historyEvents[_nextEvent].title == part.name) {
+        break;
+      }
       // Un visage annoncé (Joseph Kabila en 2001) attend que la fiche d'avant (la mort de Mzee) soit passée.
       if (_faceEvent(historyEvents[_nextEvent]) && _storyBefore(historyEvents[_nextEvent].year)) break;
       final e = historyEvents[_nextEvent++];
@@ -2544,7 +2602,6 @@ class ChachaGame extends FlameGame {
   /// Le 30 juin 1960 : la fête d'abord, puis Lumumba et Kasa-Vubu passent devant l'avion.
   /// Les années et les zones attendent que les deux médaillons soient passés.
   void _startIndependence() {
-    _lookInCabin('Vos passagers sont à bord', 'Ils comptent sur vous jusqu\'au 30 juin 2027.');
     _indep = 1;
     _indepT = t;
     // La fête du 30 juin remplace le médaillon de l'Indépendance : « Indépendance Cha Cha » joue doucement
@@ -2567,24 +2624,28 @@ class ChachaGame extends FlameGame {
       EventKind.glory,
       '30 juin 1960',
       'Léopoldville',
-      'Indépendance du Congo',
+      'Le Congo prend son indépendance',
       'Les Belges sont partis : le Congo est libre, et il est resté libre.',
       big: true,
     );
     _cue(
       () {
         _boil = 3;
-        turningPoint.value = TurningPoint(e, flagAt(1960.4).style, flagAt(1960.52).style);
+        turningPoint.value = TurningPoint(
+          e,
+          flagAt(1960.4).style,
+          flagAt(1960.52).style,
+          kicker: 'NOUS SOMMES LE 30 JUIN 1960',
+          line: 'Voici les pères de l\'indépendance',
+        );
         final partner = Ads.next('independance', year);
         if (partner != null) _showSponsor(partner, 'Ce moment t\'est offert par', 0.2);
       },
-      8,
+      6,
       hide: () {
         turningPoint.value = null;
-        // Les deux visages passent tout de suite après l'annonce, puis la cabine crie sa joie
-        // et l'enfant demande à son papa.
+        // Les deux visages passent tout de suite après l'annonce.
         _independenceFaces();
-        _talk(TalkMoment.independence, force: true, first: true);
       },
       first: true,
     );
@@ -2594,8 +2655,8 @@ class ChachaGame extends FlameGame {
     _cue(
       () {
         banner.value = const FlightBanner(
-          'Indépendance · 30 juin 1960',
-          'Lumumba et Kasa-Vubu arrivent · attrape leurs médaillons : kérosène, réserve et argent',
+          'Voici les pères de l\'indépendance',
+          'Kasa-Vubu et Lumumba · attrape leurs médaillons : kérosène, réserve et argent',
           color: ChachaColors.yellow,
         );
         for (var i = 0; i < independenceFaces.length; i++) {
@@ -2603,8 +2664,9 @@ class ChachaGame extends FlameGame {
           _pickups.add(
             _Pickup(
               _PickupKind.medal,
-              _w + 60 + i * _w * 0.75,
-              _h * (i.isEven ? 0.38 : 0.55),
+              // Ensemble, mais chacun sa place : l'un en haut, l'autre en bas.
+              _w + 60,
+              _h * (i.isEven ? 0.3 : 0.62),
               event: e,
               label: _label(e.medal!, 15 * _unit),
               slow: true,
@@ -2634,44 +2696,57 @@ class ChachaGame extends FlameGame {
   void _updateIndependence() {
     final since = t - _indepAt;
     switch (_indepStep) {
-      // 10 secondes après le décollage, on annonce l'Indépendance…
-      case 0 when since >= 10:
+      // Juste après le décollage : la bulle de l'Indépendance, puis les deux visages.
+      case 0 when since >= 1:
+        _independenceBubble();
+        _indepStep = 2;
+      // Les deux médaillons sont passés : le commandant parle.
+      // Les fiches de Lumumba et de Kasa-Vubu passent d'abord : le pays en 1960 vient après.
+      case 2
+          when t > _indepShown + 9 &&
+              !_pickups.any((p) => independenceFaces.contains(p.event)) &&
+              card.value == null &&
+              _onStage?.story == null &&
+              !_cues.any((c) => c.story != null):
+        _indepStep = 3;
+        _indepAt = t;
+        // Ce que le pays a déjà en 1960.
         _queueBanner(
           const FlightBanner(
-            'L\'indépendance du Congo arrive',
-            '30 juin 1960 · le ciel est calme, profite du vol',
+            'Le pays en 1960',
+            'Déjà là : Banque commerciale du Congo (1909), Marsavco (1922), Bralima (1923)',
             color: ChachaColors.yellow,
           ),
           first: true,
         );
-        _indepStep = 1;
-        _indepAt = t;
-      // … 10 secondes plus tard, la bulle, puis les deux visages.
-      case 1 when since >= 10:
-        _independenceBubble();
-        _indepStep = 2;
-      // Les deux médaillons sont passés : un temps de vol tranquille, puis le commandant parle.
-      case 2 when t > _indepShown + 9 && !_pickups.any((p) => independenceFaces.contains(p.event)):
-        _indepStep = 3;
-        _indepAt = t;
-      case 3 when since >= 12:
+      // Les messages ordinaires attendent le commandant.
+      case 3 when since >= 1 && _onStage == null && !_cues.any((c) => c.story != null):
         _say(
           'Commandant de bord',
           Lingala.tokende,
           'Mesdames et messieurs, ici votre commandant. Notre objectif : arriver à Kinshasa le 30 juin 2027, '
               'pour fêter les 67 ans de l\'indépendance. Tenez-vous bien !',
-          seconds: 9,
+          seconds: 5,
           first: true,
         );
-        if (passengers > 0) _askBelts('Le commandant demande d\'attacher les ceintures', first: true);
         _indepStep = 4;
         _indepAt = t;
-      // Les ceintures attachées, l'histoire reprend doucement vers 1961.
-      case 4 when since >= 10 && cabin.value == null && _onStage == null && _cues.isEmpty:
+      // Le commandant a parlé : les ceintures.
+      case 4 when since >= 6 && _onStage == null:
+        if (passengers > 0) _askBelts('Le commandant demande d\'attacher les ceintures', first: true);
+        _indepStep = 5;
+        _indepAt = t;
+      // Les ceintures attachées, quelques secondes, et la cabine fête l'indépendance.
+      case 5 when since >= 2 && cabin.value == null && _onStage == null && !_cues.any((c) => c.hold):
+        if (!_camClosed && passengers > 0) _converse(independenceCameraTalk, first: true);
+        _indepStep = 6;
+        _indepAt = t;
+      // Ils ont fini de parler : un premier mur de nuages pour apprendre à esquiver, et la guerre arrive.
+      case 6 when since >= 1.5 && _camTalk == null && _onStage == null && _cues.isEmpty:
+        _stormWall();
         _indep = 2;
         _airT = 0;
         _indepDone = t;
-        if (_nextZone < warZones.length && warZones[_nextZone].from - year > 0.3) _freeSky();
     }
     // Un message a tout retardé trop longtemps : l'histoire reprend quand même.
     if (_indep == 1 && t > _indepT + 300) {
@@ -2812,6 +2887,150 @@ class ChachaGame extends FlameGame {
   }
 
   /// Le camion-citerne, rouge et blanc, avec son tuyau branché sous l'aile pendant le plein.
+  /// La file des passagers, bagages à la main ou au dos, de l'enregistrement jusqu'à la porte.
+  void _drawBoarding(Canvas canvas) {
+    if (_boardK < 0 || _boardK >= 1 || (phase != FlightPhase.ready && phase != FlightPhase.ground)) return;
+    final length = planeLength, u = length * 0.105;
+    final door = Offset(planeX + length * 0.3, planeY + type.bodyHeight * length / 100 * 0.12);
+    final base = groundY + u * 0.3;
+    final foot = Offset(door.dx + (base - door.dy) * 1.05, base);
+    final stair = (foot - door).distance;
+    final people = math.min(8, math.max(3, _boardCount));
+    final gap = u * 0.66, queue = (people - 1) * gap;
+
+    // L'escalier
+    final rail = Paint()
+      ..color = const Color(0xFFDDE3EA)
+      ..strokeWidth = u * 0.07
+      ..strokeCap = StrokeCap.round;
+    final step = Paint()
+      ..color = const Color(0xFF8C97A6)
+      ..strokeWidth = u * 0.06;
+    canvas.drawLine(door, foot, Paint()..color = const Color(0xFF8C97A6)..strokeWidth = u * 0.16);
+    for (var i = 1; i < 7; i++) {
+      final p = Offset.lerp(door, foot, i / 7)!;
+      canvas.drawLine(p.translate(-u * 0.12, 0), p.translate(u * 0.12, 0), step);
+    }
+    canvas.drawLine(door.translate(0, -u * 0.55), foot.translate(0, -u * 0.55), rail);
+    canvas.drawLine(foot.translate(0, -u * 0.55), foot, rail);
+
+    // Le comptoir d'enregistrement, au bout de la file
+    final desk = Rect.fromLTWH(foot.dx + queue + u * 0.75, base - u * 0.62, u * 1.5, u * 0.62);
+    canvas.drawRRect(RRect.fromRectAndRadius(desk, Radius.circular(u * 0.06)), Paint()..color = const Color(0xFF1D5FB8));
+    canvas.drawLine(
+      desk.topCenter.translate(0, -u * 0.55),
+      desk.topCenter,
+      Paint()..color = const Color(0xFF5B6673)..strokeWidth = u * 0.05,
+    );
+    final sign = _label('CHECK-IN', u * 0.2);
+    final board = Rect.fromCenter(
+      center: desk.topCenter.translate(0, -u * 0.62),
+      width: sign.width + u * 0.3,
+      height: sign.height + u * 0.12,
+    );
+    canvas.drawRRect(RRect.fromRectAndRadius(board, Radius.circular(u * 0.05)), Paint()..color = ChachaColors.yellow);
+    sign.paint(canvas, board.center - Offset(sign.width / 2, sign.height / 2));
+
+    // Les passagers avancent ensemble ; au débarquement, la file se déroule à l'envers.
+    final leaving = phase == FlightPhase.ground && _stopPurpose == 2;
+    final k = leaving ? 1 - _boardK : _boardK;
+    final travel = stair + queue;
+    for (var i = people - 1; i >= 0; i--) {
+      final d = stair + i * gap - travel * k;
+      if (d <= 0) continue;
+      final at = d < stair ? Offset.lerp(door, foot, d / stair)! : Offset(foot.dx + d - stair, base);
+      _drawTraveller(canvas, at, u, i, leaving);
+    }
+
+    final done = (_boardCount * _boardK).round();
+    final title = _label('${leaving ? 'Débarquement' : 'Embarquement'} · $done / $_boardCount passagers', u * 0.26);
+    final at = Offset(foot.dx + u * 0.2, base - u * 2.05);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(at.dx - u * 0.18, at.dy - u * 0.08, title.width + u * 0.36, title.height + u * 0.16),
+        Radius.circular(u * 0.2),
+      ),
+      Paint()..color = const Color(0xF2FFFFFF),
+    );
+    title.paint(canvas, at);
+  }
+
+  static const _travellerClothes = [
+    Color(0xFFE8562A),
+    Color(0xFF2B7BD6),
+    Color(0xFFF2C230),
+    Color(0xFF2E9E6B),
+    Color(0xFFC13B7A),
+    Color(0xFFEDEDED),
+  ];
+  static const _travellerSkins = [Color(0xFF8A5433), Color(0xFF6E4126), Color(0xFFA0653E), Color(0xFF7A4829)];
+
+  void _drawTraveller(Canvas c, Offset at, double u, int i, bool leaving) {
+    final swing = math.sin(t * 9 + i * 1.7) * u * 0.13;
+    final clothes = _travellerClothes[i % _travellerClothes.length];
+    final skin = _travellerSkins[i % _travellerSkins.length];
+    final hip = at.translate(0, -u * 0.46);
+    final dir = leaving ? -1.0 : 1.0; // le dos, là où pend le sac
+    final leg = Paint()
+      ..color = const Color(0xFF1F2A3D)
+      ..strokeWidth = u * 0.11
+      ..strokeCap = StrokeCap.round;
+    c.drawLine(hip, at.translate(swing, 0), leg);
+    c.drawLine(hip, at.translate(-swing, 0), leg);
+    if (i % 4 == 1) {
+      // La valise à roulettes, tirée derrière
+      final bag = Rect.fromLTWH(at.dx + dir * u * 0.34 - u * 0.13, at.dy - u * 0.42, u * 0.26, u * 0.42);
+      c.drawLine(
+        at.translate(dir * u * 0.14, -u * 0.62),
+        bag.topCenter,
+        Paint()..color = const Color(0xFF4A5261)..strokeWidth = u * 0.03,
+      );
+      c.drawRRect(RRect.fromRectAndRadius(bag, Radius.circular(u * 0.05)), Paint()..color = const Color(0xFF8E2F2F));
+    }
+    final torso = Rect.fromCenter(center: at.translate(0, -u * 0.7), width: u * 0.3, height: u * 0.52);
+    if (i % 4 == 0) {
+      // Le sac au dos
+      c.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: torso.center.translate(dir * u * 0.22, -u * 0.03), width: u * 0.22, height: u * 0.38),
+          Radius.circular(u * 0.07),
+        ),
+        Paint()..color = const Color(0xFF55633A),
+      );
+    }
+    c.drawRRect(RRect.fromRectAndRadius(torso, Radius.circular(u * 0.1)), Paint()..color = clothes);
+    c.drawLine(
+      torso.topCenter.translate(0, u * 0.1),
+      torso.center.translate(-swing * 0.8, u * 0.25),
+      Paint()
+        ..color = skin
+        ..strokeWidth = u * 0.08
+        ..strokeCap = StrokeCap.round,
+    );
+    if (i % 4 == 2) {
+      // Le sac à la main
+      c.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: torso.center.translate(-swing * 0.8, u * 0.4), width: u * 0.26, height: u * 0.2),
+          Radius.circular(u * 0.04),
+        ),
+        Paint()..color = const Color(0xFF6B4423),
+      );
+    }
+    final head = at.translate(0, -u * 1.08);
+    c.drawCircle(head, u * 0.15, Paint()..color = skin);
+    if (i % 4 == 3) {
+      // Le ballot porté sur la tête
+      c.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: head.translate(0, -u * 0.23), width: u * 0.42, height: u * 0.18),
+          Radius.circular(u * 0.08),
+        ),
+        Paint()..color = const Color(0xFFD9A441),
+      );
+    }
+  }
+
   void _drawTruck(Canvas canvas) {
     if (_truckT < 0 || phase != FlightPhase.ready) return;
     final u = _unit, len = planeLength * 0.42, h = len * 0.42;
@@ -3261,6 +3480,83 @@ class ChachaGame extends FlameGame {
     );
   }
 
+  void _updateBoarding(double dt) {
+    if (_boardT < 0) return;
+    _boardT += dt;
+    _boardK = math.min(1, _boardT / _boardTime);
+    passengers = (_boardTarget * _boardK).round();
+    if (_boardK >= 1) {
+      _boardT = _boardK = -1;
+      passengers = _boardTarget;
+    }
+  }
+
+  /// Range la caméra de la cabine jusqu'à la fin du vol.
+  void closeCabinCamera() {
+    _camClosed = true;
+    _camTalk = null;
+    cabinCamera.value = null;
+    // La conversation laisse aussitôt sa place au message suivant.
+    if (_onStage != null) _cueLeft = 0;
+  }
+
+  double _cameraLineTime(TalkLine l) => math.min(_lineTime(l), 5.5);
+
+  /// Une conversation passe comme un message : rien d'autre à l'écran tant qu'ils parlent.
+  void _converse(List<TalkLine> lines, {bool first = false}) => _cue(
+    () {
+      _camTalk = lines;
+      _camLine = 0;
+      _camFrom = _rng.nextInt(12);
+      _showCameraLine();
+    },
+    lines.fold(0.0, (sum, l) => sum + _cameraLineTime(l)),
+    hide: () {
+      _camTalk = null;
+      cabinCamera.value = null;
+      _camNext = t + 40;
+    },
+    first: first,
+  );
+
+  void _updateCamera() {
+    if (_camTalk case final lines?) {
+      if (t >= _camLineEnd && _camLine + 1 < lines.length) {
+        _camLine++;
+        _showCameraLine();
+      }
+      return;
+    }
+    final ahead = _nextZone < warZones.length ? warZones[_nextZone] : null;
+    if (_camClosed ||
+        t < _camNext ||
+        phase != FlightPhase.cruising ||
+        passengers == 0 ||
+        _indep != 2 ||
+        _zone != null ||
+        _finaleT >= 0 ||
+        !_quiet ||
+        cabin.value != null ||
+        card.value != null ||
+        turningPoint.value != null ||
+        _pickups.any((p) => p.event != null) ||
+        (ahead != null && year >= ahead.from - 1.2)) {
+      return;
+    }
+    final decade = math.min((year / 10).floor() * 10, 2020);
+    final talks = cameraTalks[decade];
+    final used = _camUsed[decade] ?? 0;
+    if (talks == null || used >= talks.length) return;
+    _camUsed[decade] = used + 1;
+    _converse(talks[used]);
+  }
+
+  void _showCameraLine() {
+    final l = _camTalk![_camLine];
+    cabinCamera.value = CabinCameraShot(l, (_camFrom + _camLine * 5) % 12);
+    _camLineEnd = t + _cameraLineTime(l);
+  }
+
   void _crashLanding(String why) {
     _failWhy = why;
     lives -= 1;
@@ -3306,6 +3602,8 @@ class ChachaGame extends FlameGame {
     double span(double a, double b) => ((_service - a - r) / (b - a)).clamp(0.0, 1.0);
     fuel = _fuelAtLanding + (_fuelTarget - _fuelAtLanding) * span(1.5, 4);
     final m = mission.value;
+    _boardK = m != null && (_stopPurpose == 2 || (_stopPurpose == 1 && !m.boarded)) ? span(1.5, 4.5) : -1;
+    if (m != null) _boardCount = m.count;
     if (m != null && _stopPurpose == 1 && !m.boarded && span(1.5, 4.5) >= 1) {
       m.boarded = true;
       passengers = math.min(type.seats, passengers + m.count);
@@ -3574,7 +3872,7 @@ class ChachaGame extends FlameGame {
               CabinMode.served,
               1,
               c.seats,
-              'Eau et café servis',
+              '$_drinksLabel servis',
               'Les ${c.seats} passagers se calment · +50 points',
             );
           } else if (p >= 1) {
@@ -3613,10 +3911,12 @@ class ChachaGame extends FlameGame {
     // Le chariot vient de passer : pas de second service tout de suite.
     if (_drinksDue && t < _nextDrinks) _drinksDue = false;
     if (_drinksDue &&
+        _camTalk == null &&
         cabin.value == null &&
         meal.value == null &&
         quiz.value == null &&
         passengers > 0 &&
+        !(_nextZone == 0 && _zone == null) &&
         !_waveActive) {
       _drinksDue = false;
       _serveDrinks();
@@ -3626,7 +3926,9 @@ class ChachaGame extends FlameGame {
         _quiet && cabin.value == null && quiz.value == null && _zone == null && !_offerPending && passengers > 0;
     if (free && t >= _nextBelts) {
       _askBelts('Zone de turbulences droit devant');
-    } else if (t >= _nextMeal &&
+    } else if (_indep != 1 &&
+        !_katangaWaiting &&
+        t >= _nextMeal &&
         _turbulence <= 0 &&
         cabin.value == null &&
         meal.value == null &&
@@ -3872,7 +4174,9 @@ class ChachaGame extends FlameGame {
   /// Pas plus d'un passage du chariot d'eau toutes les deux minutes.
   double _nextDrinks = 0;
 
-  /// Eau et café, offerts après une turbulence ou au calme d'une guerre : pas de choix, le chariot passe.
+  String _drinksLabel = 'Eau et café';
+
+  /// Eau, café ou thé, offerts après une turbulence ou au calme d'une guerre : pas de choix, le chariot passe.
   void _serveDrinks() {
     _nextDrinks = t + 120;
     _drinksOnly = true;
@@ -3880,14 +4184,20 @@ class ChachaGame extends FlameGame {
     _cabinT = 0;
     final n = math.max(1, passengers);
     final coffee = (n * (0.35 + _rng.nextDouble() * 0.25)).round();
+    final (said, label, hot) = const [
+      ('de l\'eau et du café', 'Eau et café', 'Café'),
+      ('de l\'eau et du thé', 'Eau et thé', 'Thé'),
+      ('de l\'eau, du café et du thé', 'Eau, café et thé', 'Café et thé'),
+    ][_rng.nextInt(3)];
+    _drinksLabel = label;
     _say(
       'Hôtesse',
       _zone == null ? Lingala.kimia : Lingala.matondo,
       _zone == null
-          ? 'Le calme est revenu. Je vous sers de l\'eau et du café.'
-          : 'Un moment de calme entre deux vagues : de l\'eau et du café pour tout le monde.',
+          ? 'Le calme est revenu. Je vous sers $said.'
+          : 'Un moment de calme entre deux vagues : $said pour tout le monde.',
     );
-    cabin.value = CabinHud(CabinMode.serving, 0, n, 'Eau et café pour la cabine', '${n - coffee} Eau · $coffee Café');
+    cabin.value = CabinHud(CabinMode.serving, 0, n, '$label pour la cabine', '${n - coffee} Eau · $coffee $hot');
     _pushHud();
   }
 
@@ -4186,7 +4496,8 @@ class ChachaGame extends FlameGame {
 
   /// Combien d'avions de chasse dans la vague [k] (de 1 au total).
   /// La crise monte, culmine au milieu de la zone, puis retombe : peu d'avions au début et à la fin.
-  int _jetsIn(WarZone z, int k) => 1 + (z.waves * math.sin(math.pi * k / (_wavesOf(z) + 1))).round();
+  int _jetsIn(WarZone z, int k) =>
+      z.part != null && k <= 3 ? k + 1 : 1 + (z.waves * math.sin(math.pi * k / (_wavesOf(z) + 1))).round();
 
   /// Le cœur de la crise : le tiers du milieu des vagues.
   bool _peakWave(WarZone z, int k) => k > _wavesOf(z) / 3 && k <= _wavesOf(z) * 2 / 3 + 0.5;
@@ -4198,14 +4509,17 @@ class ChachaGame extends FlameGame {
     if (_warnedZone < _nextZone + 1 && year >= ahead.from - 0.7 && year < ahead.to) {
       _warnedZone = _nextZone + 1;
       _zoneWarnT = t;
-      // L'annonce passe avant tout le reste : elle doit arriver avant la zone. La musique se tait.
+      // L'annonce passe avant tout le reste : elle doit arriver avant la zone. La musique se tait, le suspense monte.
       _hush();
+      onSuspense?.call(true);
       _queueBanner(FlightBanner('La guerre approche', '${ahead.name} · ${ahead.place}', color: _warRed), first: true);
+      // Les nuages noirs passent avant les avions.
+      _stormWall();
       _talk(TalkMoment.war, force: true);
-      if (passengers > 0) _askBelts('La guerre approche : attachez vos ceintures');
+      if (passengers > 0 && _nextZone > 0) _askBelts('La guerre approche : attachez vos ceintures');
     }
     // On entre dans la zone quelques secondes après l'annonce, le temps d'attacher les ceintures.
-    if (year < ahead.from || t < _zoneWarnT + 9) return;
+    if (year < ahead.from || t < _zoneWarnT + (_nextZone == 0 ? 3 : 9)) return;
     final z = warZones[_nextZone++];
     _zone = z;
     final waves = _wavesOf(z);
@@ -4215,9 +4529,10 @@ class ChachaGame extends FlameGame {
     year = math.max(year, z.from);
     _zoneT = (year - z.from) / (z.to - z.from) * _zoneBudget(z);
     _exitSaid = false;
+    _partSaid = _justRead = false;
     _waveActive = false;
-    // La première vague part quand « La guerre arrive » s'affiche (au plus tard 20 s après l'entrée).
-    _waveDelay = 20;
+    // On lit l'annonce et la fiche ; les premiers avions arrivent juste après.
+    _waveDelay = 3;
     _saveCheckpoint(math.max(year, z.from + span * _wavesCleared));
     shake = 0.35;
     // Repris au milieu d'une zone, ou arrivé sans prévenir : on prévient maintenant.
@@ -4227,23 +4542,10 @@ class ChachaGame extends FlameGame {
     }
     _stageT = 0;
     _hush();
+    onSuspense?.call(true);
     _payBelts();
     _queueBanner(
       FlightBanner('Vous entrez dans une période de guerre', '${z.name} · ${z.place}', color: _warRed),
-      first: true,
-    );
-    _cue(
-      () {
-        banner.value = FlightBanner(
-          'La guerre arrive',
-          '${z.name} commence · évitez les avions de chasse pour traverser cette période',
-          color: _warRed,
-        );
-        // On lit l'annonce, on se prépare : les premiers avions arrivent quelques secondes après.
-        _waveDelay = math.min(_waveDelay, 5.5);
-      },
-      7,
-      hide: () => banner.value = null,
       first: true,
     );
     // 1996 : la cabine n'en peut plus, une guerre de plus, et Mobutu depuis trente ans.
@@ -4257,7 +4559,7 @@ class ChachaGame extends FlameGame {
     // La fiche de la crise suit : la photo et le texte qui l'expliquent.
     if (_nextEvent < historyEvents.length) {
       final e = historyEvents[_nextEvent];
-      if (e.war && z.contains(e.year)) {
+      if (e.war && z.contains(e.year) && e.title != z.part?.name) {
         _nextEvent++;
         _showCard(e);
       }
@@ -4270,7 +4572,9 @@ class ChachaGame extends FlameGame {
     // Les années avancent avec le temps, pas avec les vagues : une zone dure au plus cinq minutes.
     final budget = _zoneBudget(z);
     // Dans une guerre aussi, une fiche en retard fait attendre les années.
-    if (!_storyLate && t >= _eraCalm) _zoneT += dt * _calendarBoost;
+    // Toutes les vagues sont passées : on ne traîne plus dans la zone.
+    if (!_storyLate && t >= _eraCalm)
+      _zoneT += dt * _calendarBoost * (z.part != null && _wavesCleared >= waves ? 4 : 1);
     year = math.max(year, z.from + (z.to - z.from) * math.min(1, _zoneT / budget));
     if (!_exitSaid && budget - _zoneT < 30) {
       _exitSaid = true;
@@ -4292,7 +4596,8 @@ class ChachaGame extends FlameGame {
         score += 100 * _wavesCleared;
         // Au milieu de la guerre, un moment de calme : l'eau et le café passent dans l'allée.
         if (_wavesCleared == waves ~/ 2) _drinksDue = true;
-        _waveDelay = 2.2;
+        // On s'en est sorti : quelques secondes pour souffler avant d'entendre parler de la guerre suivante.
+        _waveDelay = z.part != null && _wavesCleared + 1 == z.part!.from ? 5.5 : 2.2;
         // Une vague passée : la cabine respire et remercie Dieu (pas à chaque fois).
         if (_wavesCleared.isOdd || _wavesCleared == waves) _talk(TalkMoment.escape, force: _wavesCleared == 1);
         final sub = z.part;
@@ -4315,15 +4620,47 @@ class ChachaGame extends FlameGame {
       // Les avions de chasse viennent avec « La guerre arrive » ; seul un moment qui attend le joueur
       // (une question, les ceintures) les retient.
       if (_waveDelay > 0 || (_onStage?.hold ?? false) || _eraPending || t < _eraCalm) return;
-      // Personne n'attaque pendant qu'on lit ou qu'on s'occupe de la cabine (10 secondes au plus).
-      if ((_onStage != null || cabin.value != null || card.value != null) && (_waveHold += dt) < 10) return;
+      // Une crise dans la crise s'annonce : son nom, sa fiche, et seulement après ses avions.
+      final part = z.part;
+      if (part != null && !_partSaid && _wavesCleared + 1 == part.from) {
+        _partSaid = true;
+        _stormWall();
+        _queueBanner(
+          FlightBanner(
+            'Vous entrez dans la ${part.name.toLowerCase()}',
+            '${part.place} · les avions bleus sont les siens, passe-les tous',
+            color: const Color(0xFF7FB2FF),
+          ),
+          first: true,
+        );
+        if (_nextEvent < historyEvents.length && historyEvents[_nextEvent].title == part.name) {
+          _showCard(historyEvents[_nextEvent++]);
+        }
+        _waveDelay = 3;
+        return;
+      }
+      // Une photo et sa description passent d'abord : on lit, on comprend, puis les avions arrivent aussitôt.
+      final reading =
+          card.value != null ||
+          _onStage?.story != null ||
+          _cues.any((c) => historyEvents.any((e) => e.war && e.year == c.story && z.contains(e.year)));
+      if (reading) _justRead = true;
+      final busy = reading || _onStage != null || cabin.value != null;
+      if (busy && (_waveHold += dt) < (reading ? 40 : 10)) return;
       _waveHold = 0;
       // Chaque vague a son moment dans la zone ; les dernières secondes restent calmes.
-      if (_wavesCleared < waves && _zoneT >= budget * 0.85 * _wavesCleared / waves) _launchWave();
+      // Pas de temps mort : les premières vagues s'enchaînent, les autres viennent après un court répit.
+      final chained = part != null && _wavesCleared + 1 < part.from;
+      if (_wavesCleared < waves &&
+          (_justRead || chained || _waveDelay <= -4 || _zoneT >= budget * 0.85 * _wavesCleared / waves)) {
+        _justRead = false;
+        _launchWave();
+      }
     }
   }
 
   double _waveHold = 0;
+  bool _partSaid = false, _justRead = false;
 
   void _launchWave() {
     _wave = _wavesCleared + 1;
@@ -4337,18 +4674,8 @@ class ChachaGame extends FlameGame {
     final jets = _jetsIn(_zone!, _wave);
     final sub = _zone!.part;
     final part = sub != null && _wave >= sub.from && _wave <= sub.to;
-    if (sub != null && _wave == sub.from) {
-      _cue(
-        () => banner.value = FlightBanner(
-          'Sud-Kasaï · ${sub.place}',
-          'Les avions bleus sont ceux du Sud-Kasaï · passe-les tous et il reviendra',
-          color: const Color(0xFF7FB2FF),
-        ),
-        6,
-        hide: () => banner.value = null,
-        first: true,
-      );
-    }
+    // Le Katanga frappe fort dès sa troisième vague, le Sud-Kasaï aussi : chasseurs qui tirent, hélicoptère, missiles.
+    final strong = sub != null && (_wave == 3 || part);
     // Six couloirs : deux avions qui se suivent ne prennent jamais le même.
     final lanes = [for (var i = 0; i < 6; i++) _h * (0.17 + i * 0.13)];
     var last = -1, before = -1;
@@ -4374,7 +4701,7 @@ class ChachaGame extends FlameGame {
     // Dès la deuxième vague, un chasseur s'arrête devant toi et tire ; au cœur de la crise,
     // un hélicoptère de combat se tient au-dessus et tire aussi.
     final lastWait = jets < 3 ? 0.4 : 0.9 + (jets - 3) * 0.7;
-    if (_wave >= 2 && !part && (_wave.isEven || _rng.nextDouble() < 0.4)) {
+    if (_wave >= 2 && (strong || (!part && (_wave.isEven || _rng.nextDouble() < 0.4)))) {
       _jets.add(
         _Jet(
           _w + _jetLength,
@@ -4382,12 +4709,14 @@ class ChachaGame extends FlameGame {
           lastWait + 1.2,
           _unit * 520,
           0,
-          shots: 1 + (_wave >= 4 ? _rng.nextInt(_level > 0.5 ? 3 : 2) : 0),
+          shots: 2 + (_wave >= 4 ? _rng.nextInt(_level > 0.5 ? 3 : 2) : 0),
           stopX: _w * (0.68 + _rng.nextDouble() * 0.12),
         ),
       );
     }
-    if ((_peakWave(_zone!, _wave) || (_wave >= 3 && _rng.nextDouble() < 0.4)) && !part) {
+    if (strong
+        ? (_wave == 3 || _wave.isEven)
+        : ((_peakWave(_zone!, _wave) || (_wave >= 3 && _rng.nextDouble() < 0.4)) && !part)) {
       _jets.add(
         _Jet(
           _w + _jetLength,
@@ -4396,7 +4725,7 @@ class ChachaGame extends FlameGame {
           _unit * 300,
           0,
           heli: true,
-          shots: 1 + _rng.nextInt(2),
+          shots: 2 + _rng.nextInt(2),
           stopX: _w * (0.55 + _rng.nextDouble() * 0.15),
         ),
       );
@@ -4417,7 +4746,7 @@ class ChachaGame extends FlameGame {
         first: true,
       );
     }
-    if (_peakWave(_zone!, _wave)) {
+    if (strong || _peakWave(_zone!, _wave)) {
       // Un message vient de s'afficher : les missiles attendent qu'on ait eu le temps de le lire.
       final lead = _onStage != null || _cues.isNotEmpty ? 3.0 : 1.0;
       final missiles = 1 + (_level > 0.5 && _wave.isEven ? 1 : 0);
@@ -4445,6 +4774,7 @@ class ChachaGame extends FlameGame {
     _report('stage', '${z.name} · ${_clock(_stageT)}');
     _stageT = 0;
     _zone = null;
+    onSuspense?.call(false);
     _waveActive = false;
     lives = math.min(_maxLives, lives + 1);
     score += 500;
@@ -5066,6 +5396,7 @@ class ChachaGame extends FlameGame {
     if (phase == FlightPhase.crashed || _wrecked) _drawPlaneFire(canvas);
     _drawMaint(canvas);
     _drawTruck(canvas);
+    _drawBoarding(canvas);
     if (phase == FlightPhase.ground) _drawCrew(canvas, behind: false);
     for (final j in _jets) {
       if (j.wait > 0) continue;

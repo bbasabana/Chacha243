@@ -18,6 +18,7 @@ import 'guide.dart';
 import '../painting/flag_painter.dart';
 import '../theme/chacha_colors.dart';
 import '../app_state.dart';
+import 'cabin_camera.dart';
 import 'cockpit_panel.dart';
 import 'duel_overlay.dart';
 import 'duel_screen.dart' show markGuideRead;
@@ -74,7 +75,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       ..onSong = ((key, {level, loop = false}) => Music.instance.play(key, level: level, loop: loop))
       ..onSwell = Music.instance.swell
       ..songBusy = (() => Music.instance.busy)
-      ..onHush = Music.instance.stop;
+      ..onHush = Music.instance.stop
+      ..onSuspense = Sfx.instance.suspense;
     if (d != null) game.duelSeed = d.seed;
     return game;
   }
@@ -100,6 +102,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     Glass.cheap = false;
     _focus.dispose();
     Music.instance.stop();
+    Sfx.instance.suspense(false);
     super.dispose();
   }
 
@@ -112,6 +115,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     _budget(open || _paused);
     _game.paused = open || _paused;
     if (!_paused) open ? Music.instance.pause() : Music.instance.resume();
+    if (!_paused) Sfx.instance.holdSuspense(open);
     setState(() => _guide = open);
   }
 
@@ -133,6 +137,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     _budget(on || _guide);
     _game.paused = on;
     on ? Music.instance.pause() : Music.instance.resume();
+    Sfx.instance.holdSuspense(on);
     if (on) Sfx.instance.still();
     setState(() => _paused = on);
   }
@@ -431,6 +436,26 @@ class _Hud extends StatelessWidget {
                 ],
               ),
             ),
+            if (!modal && !ended && flying)
+              Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 46),
+                  child: ValueListenableBuilder(
+                    valueListenable: game.cabinCamera,
+                    builder: (_, shot, _) => AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: shot == null
+                          ? const SizedBox.shrink()
+                          : CabinCameraView(
+                              shot: shot,
+                              fill: hud.seats == 0 ? 1 : hud.passengers / hud.seats,
+                              onClose: game.closeCabinCamera,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
             if (p == FlightPhase.ground)
               Align(
                 alignment: const Alignment(0, -0.25),
@@ -482,7 +507,13 @@ class _Hud extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _TakeoffPanel(hud: hud, game: game, onRestart: () => onRestart(null)),
+                      // Un message de la tour prend la place du panneau, le temps de le lire : jamais collés.
+                      ListenableBuilder(
+                        listenable: Listenable.merge([game.radio, game.banner]),
+                        builder: (_, _) => game.radio.value != null || game.banner.value != null
+                            ? const SizedBox.shrink()
+                            : _TakeoffPanel(hud: hud, game: game, onRestart: () => onRestart(null)),
+                      ),
                       if (!modal) ...[const SizedBox(height: 8), _StageSlot(game: game)],
                     ],
                   ),
@@ -1052,7 +1083,7 @@ class _StoryCardView extends StatelessWidget {
       EventKind.obstacle => ('MOMENT DIFFICILE', Color(0xFFFF7A7A)),
       EventKind.memory => ('RECUEILLEMENT', Colors.white),
     };
-    final tag = card.label ?? (card.caught ? label : 'MÉDAILLON MANQUÉ');
+    final tag = e.tag ?? card.label ?? (card.caught ? label : 'MÉDAILLON MANQUÉ');
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 360),
       child: Glass(
@@ -2404,8 +2435,8 @@ class _TurningPointView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'UN GRAND TOURNANT',
+                Text(
+                  point.kicker,
                   style: TextStyle(
                     color: ChachaColors.yellow,
                     fontSize: 10.5,
@@ -2418,7 +2449,7 @@ class _TurningPointView extends StatelessWidget {
                   style: const TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w900),
                 ),
                 Text(
-                  '${e.date} · ${e.city}',
+                  point.line ?? '${e.date} · ${e.city}',
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12.5),
                 ),
               ],

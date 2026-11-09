@@ -83,7 +83,19 @@ class Ads {
   static DateTime? _fetched;
   static int _turn = 0;
 
+  /// ZwaColis paraît toujours, même quand le tableau de bord n'envoie pas encore cette marque.
+  static Ad _zwaColis() => Ad(
+    id: 'zwacolis',
+    name: 'ZwaColis',
+    tagline: 'Envoyez vos colis Europe-Afrique avec des voyageurs.',
+    site: '',
+    color: const Color(0xFF1B2E24),
+    slots: {'p1', 'p2', 'p3', 'kerosene', 'ciel', 'independance', 'arrivee'},
+    builtin: 'zwacolis',
+  );
+
   static List<Ad> _bundled() => [
+    _zwaColis(),
     Ad(
       id: 'kairos',
       name: 'KairOS',
@@ -170,7 +182,7 @@ class Ads {
 
   static List<Ad> _parse(String body) {
     final raw = (jsonDecode(body) as Map<String, dynamic>)['ads'] as List<dynamic>;
-    return [
+    final ads = [
       for (final a in raw.cast<Map<String, dynamic>>())
         Ad(
           id: '${a['id']}',
@@ -185,6 +197,8 @@ class Ads {
           ends: DateTime.tryParse(a['ends'] as String? ?? ''),
         ),
     ];
+    if (!ads.any((a) => a.id == 'zwacolis')) ads.add(_zwaColis());
+    return ads;
   }
 
   static Color _color(String hex) {

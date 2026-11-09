@@ -356,3 +356,100 @@ const cabinTalks = <TalkMoment, List<List<TalkLine>>>{
     ],
   ],
 };
+
+/// Le 30 juin 1960, sur la caméra de la cabine : la joie, une fois les explications finies.
+const independenceCameraTalk = [
+  TalkLine('Un passager', 'Indépendance ! Tozwi yango, bandeko !', 'Nous avons eu l\'indépendance, mes frères !'),
+  TalkLine(
+    'Une maman',
+    'Nzambe apambolama. Bana na biso bakozala na bonsomi.',
+    'Dieu soit béni. Nos enfants seront libres.',
+  ),
+  TalkLine('Un jeune', 'Yoka Indépendance Cha Cha ! Tobina !', 'Écoutez Indépendance Cha Cha ! Dansons !'),
+];
+
+/// Ce qu'on entend sur la caméra de la cabine, décennie par décennie : chaque conversation ne passe qu'une fois.
+const cameraTalks = <int, List<List<TalkLine>>>{
+  1960: [
+    [
+      TalkLine(
+        'Un commerçant',
+        'Nazali na bagage mingi, esika esili.',
+        'J\'ai trop de bagages, il n\'y a plus de place.',
+      ),
+      TalkLine('Hôtesse', 'Tata, tia yango na se ya kiti.', 'Monsieur, mettez ça sous le siège.'),
+    ],
+    [
+      TalkLine('Un passager', 'Mama hôtesse, mela mwa mayi ezali ?', 'Madame l\'hôtesse, il y a un peu d\'eau ?'),
+      TalkLine('Hôtesse', 'Zela moke, papa. Nazali koya.', 'Un instant, papa. J\'arrive.'),
+    ],
+  ],
+  1970: [
+    [
+      TalkLine(
+        'Une grand-mère',
+        'Na 1960, tobinaki Indépendance Cha Cha !',
+        'En 1960, on a dansé Indépendance Cha Cha !',
+      ),
+      TalkLine('Son petit-fils', 'Koko, yo ozalaki wana ?', 'Grand-mère, tu y étais ?'),
+    ],
+    [
+      TalkLine('Un jeune', 'Ali na Foreman bakobunda na Kinshasa !', 'Ali et Foreman vont boxer à Kinshasa !'),
+      TalkLine('Son voisin', 'Ali, boma ye !', 'Ali, boma ye !'),
+    ],
+  ],
+  1980: [
+    [
+      TalkLine('Une maman', 'Zaïre ezali lisusu na valeur te.', 'Le zaïre ne vaut plus grand-chose.'),
+      TalkLine('Sa voisine', 'Na zando, ntalo ebongwani lisusu.', 'Au marché, les prix ont encore changé.'),
+    ],
+    [
+      TalkLine('Un sapeur', 'Tala costume na ngai, ndeko !', 'Regarde mon costume, frère !'),
+      TalkLine('Son voisin', 'Yo oyebi kolata. Franco akanisa yo !', 'Tu sais t\'habiller. Franco serait fier !'),
+    ],
+  ],
+  1990: [
+    [
+      TalkLine('Un passager', 'Mboka oyo, mbala mosusu esilikisaka ngai.', 'Vraiment, ce pays, parfois ça m\'énerve.'),
+      TalkLine('Sa voisine', 'Mboka na biso ezali kitoko. Nzambe moko ayebi.', 'Notre pays est beau. Dieu seul sait.'),
+    ],
+  ],
+  2000: [
+    [
+      TalkLine(
+        'Une maman',
+        'Bitumba na bino, bana ya ba années 2000, bótika yango epai na bino !',
+        'Vos guerres-là, petits enfants des années 2000, laissez ça chez vous !',
+      ),
+      TalkLine(
+        'La même maman',
+        'Awa tozali na avion mpo na kokende na 2027.',
+        'Ici, nous sommes dans l\'avion pour aller en 2027.',
+      ),
+    ],
+    [
+      TalkLine('Un passager', 'Na 2006, navotaki mbala ya liboso.', 'En 2006, j\'ai voté pour la première fois.'),
+      TalkLine('Une passagère', 'Ngai pe, namemaki bana na ngai.', 'Moi aussi, j\'y ai emmené mes enfants.'),
+    ],
+  ],
+  2010: [
+    [
+      TalkLine('Un jeune', 'Ngai, nazali koyoka miziki ya ba famille.', 'Moi, j\'écoute la musique des familles.'),
+      TalkLine('Son voisin', 'Kosala makelele te, ndeko !', 'Ne fais pas de bruit, frère !'),
+    ],
+    [
+      TalkLine(
+        'Une commerçante',
+        'Natindi mbongo na telefone, esili.',
+        'J\'ai envoyé l\'argent par téléphone, c\'est fait.',
+      ),
+      TalkLine('Sa voisine', 'Telefone esalaka nionso sikoyo.', 'Le téléphone fait tout maintenant.'),
+    ],
+  ],
+  2020: [
+    [
+      TalkLine('Une grand-mère', 'Tokomi pene ya 2027, bana na ngai.', 'Nous approchons de 2027, mes enfants.'),
+      TalkLine('Un jeune', 'Koko, tokosepela na Kinshasa !', 'Grand-mère, on va faire la fête à Kinshasa !'),
+    ],
+  ],
+};

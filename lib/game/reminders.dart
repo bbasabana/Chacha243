@@ -41,7 +41,7 @@ class Reminders {
     ('Weekend elamu', 'Tika bana na yo babeta Chacha 243, bayeba lisolo ya ekolo na biso.'),
   ];
 
-  static const _details = NotificationDetails(
+  static NotificationDetails _details(int count) => NotificationDetails(
     android: AndroidNotificationDetails(
       'rappels_jeu',
       'Rappels',
@@ -51,9 +51,9 @@ class Reminders {
       priority: Priority.high,
       enableVibration: true,
       channelShowBadge: true,
-      number: 1,
+      number: count,
     ),
-    iOS: DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true, badgeNumber: 1),
+    iOS: DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true, badgeNumber: count),
   );
 
   /// Une erreur de rappel ne doit jamais gêner le jeu.
@@ -74,19 +74,26 @@ class Reminders {
       await _clearBadge();
       await _plugin.cancelAll();
       final now = DateTime.now();
-      var id = 0;
+      final plan = <(DateTime, (String, String))>[];
       for (final (i, days) in _absentDays.indexed) {
         final at = DateTime(now.year, now.month, now.day + days, 18, 30);
         // Le vendredi et le samedi ont déjà leur message.
         if (at.weekday == DateTime.friday || at.weekday == DateTime.saturday) continue;
-        await _at(id++, at, _absent[i]);
+        plan.add((at, _absent[i]));
       }
       for (var week = 0; week < _weekends; week++) {
         final fromToday = (DateTime.friday - now.weekday) % 7 + week * 7;
         final friday = DateTime(now.year, now.month, now.day + fromToday, 18);
         final saturday = DateTime(now.year, now.month, now.day + fromToday + 1, 10);
-        await _at(id++, friday, _friday[week % _friday.length]);
-        await _at(id++, saturday, _saturday[week % _saturday.length]);
+        plan.add((friday, _friday[week % _friday.length]));
+        plan.add((saturday, _saturday[week % _saturday.length]));
+      }
+      // Dans l'ordre du calendrier : la pastille de l'icône compte 1, 2, 3… tant que le joueur ne revient pas.
+      plan.sort((a, b) => a.$1.compareTo(b.$1));
+      var id = 0;
+      for (final (at, text) in plan.where((p) => p.$1.isAfter(now))) {
+        await _at(id, at, text, id + 1);
+        id++;
       }
     } catch (_) {}
   }
@@ -125,12 +132,12 @@ class Reminders {
     );
   }
 
-  static Future<void> _at(int id, DateTime when, (String, String) text) async {
+  static Future<void> _at(int id, DateTime when, (String, String) text, int count) async {
     if (!when.isAfter(DateTime.now())) return;
     await _plugin.zonedSchedule(
       id: id,
       scheduledDate: tz.TZDateTime.from(when.toUtc(), tz.UTC),
-      notificationDetails: _details,
+      notificationDetails: _details(count),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       title: text.$1,
       body: text.$2,

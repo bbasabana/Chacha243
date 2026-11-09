@@ -32,7 +32,11 @@ class HistoryEvent {
     this.big = false,
     this.medal,
     this.intro,
+    this.tag,
   });
+
+  /// Une étiquette propre à ce moment, à la place de celle de son genre.
+  final String? tag;
 
   /// Année décimale (1974.83 = fin octobre 1974).
   final double year;
@@ -158,6 +162,7 @@ const historyEvents = <HistoryEvent>[
     'Katanga',
     'Assassinat de Patrice Lumumba',
     'Patrice Emery Lumumba, premier Premier ministre du Congo, est assassiné au Katanga avec Maurice Mpolo et Joseph Okito. Un moment de silence.',
+    tag: 'À SAVOIR · BOYEBI',
     photo: 'lumumba',
   ),
   HistoryEvent(

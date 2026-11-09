@@ -14,10 +14,12 @@ import 'theme/chacha_colors.dart';
 import 'ui/game_screen.dart';
 import 'ui/hangar_screen.dart';
 import 'ui/home_screen.dart';
+import 'ui/onboarding_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await loadProfile();
+  await Onboarding.load();
   // Réinstallé ? Le nom du pilote et son point de reprise reviennent depuis le serveur.
   if (!kIsWeb) await Telemetry.restore();
   // Le concepteur : un saut demandé depuis le tableau de bord le ramène à 2023 (ou à l'année choisie).
@@ -88,7 +90,7 @@ class Chacha243App extends StatelessWidget {
       home: switch (ChachaGame.bench.isNotEmpty ? Uri.splitQueryString(ChachaGame.bench) : Uri.base.queryParameters) {
         {'demo': '1'} && final q => GameScreen(type: selectedAircraft.value = aircraftById(q['avion'] ?? 'dc6')),
         {'ecran': 'hangar'} => const HangarScreen(),
-        _ => const HomeScreen(),
+        _ => Onboarding.pending ? const OnboardingScreen() : const HomeScreen(),
       },
     );
   }

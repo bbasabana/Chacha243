@@ -42,6 +42,31 @@ class Sfx {
     pair[i].play(AssetSource('sfx/$name.wav'), volume: volume).catchError((_) {});
   }
 
+  AudioPlayer? _suspense;
+  bool _suspenseOn = false;
+
+  /// La guerre approche : le grondement tourne en boucle, sous la musique.
+  void suspense(bool on) {
+    if (on == _suspenseOn) return;
+    _suspenseOn = on;
+    if (!on) {
+      _suspense?.stop().catchError((_) {});
+      return;
+    }
+    if (!soundsOn.value) return;
+    final p = _suspense ??= AudioPlayer()
+      ..positionUpdater = null
+      ..setAudioContext(_context)
+      ..setReleaseMode(ReleaseMode.loop);
+    p.play(AssetSource('sfx/suspense.wav'), volume: musicVolume.value.clamp(0.3, 1.0) * 0.8).catchError((_) {});
+  }
+
+  /// Le vol en pause : le grondement attend avec lui.
+  void holdSuspense(bool hold) {
+    if (!_suspenseOn) return;
+    (hold ? _suspense?.pause() : _suspense?.resume())?.catchError((_) {});
+  }
+
   bool? _vibrator;
 
   /// Le crash est fini, le vol en pause : le téléphone arrête de vibrer tout de suite.

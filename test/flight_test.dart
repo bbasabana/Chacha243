@@ -33,6 +33,23 @@ void main() {
     return g;
   }
 
+  test('au premier départ, les passagers montent à bord avant le décollage', () async {
+    final g = await start();
+    expect(g.phase, FlightPhase.ready);
+    expect(g.passengers, 0);
+    g.boost = true;
+    for (var i = 0; i < 180; i++) {
+      g.update(1 / 60);
+    }
+    expect(g.phase, FlightPhase.ready, reason: 'on attend la fin de l\'embarquement');
+    expect(g.passengers, greaterThan(0));
+    for (var i = 0; i < 240; i++) {
+      g.update(1 / 60);
+    }
+    expect(g.phase, isNot(FlightPhase.ready));
+    expect(g.passengers, (g.type.seats * 0.55).round());
+  });
+
   test('repris au sol sans argent, le voyage s\'arrête : seul « recommencer » reste', () async {
     final g = await start(year: 1998.3, resumed: true, money: 96);
     expect(g.phase, FlightPhase.ready);
@@ -106,31 +123,58 @@ void main() {
     g.zoneHud.addListener(() => g.zoneHud.value == null ? null : note('zone ${g.zoneHud.value!.zone.name}'));
     g.talk.addListener(() => g.talk.value == null ? null : note('bulle-cabine ${g.talk.value!.lines.first.french}'));
     g.card.addListener(() => g.card.value == null ? null : note('fiche ${g.card.value!.event.title}'));
+    g.cabinCamera.addListener(() => g.cabinCamera.value == null ? null : note('caméra ${g.cabinCamera.value!.line.speaker}'));
+    var mixed = 0;
     for (var i = 0; i < 60 * 60 * 6 && g.zoneHud.value == null; i++) {
       g.lives = 5;
       g.update(1 / 60);
       frame++;
+      if (g.cabinCamera.value != null &&
+          (g.banner.value != null || g.radio.value != null || g.card.value != null || g.turningPoint.value != null || g.cabin.value != null)) {
+        mixed++;
+      }
       // Le pilote automatique attache les ceintures comme un vrai pilote.
       if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
     }
     // ignore: avoid_print
     print(seen.join("\n"));
     int at(String what) => seen.indexWhere((x) => x.contains(what));
-    expect(at('L\'indépendance du Congo arrive'), greaterThanOrEqualTo(0));
-    expect(at('bulle Indépendance du Congo'), greaterThan(at('L\'indépendance du Congo arrive')));
-    expect(at('Lumumba et Kasa-Vubu') < 0 || at('Indépendance · 30 juin') > at('bulle'), isTrue);
-    expect(at('radio Commandant de bord'), greaterThan(at('bulle Indépendance du Congo')));
+    expect(at('bulle Le Congo prend son indépendance'), greaterThanOrEqualTo(0));
+    expect(at('Voici les pères') , greaterThan(at('bulle Le Congo')));
+    expect(at('radio Commandant de bord'), greaterThan(at('bulle Le Congo prend son indépendance')));
     expect(at('cabine Attachez vos ceintures'), greaterThan(at('radio Commandant de bord')));
     expect(at('zone Sécession du Katanga'), greaterThan(at('cabine Ceintures attachées')));
-    // La cabine crie sa joie avec la bulle, et l'enfant demande à son papa.
-    expect(at('Nous avons pris l\'indépendance'), greaterThan(at('bulle Indépendance du Congo')));
-    expect(at('Notre pays est maintenant libre'), greaterThan(at('Papa, on a eu quoi')));
-    expect(at('Notre pays est maintenant libre'), lessThan(at('radio Commandant de bord')));
-    // Rien sur le Katanga avant la fin de l'Indépendance, puis plus d'une minute de vol libre.
+    // Rien sur le Katanga avant la fin de l'Indépendance, et la guerre arrive vers une minute.
     final katanga = seen.indexWhere((x) => x.contains('Katanga'));
     expect(katanga, greaterThan(at('cabine Ceintures attachées')));
     int secondsOf(int i) => int.parse(seen[i].split('· ').last.split(' ').first);
-    expect(secondsOf(katanga) - secondsOf(at('cabine Ceintures attachées')), greaterThanOrEqualTo(60));
+    expect(secondsOf(katanga), lessThanOrEqualTo(120));
+    // Quand les passagers parlent, rien d'autre : ils arrivent après les ceintures, avant la guerre.
+    expect(mixed, 0);
+    expect(at('caméra'), greaterThan(at('cabine Ceintures attachées')));
+    expect(katanga, greaterThan(at('caméra')));
+  });
+
+  test('dans la guerre, la photo se lit d\'abord et les avions arrivent seulement après', () async {
+    final g = await start(year: 1960.52, resumed: true, autopilot: true);
+    final seen = <String>[];
+    var overlap = 0;
+    for (var i = 0; i < 60 * 150; i++) {
+      g.lives = 5;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+      final attack = g.zoneHud.value?.active ?? false;
+      if (attack && g.card.value != null) overlap++;
+      final now = attack ? 'avions' : (g.card.value?.event.title ?? g.banner.value?.title ?? '');
+      if (now.isNotEmpty && (seen.isEmpty || seen.last != now)) seen.add(now);
+    }
+    // ignore: avoid_print
+    print(seen.join(' > '));
+    // Le tableau de bord se rafraîchit avec quelques images de retard.
+    expect(overlap, lessThan(30));
+    final suKasai = seen.indexOf('Sécession du Sud-Kasaï');
+    expect(suKasai, greaterThan(seen.indexOf('avions')));
+    expect(seen.indexOf('avions', suKasai), greaterThan(suKasai));
   });
 
   test('Air Congo naît en 1961 dans un ciel calme, les avions de chasse reviennent après', () async {

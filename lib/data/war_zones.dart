@@ -56,8 +56,8 @@ const warZones = <WarZone>[
     part: ZonePart(
       name: 'Sécession du Sud-Kasaï',
       place: 'Bakwanga (Mbuji-Mayi)',
-      from: 2,
-      to: 6,
+      from: 4,
+      to: 7,
       end: 'Octobre 1962 : le Sud-Kasaï revient dans le pays.',
     ),
     peaceTitle: 'Le pays se réunit',
