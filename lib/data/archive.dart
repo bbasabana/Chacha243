@@ -280,7 +280,7 @@ const mealPhotos = <String, String>{
 };
 
 const mealPhotoCredits =
-    "Tshaka Madesu (Beans ＆ cassava leaves stew), OussamaHamama (CC BY-SA 4.0) · Primus pivo, JiriMatejicek (CC BY-SA 4.0) · Bière Nkoyi, Serein (CC BY-SA 3.0) · Tembo- Congolese local beer, Rahul Tilak (CC BY-SA 4.0) · Fanta Orange Glass Bottle, Ayakln (CC BY-SA 4.0) · Coca-Cola glass bottle, Oleg Yunakov (CC BY-SA 4.0) · Chivas regal 12yo, Keeezawa (CC BY-SA 4.0) · Johnnie Walker Red Label, kallerna (CC BY-SA 3.0) · Jameson Irish Whiskey, Datenralfi (CC BY-SA 3.0 de)";
+    "Tshaka Madesu (Beans ＆ cassava leaves stew), OussamaHamama (CC BY-SA 4.0) · Bière Nkoyi, Serein (CC BY-SA 3.0) · Tembo- Congolese local beer, Rahul Tilak (CC BY-SA 4.0) · Fanta Orange Glass Bottle, Ayakln (CC BY-SA 4.0) · Coca-Cola glass bottle, Oleg Yunakov (CC BY-SA 4.0) · Chivas regal 12yo, Keeezawa (CC BY-SA 4.0) · Johnnie Walker Red Label, kallerna (CC BY-SA 3.0) · Jameson Irish Whiskey, Datenralfi (CC BY-SA 3.0 de)";
 
 /// Le prix d'un verre : les liqueurs rapportent plus que les sucrés.
 int drinkPrice(String drink) => mealSpirits.contains(drink) ? 60 : (mealBeers.contains(drink) ? 25 : 15);

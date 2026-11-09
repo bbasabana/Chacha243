@@ -75,7 +75,7 @@ const cabinTalks = <TalkMoment, List<List<TalkLine>>>{
     ],
     [
       TalkLine('Un enfant', 'Mama, matoyi na ngai ezali kokangama !', 'Maman, mes oreilles se bouchent !'),
-      TalkLine('Sa maman', 'Mela mwa mai, ekoleka.', 'Bois un peu d\'eau, ça va passer.'),
+      TalkLine('Sa maman', 'Mela mwa mayi, ekoleka.', 'Bois un peu d\'eau, ça va passer.'),
     ],
     [
       TalkLine('Une petite fille', 'Mama, tala engumba na nse !', 'Maman, regarde la ville en bas !'),
@@ -289,7 +289,7 @@ const cabinTalks = <TalkMoment, List<List<TalkLine>>>{
       TalkLine('Passager, rang 3', 'Ha ha ! Avion eleki taxi-bus.', 'Ha ha ! L\'avion bat le taxi-bus.'),
     ],
     [
-      TalkLine('Hôtesse', 'Bozali malamu ? Bolingi mai ?', 'Tout va bien ? Vous voulez de l\'eau ?'),
+      TalkLine('Hôtesse', 'Bozali malamu ? Bolingi mayi ?', 'Tout va bien ? Vous voulez de l\'eau ?'),
       TalkLine('Passagère, rang 12', 'Iyo, matondo mingi.', 'Oui, merci beaucoup.'),
     ],
     [

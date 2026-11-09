@@ -24,6 +24,7 @@ import 'duel_screen.dart' show markGuideRead;
 import 'finale.dart';
 import 'glass.dart';
 import 'timeline_screen.dart';
+import 'passenger_art.dart';
 
 /// L'écran de vol : le jeu Flame, avec par-dessus le tableau de bord en verre.
 class GameScreen extends StatefulWidget {
@@ -2632,7 +2633,7 @@ class _CabinView extends StatelessWidget {
             ],
             const SizedBox(height: 8),
             SizedBox(
-              height: 104,
+              height: 128,
               width: double.infinity,
               child: _CabinScene(cabin: c),
             ),
@@ -2728,9 +2729,7 @@ class _PulseButton extends StatelessWidget {
   static double _wave(double x) => (x % 1) < 0.5 ? (x % 1) * 2 : 2 - (x % 1) * 2;
 }
 
-/// Les rangées vues d'en haut : chaque siège passe au vert quand sa ceinture claque,
-/// et pendant le repas le chariot avance dans l'allée en laissant un plateau à chaque rangée.
-/// La cabine vue de côté : de vrais passagers à leur place, qui bougent et réagissent à ce qui se passe.
+/// La cabine vue de côté : les passagers illustrés à leur place ; celui qui n'est pas attaché tombe.
 class _CabinScene extends StatefulWidget {
   const _CabinScene({required this.cabin});
 
@@ -2740,40 +2739,66 @@ class _CabinScene extends StatefulWidget {
   State<_CabinScene> createState() => _CabinSceneState();
 }
 
-class _CabinSceneState extends State<_CabinScene> with SingleTickerProviderStateMixin {
-  late final _clock = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+class _CabinSceneState extends State<_CabinScene> {
+  static const _people = PassengerKind.values;
+
+  Widget _portrait(PassengerKind kind, double size) => SizedBox.square(
+    dimension: size,
+    child: CustomPaint(painter: PassengerPainter(kind)),
+  );
 
   @override
-  void dispose() {
-    _clock.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => CustomPaint(painter: _CabinPainter(widget.cabin, _clock));
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (_, box) {
+      final c = widget.cabin;
+      final w = box.maxWidth, h = box.maxHeight;
+      final cols = math.max(4, (w / 84).floor());
+      final cell = w / cols;
+      final size = math.min(h * 0.92, cell * 1.12);
+      final falling = c.mode == CabinMode.beltsPay;
+      final shown = (falling ? c.seats + 1 : c.seats).clamp(1, cols);
+      final faller = shown ~/ 2;
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          clipBehavior: Clip.hardEdge,
+          children: [
+            Positioned.fill(child: CustomPaint(painter: _CabinBackPainter(cols))),
+            for (var i = 0; i < shown; i++)
+              if (!falling || i != faller)
+                Positioned(
+                  left: cell * (i + 0.5) - size / 2,
+                  bottom: -2,
+                  child: _portrait(_people[i % _people.length], size),
+                ),
+            Positioned.fill(child: CustomPaint(painter: _CabinFrontPainter(c, cols, shown, size))),
+            if (falling && c.progress < 1)
+              // Celui qui n'était pas attaché : secoué vers le haut, puis il bascule dans l'allée.
+              Positioned(
+                left: cell * (faller + 0.5) - size / 2 + cell * 0.7 * c.progress,
+                bottom:
+                    -2 +
+                    (c.progress < 0.22 ? c.progress * 70 : 15.4 - math.pow((c.progress - 0.22) / 0.78, 2) * h * 1.3),
+                child: Transform.rotate(
+                  angle: c.progress * 2.5,
+                  child: _portrait(_people[faller % _people.length], size),
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
-class _CabinPainter extends CustomPainter {
-  _CabinPainter(this.cabin, this.clock) : super(repaint: clock);
+/// Le décor : les hublots, les sièges, le sol.
+class _CabinBackPainter extends CustomPainter {
+  _CabinBackPainter(this.cols);
 
-  final CabinHud cabin;
-  final Animation<double> clock;
-
-  static const _skins = [Color(0xFF5B3A26), Color(0xFF7A4E32), Color(0xFF4A2E1E), Color(0xFF8A5C3C)];
-  static const _shirts = [
-    Color(0xFFD9483B),
-    Color(0xFF2F7FD1),
-    Color(0xFFF2C230),
-    Color(0xFF2E9E6B),
-    Color(0xFFEDEDED),
-    Color(0xFF8D4FB5),
-  ];
+  final int cols;
 
   @override
   void paint(Canvas c, Size s) {
-    final body = RRect.fromRectAndRadius(Offset.zero & s, const Radius.circular(16));
-    c.save();
-    c.clipRRect(body);
     c.drawRect(
       Offset.zero & s,
       Paint()
@@ -2783,169 +2808,108 @@ class _CabinPainter extends CustomPainter {
           colors: [Color(0xFFF1EADB), Color(0xFFD5CBB6)],
         ).createShader(Offset.zero & s),
     );
-    final cols = math.max(5, (s.width / 50).floor());
     final cell = s.width / cols;
-    final mode = cabin.mode;
-    final phase = clock.value * 2 * math.pi;
-    final shown = cabin.seats.clamp(1, cols);
     for (var i = 0; i < cols; i++) {
-      final w = Rect.fromCenter(
-        center: Offset(cell * (i + 0.5), s.height * 0.2),
-        width: cell * 0.36,
-        height: s.height * 0.22,
+      final w = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(cell * i, s.height * 0.26), width: cell * 0.26, height: s.height * 0.26),
+        const Radius.circular(8),
       );
-      c.drawRRect(RRect.fromRectAndRadius(w, const Radius.circular(8)), Paint()..color = const Color(0xFF7CC4F2));
+      c.drawRRect(w, Paint()..color = const Color(0xFF7CC4F2));
       c.drawRRect(
-        RRect.fromRectAndRadius(w, const Radius.circular(8)),
+        w,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5
           ..color = const Color(0xFFB8AE98),
       );
     }
-    c.drawRect(Rect.fromLTWH(0, s.height * 0.86, s.width, s.height * 0.14), Paint()..color = const Color(0xFF34404F));
+    c.drawRect(Rect.fromLTWH(0, s.height * 0.9, s.width, s.height * 0.1), Paint()..color = const Color(0xFF34404F));
     for (var i = 0; i < cols; i++) {
-      final x = cell * (i + 0.5);
-      final order = i / cols;
-      final seat = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(x, s.height * 0.66), width: cell * 0.8, height: s.height * 0.62),
-        const Radius.circular(9),
+      final seat = Rect.fromCenter(
+        center: Offset(cell * (i + 0.5), s.height * 0.62),
+        width: cell * 0.8,
+        height: s.height * 0.8,
       );
-      c.drawRRect(seat, Paint()..color = const Color(0xFF1F5FA8));
-      if (i < shown) _person(c, s, x, cell, i, order, mode, phase);
-    }
-    if (mode == CabinMode.serving) _hostess(c, s, cabin.progress * s.width, phase);
-    c.restore();
-  }
-
-  void _person(Canvas c, Size s, double x, double cell, int i, double order, CabinMode mode, double phase) {
-    final scared = cabin.scared;
-    final bob = scared ? math.sin(phase * 5 + i * 2) * 1.8 : math.sin(phase + i * 1.3) * 1.1;
-    final r = s.height * 0.13;
-    final head = Offset(x + (scared ? math.sin(phase * 7 + i) * 1.5 : 0), s.height * 0.46 + bob);
-    final skin = Paint()..color = _skins[i % _skins.length];
-    final shirt = _shirts[(i * 5 + 2) % _shirts.length];
-    final chest = Rect.fromCenter(center: head.translate(0, r * 2.5), width: r * 3.1, height: r * 2.8);
-    c.drawRRect(RRect.fromRectAndRadius(chest, Radius.circular(r * 0.9)), Paint()..color = shirt);
-    c.drawRect(Rect.fromCenter(center: head.translate(0, r * 1.15), width: r * 0.8, height: r), skin);
-    if (scared) {
-      final arm = Paint()
-        ..color = skin.color
-        ..strokeWidth = r * 0.55
-        ..strokeCap = StrokeCap.round;
-      for (final side in const [-1.0, 1.0]) {
-        c.drawLine(
-          chest.topCenter.translate(side * r * 1.35, r * 0.4),
-          head.translate(side * r * 1.75, -r * (1.2 + math.sin(phase * 6 + i) * 0.25)),
-          arm,
-        );
-      }
-    }
-    c.drawCircle(head, r, skin);
-    if (i % 3 == 1) {
-      // Un foulard de pagne
-      c.drawArc(
-        Rect.fromCircle(center: head.translate(0, -r * 0.1), radius: r * 1.14),
-        math.pi * 0.98,
-        math.pi * 1.04,
-        true,
-        Paint()..color = _shirts[(i + 3) % _shirts.length],
-      );
-    } else {
-      c.drawArc(
-        Rect.fromCircle(center: head, radius: r * 1.03),
-        math.pi * 1.02,
-        math.pi * 0.96,
-        true,
-        Paint()..color = const Color(0xFF17100C),
-      );
-    }
-    final eye = Paint()..color = Colors.white;
-    final pupil = Paint()..color = Colors.black;
-    final blink = !scared && (clock.value * 3 + i * 0.37) % 1 < 0.05;
-    for (final side in const [-1.0, 1.0]) {
-      final at = head.translate(side * r * 0.38, r * 0.08);
-      if (blink) {
-        c.drawLine(at.translate(-r * .15, 0), at.translate(r * .15, 0), pupil..strokeWidth = 1);
-      } else {
-        c.drawCircle(at, r * (scared ? 0.25 : 0.18), eye);
-        c.drawCircle(at, r * 0.1, pupil);
-      }
-    }
-    final mouth = head.translate(0, r * 0.55);
-    if (scared) {
-      c.drawOval(
-        Rect.fromCenter(center: mouth, width: r * 0.55, height: r * 0.65),
-        Paint()..color = const Color(0xFF2A0C0C),
-      );
-    } else {
-      c.drawArc(
-        Rect.fromCenter(center: mouth.translate(0, -r * 0.14), width: r * 0.8, height: r * 0.5),
-        0.25,
-        math.pi - 0.5,
-        false,
+      c.drawRRect(
+        RRect.fromRectAndRadius(seat, const Radius.circular(12)),
         Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.3
-          ..color = const Color(0xFF2A0C0C),
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF2A70BD), Color(0xFF143F75)],
+          ).createShader(seat),
       );
     }
-    if (mode == CabinMode.beltsFastening || mode == CabinMode.beltsDone) {
-      final k = ((cabin.progress - order * 0.8) * 5).clamp(0.0, 1.0);
-      if (k > 0.3) {
-        c.drawLine(
-          chest.topLeft.translate(r * .25, r * .2),
-          Offset.lerp(chest.topLeft, chest.bottomRight.translate(-r * .1, -r * .1), k)!,
-          Paint()
-            ..color = const Color(0xFF20262E)
-            ..strokeWidth = r * 0.34,
-        );
-      }
-    }
-    if ((mode == CabinMode.serving || mode == CabinMode.served) && order < cabin.progress) {
-      final tray = Rect.fromCenter(center: Offset(x, s.height * 0.83), width: cell * 0.72, height: s.height * 0.05);
-      c.drawRect(tray, Paint()..color = const Color(0xFFC9A36B));
-      c.drawOval(
-        Rect.fromCenter(center: tray.center.translate(-cell * .1, -3), width: cell * .34, height: 7),
-        Paint()..color = Colors.white,
-      );
-      c.drawRect(
-        Rect.fromLTWH(tray.center.dx + cell * .16, tray.top - s.height * .15, 4, s.height * .15),
-        Paint()..color = const Color(0xFF7A4418),
-      );
-    }
-  }
-
-  void _hostess(Canvas c, Size s, double x, double phase) {
-    final r = s.height * 0.12;
-    final head = Offset(x, s.height * 0.27 + math.sin(phase * 2) * 1.2);
-    c.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(x + r * 1.3, s.height * .5, r * 3.2, s.height * .36),
-        const Radius.circular(3),
-      ),
-      Paint()..color = const Color(0xFFB9BEC6),
-    );
-    c.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(x, s.height * .66), width: r * 2.6, height: s.height * .68),
-        Radius.circular(r),
-      ),
-      Paint()..color = ChachaColors.red,
-    );
-    c.drawCircle(head, r, Paint()..color = _skins[1]);
-    c.drawArc(
-      Rect.fromCircle(center: head, radius: r * 1.05),
-      math.pi,
-      math.pi,
-      true,
-      Paint()..color = const Color(0xFF17100C),
-    );
-    c.drawRect(Rect.fromLTWH(x - r * 1.05, head.dy - r * 1.2, r * 2.1, r * .35), Paint()..color = ChachaColors.yellow);
   }
 
   @override
-  bool shouldRepaint(_CabinPainter old) => old.cabin != cabin;
+  bool shouldRepaint(_CabinBackPainter old) => old.cols != cols;
+}
+
+/// Ce qui passe devant les passagers : les ceintures qui se bouclent, les plateaux, le chariot.
+class _CabinFrontPainter extends CustomPainter {
+  _CabinFrontPainter(this.cabin, this.cols, this.shown, this.size);
+
+  final CabinHud cabin;
+  final int cols, shown;
+  final double size;
+
+  @override
+  void paint(Canvas c, Size s) {
+    final mode = cabin.mode;
+    final cell = s.width / cols;
+    for (var i = 0; i < shown; i++) {
+      final x = cell * (i + 0.5);
+      final order = i / cols;
+      if (mode == CabinMode.beltsFastening || mode == CabinMode.beltsDone) {
+        final k = ((cabin.progress - order * 0.8) * 5).clamp(0.0, 1.0);
+        if (k > 0.3) {
+          final from = Offset(x - size * 0.34, s.height - size * 0.3);
+          final to = Offset(x + size * 0.28, s.height - size * 0.01);
+          c.drawLine(
+            from,
+            Offset.lerp(from, to, k)!,
+            Paint()
+              ..color = const Color(0xFF20262E)
+              ..strokeWidth = size * 0.055,
+          );
+          if (k >= 1) {
+            c.drawRRect(
+              RRect.fromRectAndRadius(
+                Rect.fromCenter(center: Offset.lerp(from, to, 0.62)!, width: size * 0.13, height: size * 0.075),
+                const Radius.circular(2),
+              ),
+              Paint()..color = const Color(0xFFC9CED6),
+            );
+          }
+        }
+      }
+      if ((mode == CabinMode.serving || mode == CabinMode.served) && order < cabin.progress) {
+        final tray = Rect.fromCenter(center: Offset(x, s.height * 0.93), width: cell * 0.72, height: s.height * 0.05);
+        c.drawRect(tray, Paint()..color = const Color(0xFFC9A36B));
+        c.drawOval(
+          Rect.fromCenter(center: tray.center.translate(-cell * .1, -3), width: cell * .34, height: 7),
+          Paint()..color = Colors.white,
+        );
+        c.drawRect(
+          Rect.fromLTWH(tray.center.dx + cell * .16, tray.top - s.height * .13, 4, s.height * .13),
+          Paint()..color = const Color(0xFF7A4418),
+        );
+      }
+    }
+    if (mode == CabinMode.serving) {
+      c.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(cabin.progress * s.width + size * 0.34, s.height * .58, size * 0.5, s.height * .34),
+          const Radius.circular(3),
+        ),
+        Paint()..color = const Color(0xFFB9BEC6),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CabinFrontPainter old) => old.cabin != cabin || old.shown != shown || old.size != size;
 }
 
 /// Le repas à bord : on fait glisser les plats, on en choisit plusieurs, puis les boissons, et on sert.

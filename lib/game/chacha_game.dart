@@ -891,7 +891,7 @@ class ChachaGame extends FlameGame {
 
   TextPainter? _fuelLabel;
 
-  /// Pour les sons : « medaille », « kerosene », « kit », « etoile », « ceinture ».
+  /// Pour les sons : « medaille », « kerosene », « kit », « etoile », « ceinture », « cri ».
   void Function(String sound)? onSound;
 
   /// Reprise après un crash : on repart d'un aéroport, et il faut d'abord faire le plein.
@@ -3543,6 +3543,9 @@ class ChachaGame extends FlameGame {
           }
         case CabinMode.beltsPay:
           // Sans réponse, on paie avec l'argent, sinon avec les points ; sans les deux, c'est le crash.
+          if (_cabinT < 2) {
+            cabin.value = CabinHud(CabinMode.beltsPay, (_cabinT / 1.4).clamp(0.0, 1.0), c.seats, c.title, c.detail);
+          }
           if (autopilot && _cabinT > 1) payBelts(true);
           if (t > _beltsDeadline) {
             if (!payBelts(true) && !payBelts(false)) _beltsCrash();
@@ -3685,6 +3688,7 @@ class ChachaGame extends FlameGame {
     condition = math.max(0, condition - _hurt(8));
     onBuzz?.call(500, 255);
     HapticFeedback.heavyImpact();
+    onSound?.call('cri');
     _float('Un passager est tombé !', _w * 0.5, _h * 0.36, const Color(0xFFFF7A7A));
     _cabinT = 0;
     _beltsDeadline = t + 10;

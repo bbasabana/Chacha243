@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -41,12 +43,17 @@ class Reminders {
 
   static const _details = NotificationDetails(
     android: AndroidNotificationDetails(
-      'rappels',
+      'rappels_jeu',
       'Rappels',
       channelDescription: 'Les invitations à reprendre le vol',
       icon: '@mipmap/ic_launcher_monochrome',
+      importance: Importance.high,
+      priority: Priority.high,
+      enableVibration: true,
+      channelShowBadge: true,
+      number: 1,
     ),
-    iOS: DarwinNotificationDetails(),
+    iOS: DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true, badgeNumber: 1),
   );
 
   /// Une erreur de rappel ne doit jamais gêner le jeu.
@@ -64,6 +71,7 @@ class Reminders {
         ),
       );
       await _askOnce();
+      await _clearBadge();
       await _plugin.cancelAll();
       final now = DateTime.now();
       var id = 0;
@@ -94,8 +102,26 @@ class Reminders {
         ?.requestNotificationsPermission();
     await _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()?.requestPermissions(
       alert: true,
-      badge: false,
+      badge: true,
       sound: true,
+    );
+  }
+
+  /// Le joueur est revenu : la pastille disparaît de l'icône (Android le fait seul avec les notifications).
+  static Future<void> _clearBadge() async {
+    if (!Platform.isIOS) return;
+    await _plugin.show(
+      id: 900,
+      notificationDetails: const NotificationDetails(
+        iOS: DarwinNotificationDetails(
+          presentAlert: false,
+          presentBanner: false,
+          presentList: false,
+          presentSound: false,
+          presentBadge: true,
+          badgeNumber: 0,
+        ),
+      ),
     );
   }
 
