@@ -129,6 +129,15 @@ class Ads {
       slots: {'p1', 'p3', 'kerosene', 'ciel', 'independance', 'arrivee'},
       builtin: 'simplypay',
     ),
+    Ad(
+      id: 'promptauth',
+      name: 'PromptAuth',
+      tagline: 'Le login Google en un prompt.',
+      site: 'promptauth.dev',
+      color: const Color(0xFF0E6F60),
+      slots: {'p1', 'p2', 'kerosene', 'ciel', 'independance', 'arrivee'},
+      builtin: 'promptauth',
+    ),
   ];
 
   /// Lu une fois au lancement : d'abord ce qu'on a déjà, puis le tableau de bord.

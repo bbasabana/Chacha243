@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../data/archive.dart';
 import '../app_state.dart';
 import '../game/telemetry.dart';
 import '../theme/chacha_colors.dart';
@@ -265,6 +266,9 @@ class _AboutScreenState extends State<AboutScreen> with WidgetsBindingObserver {
                                   ],
                                 ),
                         ),
+                      ]),
+                      section('Photos du menu', [
+                        Text('Fournies par Wikimedia Commons : $mealPhotoCredits', style: body),
                       ]),
                       section('Confidentialité', [
                         const Text(

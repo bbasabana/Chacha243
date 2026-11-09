@@ -244,9 +244,43 @@ const mealDishes = [
   'Ntaba',
   'Liboke',
 ];
-const mealBeers = ['Primus', 'Turbo King', 'Castel', 'Nkoyi', 'Tembo'];
-const mealSodas = ['Vitalo', 'Fanta', 'Coca-Cola', 'Eau'];
-const mealSpirits = ['Chivas', 'Red Label', 'Jameson'];
+const mealBeers = ['Primus', 'Turbo King', 'Castel', 'Heineken', 'Nkoyi', 'Tembo'];
+const mealSodas = ['Eau', 'Vitalo', 'Bavaria', 'Fanta', 'Coca-Cola'];
+const mealSpirits = ['Amarula', 'Chivas', 'Red Label', 'Jameson'];
+
+/// Les photos du menu (assets/meals).
+const mealPhotos = <String, String>{
+  'Fufu': 'fufu.jpg',
+  'Chikwangue': 'chikwangue.jpg',
+  'Loso (riz)': 'loso.jpg',
+  'Madesu': 'madesu.jpg',
+  'Fumbwa': 'fumbwa.jpg',
+  'Pondu': 'pondu.jpg',
+  'Makayabu (poisson salé)': 'makayabu.jpg',
+  'Poisson grillé': 'poisson.jpg',
+  'Poulet mayo': 'poulet.jpg',
+  'Dindon': 'dindon.jpg',
+  'Ntaba': 'ntaba.jpg',
+  'Liboke': 'liboke.jpg',
+  'Eau': 'eau.jpg',
+  'Vitalo': 'vitalo.jpg',
+  'Bavaria': 'bavaria.jpg',
+  'Primus': 'primus.jpg',
+  'Turbo King': 'turbo.jpg',
+  'Castel': 'castel.jpg',
+  'Heineken': 'heineken.jpg',
+  'Nkoyi': 'nkoyi.jpg',
+  'Tembo': 'tembo.jpg',
+  'Fanta': 'fanta.jpg',
+  'Coca-Cola': 'coca.jpg',
+  'Amarula': 'amarula.jpg',
+  'Chivas': 'chivas.jpg',
+  'Red Label': 'redlabel.jpg',
+  'Jameson': 'jameson.jpg',
+};
+
+const mealPhotoCredits =
+    "Tshaka Madesu (Beans ＆ cassava leaves stew), OussamaHamama (CC BY-SA 4.0) · Primus pivo, JiriMatejicek (CC BY-SA 4.0) · Bière Nkoyi, Serein (CC BY-SA 3.0) · Tembo- Congolese local beer, Rahul Tilak (CC BY-SA 4.0) · Fanta Orange Glass Bottle, Ayakln (CC BY-SA 4.0) · Coca-Cola glass bottle, Oleg Yunakov (CC BY-SA 4.0) · Chivas regal 12yo, Keeezawa (CC BY-SA 4.0) · Johnnie Walker Red Label, kallerna (CC BY-SA 3.0) · Jameson Irish Whiskey, Datenralfi (CC BY-SA 3.0 de)";
 
 /// Le prix d'un verre : les liqueurs rapportent plus que les sucrés.
 int drinkPrice(String drink) => mealSpirits.contains(drink) ? 60 : (mealBeers.contains(drink) ? 25 : 15);
@@ -337,11 +371,35 @@ const momentSongs = <String, MomentSong>{
     fadeIn: 2,
     then: 'fond',
   ),
-  'mpr': MomentSong('afrique/harpe-foret.mp3', 'La forêt au matin', 'Chacha 243', seconds: 75, level: 0.5, fadeIn: 2),
+  // En vol : les tam-tams relaient Indépendance Cha Cha.
+  'vol1': MomentSong(
+    'afrique/tam-tam-village.mp3',
+    'Tam-tams de la route',
+    'Chacha 243',
+    seconds: 74,
+    level: 0.55,
+    fadeIn: 2,
+  ),
+  'vol2': MomentSong(
+    'afrique/harpe-foret.mp3',
+    'Au cœur de la jungle',
+    'Chacha 243',
+    seconds: 80,
+    level: 0.55,
+    fadeIn: 2,
+  ),
+  'mpr': MomentSong(
+    'afrique/harpe-foret.mp3',
+    'Au cœur de la jungle',
+    'Chacha 243',
+    seconds: 75,
+    level: 0.5,
+    fadeIn: 2,
+  ),
   // Le passage des années 1970 aux années 1980 : un court instant de calme, puis Indépendance Cha Cha.
   'ngwasuma': MomentSong(
     'afrique/harpe-foret.mp3',
-    'La forêt au matin',
+    'Au cœur de la jungle',
     'Chacha 243',
     seconds: 28,
     level: 0.7,
@@ -377,24 +435,24 @@ const momentSongs = <String, MomentSong>{
   ),
   'okjazz': MomentSong('afrique/harpe-tristesse.mp3', 'Le prix de la liberté', 'Chacha 243', seconds: 72),
   // « Comprenez mon émotion », en 1990 : la harpe joue le temps de la fiche, puis s'arrête.
-  'desire': MomentSong('afrique/harpe-foret.mp3', 'La forêt au matin', 'Chacha 243', seconds: 20, fadeIn: 1),
+  'desire': MomentSong('afrique/harpe-foret.mp3', 'Au cœur de la jungle', 'Chacha 243', seconds: 20, fadeIn: 1),
   // La mort de Franco, en 1989 : la harpe dans la forêt, jusqu'au moment suivant.
   'mario': MomentSong(
     'afrique/harpe-foret.mp3',
-    'La forêt au matin',
+    'Au cœur de la jungle',
     'Chacha 243',
     seconds: 78,
     level: 0.65,
     fadeIn: 3,
   ),
-  'bomaye': MomentSong('afrique/tam-tam-village.mp3', 'Le village en paix', 'Chacha 243', seconds: 66),
-  'viva': MomentSong('afrique/tam-tam-village.mp3', 'Le village en paix', 'Chacha 243', seconds: 70),
-  'wenge': MomentSong('afrique/tam-tam-village.mp3', 'Le village en paix', 'Chacha 243', seconds: 66),
-  'koffi': MomentSong('afrique/tam-tam-village.mp3', 'Le village en paix', 'Chacha 243', seconds: 70),
+  'bomaye': MomentSong('afrique/tam-tam-village.mp3', 'Tam-tams de la route', 'Chacha 243', seconds: 66),
+  'viva': MomentSong('afrique/tam-tam-village.mp3', 'Tam-tams de la route', 'Chacha 243', seconds: 70),
+  'wenge': MomentSong('afrique/tam-tam-village.mp3', 'Tam-tams de la route', 'Chacha 243', seconds: 66),
+  'koffi': MomentSong('afrique/tam-tam-village.mp3', 'Tam-tams de la route', 'Chacha 243', seconds: 70),
   'kester': MomentSong('afrique/harpe-tristesse.mp3', 'Le prix de la liberté', 'Chacha 243', seconds: 72),
   'reveil': MomentSong(
     'afrique/tam-tam-detresse.mp3',
-    'Tam-tams de détresse',
+    'Tam-tams de guerre',
     'Chacha 243',
     seconds: 78,
     level: 0.6,
@@ -403,7 +461,7 @@ const momentSongs = <String, MomentSong>{
   // Les tam-tams des moments difficiles : doux, ils réconfortent sans couvrir le vol.
   'louange': MomentSong(
     'afrique/tam-tam-detresse.mp3',
-    'Tam-tams de détresse',
+    'Tam-tams de guerre',
     'Chacha 243',
     seconds: 45,
     level: 0.55,
@@ -412,7 +470,7 @@ const momentSongs = <String, MomentSong>{
   // La dernière ligne droite, jusqu'au 30 juin 2027 : elle commence bas, puis remonte.
   'fally2006': MomentSong(
     'afrique/tam-tam-village.mp3',
-    'Le village en paix',
+    'Tam-tams de la route',
     'Chacha 243',
     seconds: 66,
     level: 0.7,
@@ -420,7 +478,7 @@ const momentSongs = <String, MomentSong>{
   ),
   'fally2026': MomentSong(
     'afrique/tam-tam-village.mp3',
-    'Le village en paix',
+    'Tam-tams de la route',
     'Chacha 243',
     seconds: 60,
     level: 0.7,

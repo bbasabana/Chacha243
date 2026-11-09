@@ -400,8 +400,8 @@ class _DuelScreenState extends State<DuelScreen> {
         ),
         if (!appStoreRules)
           _text(
-          '• L\'enjeu (un repas, un gage, de l\'argent) est écrit par vous et reste entre vous : Chacha243 ne le gère pas, ne le garde pas et n\'en est pas responsable.',
-        ),
+            '• L\'enjeu (un repas, un gage, de l\'argent) est écrit par vous et reste entre vous : Chacha243 ne le gère pas, ne le garde pas et n\'en est pas responsable.',
+          ),
         _text(
           '• Tricher (modifier le jeu, l\'horloge ou les messages) est interdit. Les résultats de chaque pilote sont comparés, et un duel douteux est signalé.',
         ),

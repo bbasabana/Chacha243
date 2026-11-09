@@ -349,26 +349,39 @@ class _Hud extends StatelessWidget {
                         onTap: () => Navigator.of(context).pop(),
                         padding: const EdgeInsets.all(7),
                         radius: 14,
-                        child: const Icon(Icons.close_rounded, color: Colors.white, size: 17),
+                        child: Icon(
+                          Icons.close_rounded,
+                          color: Colors.white.withValues(alpha: hud.quiet ? 0.45 : 1),
+                          size: 17,
+                        ),
                       ),
                       const SizedBox(width: 5),
                       GlassButton(
                         onTap: onPause,
                         padding: const EdgeInsets.all(7),
                         radius: 14,
-                        child: const Icon(Icons.pause_rounded, color: Colors.white, size: 17),
+                        child: Icon(
+                          Icons.pause_rounded,
+                          color: Colors.white.withValues(alpha: hud.quiet ? 0.45 : 1),
+                          size: 17,
+                        ),
                       ),
                       const SizedBox(width: 5),
                       GlassButton(
                         onTap: onGuide,
                         padding: const EdgeInsets.all(7),
                         radius: 14,
-                        child: const Icon(Icons.help_outline_rounded, color: Colors.white, size: 17),
+                        child: Icon(
+                          Icons.help_outline_rounded,
+                          color: Colors.white.withValues(alpha: hud.quiet ? 0.45 : 1),
+                          size: 17,
+                        ),
                       ),
                       const SizedBox(width: 6),
                       _Reveal(
                         visible: showYear,
                         dim: hud.planeHigh,
+                        faint: hud.quiet,
                         from: const Offset(-0.3, 0),
                         // Pas plus large qu'il ne faut : la prochaine étape se coupe plutôt que d'élargir le panneau.
                         child: ConstrainedBox(
@@ -394,10 +407,11 @@ class _Hud extends StatelessWidget {
                 children: [
                   _Reveal(
                     visible: showStatus,
+                    faint: hud.quiet,
                     from: const Offset(0.3, 0),
                     child: _StatusPanel(hud: hud),
                   ),
-                  if (!ended && !hud.finale)
+                  if (!ended && !hud.finale && hud.showMission)
                     ValueListenableBuilder(
                       valueListenable: game.mission,
                       builder: (_, m, _) => m == null
@@ -479,13 +493,17 @@ class _Hud extends StatelessWidget {
                 (flying || p == FlightPhase.ready || p == FlightPhase.rolling))
               Align(
                 alignment: Alignment.bottomRight,
-                child: _Controls(game: game, hud: hud),
+                child: AnimatedOpacity(
+                  opacity: hud.quiet ? 0.6 : 1,
+                  duration: const Duration(milliseconds: 400),
+                  child: _Controls(game: game, hud: hud),
+                ),
               ),
             Align(
               alignment: Alignment.bottomLeft,
               child: _Reveal(
                 visible: showCockpit,
-                dim: hud.planeLow,
+                dim: hud.planeLow || hud.quiet,
                 from: const Offset(0, 0.4),
                 child: Transform.scale(
                   scale: 0.84,
@@ -568,6 +586,13 @@ class _YearPanel extends StatelessWidget {
                   hud.airline,
                   style: const TextStyle(color: ChachaColors.yellow, fontSize: 10, fontWeight: FontWeight.w800),
                 ),
+                if (hud.phase != FlightPhase.ready)
+                  const Text(
+                    'Objectif : 30 juin 2027',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w900),
+                  ),
                 if (hud.flightSeconds >= 1 && hud.phase != FlightPhase.ready) ...[
                   const SizedBox(height: 2),
                   // Le temps qui passe : tout le vol, et l'étape en cours.
@@ -607,9 +632,9 @@ class _YearPanel extends StatelessWidget {
 
 /// Un panneau qui entre en glissant quand son moment vient, et s'efface quand l'avion passe derrière.
 class _Reveal extends StatelessWidget {
-  const _Reveal({required this.visible, required this.from, required this.child, this.dim = false});
+  const _Reveal({required this.visible, required this.from, required this.child, this.dim = false, this.faint = false});
 
-  final bool visible, dim;
+  final bool visible, dim, faint;
   final Offset from;
   final Widget child;
 
@@ -622,7 +647,7 @@ class _Reveal extends StatelessWidget {
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeOutCubic,
         child: AnimatedOpacity(
-          opacity: !visible ? 0 : (dim ? 0.3 : 1),
+          opacity: !visible ? 0 : (dim ? 0.3 : (faint ? 0.4 : 1)),
           duration: const Duration(milliseconds: 400),
           child: child,
         ),
@@ -655,7 +680,11 @@ class _StageSlot extends StatelessWidget {
         } else if (g.banner.value case final b?) {
           child = _BannerView(key: ValueKey(b), banner: b);
         } else if (g.card.value case final c?) {
-          child = _StoryCardView(key: ValueKey(c), card: c);
+          child = GestureDetector(
+            key: ValueKey(c),
+            onTap: g.finishReading,
+            child: _StoryCardView(card: c),
+          );
         } else if (g.planeCard.value case final pc?) {
           child = _PlaneCardView(key: ValueKey(pc), card: pc);
         } else if ((g.zoneHud.value, zoneNext) case (final z?, final next?)) {
@@ -801,14 +830,14 @@ class _RadioView extends StatelessWidget {
                   if (call.fuelPrice != null)
                     GlassButton(
                       onTap: game.buyFuel,
-                      tint: const Color(0x55F7D618),
+                      tint: const Color(0xDDCE1021),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(Icons.local_gas_station_rounded, color: Colors.white, size: 18),
                           const SizedBox(width: 6),
-                          Text('Acheter le plein · ${call.fuelPrice}', style: const TextStyle(fontSize: 14)),
+                          Text('Acheter du kérosène · ${call.fuelPrice}', style: const TextStyle(fontSize: 14)),
                         ],
                       ),
                     ),
@@ -1009,7 +1038,7 @@ class _BannerView extends StatelessWidget {
 }
 
 class _StoryCardView extends StatelessWidget {
-  const _StoryCardView({super.key, required this.card});
+  const _StoryCardView({required this.card});
 
   final StoryCard card;
 
@@ -1074,7 +1103,7 @@ class _StoryCardView extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         e.text,
-                        maxLines: 4,
+                        maxLines: 7,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12, height: 1.3),
                       ),
@@ -1090,6 +1119,15 @@ class _StoryCardView extends StatelessWidget {
                     _Thumb(photo: p),
                 ],
               ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'Touche pour continuer',
+              style: TextStyle(
+                color: ChachaColors.yellow.withValues(alpha: 0.9),
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),
@@ -1202,7 +1240,7 @@ class _TakeoffPanel extends StatelessWidget {
                 : '${hud.year.floor()} · prêt au décollage',
             style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
           ),
-          if (hud.firstFlight) ...[
+          ...[
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1217,15 +1255,14 @@ class _TakeoffPanel extends StatelessWidget {
                   Icon(Icons.flag_rounded, color: ChachaColors.yellow, size: 18),
                   SizedBox(width: 8),
                   Text(
-                    'Mission : arriver à Kinshasa le 30 juin 2027',
+                    'Objectif : arriver à Kinshasa le 30 juin 2027',
                     style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 8),
-          ] else
-            const SizedBox(height: 4),
+          ],
           if (!hud.firstFlight && (hud.fuel < 99 || hud.refuel > 0)) ...[
             // Après une reprise : le réservoir est presque vide, on paie le plein avant de partir.
             Row(
@@ -1245,10 +1282,10 @@ class _TakeoffPanel extends StatelessWidget {
                     if (hud.refuel == 0)
                       GlassButton(
                         onTap: game.buyFuel,
-                        tint: const Color(0x557CF0A6),
+                        tint: const Color(0xDDCE1021),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         child: Text(
-                          'Faire le plein · ${_money(game.fuelBill)} ${hud.currency}',
+                          'Acheter du kérosène · ${_money(game.fuelBill)} ${hud.currency}',
                           style: const TextStyle(fontSize: 13),
                         ),
                       )
@@ -1293,7 +1330,7 @@ class _TakeoffPanel extends StatelessWidget {
             hud.refuel > 0
                 ? 'Attends la fin du plein : le camion doit repartir'
                 : hud.fuel < 50
-                ? 'Fais le plein, puis maintiens TURBO pour décoller'
+                ? 'Achète du kérosène, puis maintiens TURBO pour décoller'
                 : 'Maintiens TURBO pour prendre de la vitesse sur la piste',
             style: TextStyle(color: Colors.white.withValues(alpha: 0.85)),
           ),
@@ -1351,35 +1388,6 @@ class _TankGauge extends StatelessWidget {
   }
 }
 
-/// « Descends » qui bat doucement au-dessus des flèches pendant l'approche.
-class _DescendHint extends StatelessWidget {
-  const _DescendHint();
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(seconds: 13),
-      builder: (_, v, child) => Transform.translate(offset: Offset(0, 4 * math.sin(v * 40)), child: child),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(color: ChachaColors.yellow, borderRadius: BorderRadius.circular(12)),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.south_rounded, color: Color(0xFF2A1600), size: 16),
-            SizedBox(width: 4),
-            Text(
-              'Descends',
-              style: TextStyle(color: Color(0xFF2A1600), fontSize: 12, fontWeight: FontWeight.w900),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 String _clock(double s) {
   final m = s ~/ 60, r = (s % 60).floor();
   return '$m:${r.toString().padLeft(2, '0')}';
@@ -1397,7 +1405,7 @@ class _Controls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        if (game.canUseReserve) ...[
+        if (game.canUseReserve && hud.fuel < 35) ...[
           // La réserve : ce qui a débordé du plein, à verser quand le kérosène manque.
           GlassButton(
             onTap: game.useReserve,
@@ -1414,7 +1422,7 @@ class _Controls extends StatelessWidget {
           ),
           const SizedBox(width: 10),
         ],
-        if (game.canLand) ...[
+        if (game.landingUseful) ...[
           // Le pilote peut demander l'atterrissage : là où l'attendent ses passagers, sinon au plus proche.
           ValueListenableBuilder(
             valueListenable: game.mission,
@@ -1434,13 +1442,10 @@ class _Controls extends StatelessWidget {
           ),
           const SizedBox(width: 10),
         ],
-        if (hud.phase == FlightPhase.cruising || hud.phase == FlightPhase.approach) ...[
+        if (hud.phase == FlightPhase.cruising) ...[
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (hud.phase == FlightPhase.approach)
-                // À l'approche : on rappelle qu'il faut faire descendre l'avion soi-même.
-                const Padding(padding: EdgeInsets.only(bottom: 8), child: _DescendHint()),
               GlassButton(
                 onPressChanged: (down) => game.keyY = down ? -1 : 0,
                 radius: 22,
@@ -2627,9 +2632,9 @@ class _CabinView extends StatelessWidget {
             ],
             const SizedBox(height: 8),
             SizedBox(
-              height: 46,
+              height: 104,
               width: double.infinity,
-              child: CustomPaint(painter: _CabinPainter(c.mode, c.progress, c.seats)),
+              child: _CabinScene(cabin: c),
             ),
           ],
         ),
@@ -2725,94 +2730,225 @@ class _PulseButton extends StatelessWidget {
 
 /// Les rangées vues d'en haut : chaque siège passe au vert quand sa ceinture claque,
 /// et pendant le repas le chariot avance dans l'allée en laissant un plateau à chaque rangée.
-class _CabinPainter extends CustomPainter {
-  _CabinPainter(this.mode, this.progress, this.seats);
+/// La cabine vue de côté : de vrais passagers à leur place, qui bougent et réagissent à ce qui se passe.
+class _CabinScene extends StatefulWidget {
+  const _CabinScene({required this.cabin});
 
-  final CabinMode mode;
-  final double progress;
-  final int seats;
+  final CabinHud cabin;
 
   @override
-  void paint(Canvas c, Size s) {
-    // Le fuselage
-    final body = RRect.fromRectAndRadius(Offset.zero & s, Radius.circular(s.height / 2));
-    c.drawRRect(body, Paint()..color = const Color(0x22FFFFFF));
-    final cols = 14;
-    final shown = seats.clamp(1, cols * 4);
-    final cell = (s.width - 40) / cols;
-    final h = (s.height - 10) / 4;
-    var i = 0;
-    for (var col = 0; col < cols; col++) {
-      for (var row = 0; row < 4; row++) {
-        final x = 26 + col * cell;
-        // L'allée au milieu : deux sièges de chaque côté
-        final y = 3 + row * h + (row >= 2 ? 4 : 0);
-        final r = Rect.fromLTWH(x, y, cell * 0.72, h * 0.78);
-        final occupied = i < shown;
-        i++;
-        if (!occupied) {
-          c.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(2)), Paint()..color = const Color(0x22FFFFFF));
-          continue;
-        }
-        final order = col / cols;
-        var color = const Color(0xFFB9C7DA);
-        var scale = 1.0;
-        switch (mode) {
-          case CabinMode.beltsAsk:
-          case CabinMode.beltsPay:
-            color = const Color(0xFFFFB86B);
-          case CabinMode.beltsFastening:
-          case CabinMode.beltsDone:
-            final k = ((progress - order * 0.8) * 5).clamp(0.0, 1.0);
-            color = Color.lerp(const Color(0xFFFFB86B), const Color(0xFF7CF0A6), k)!;
-            // Le « clic » : le siège grossit un instant quand la boucle se ferme.
-            scale = 1 + 0.35 * (k > 0 && k < 1 ? 1 - (k - 0.5).abs() * 2 : 0);
-          case CabinMode.serving:
-          case CabinMode.served:
-            color = const Color(0xFFB9C7DA);
-        }
-        final rr = Rect.fromCenter(center: r.center, width: r.width * scale, height: r.height * scale);
-        c.drawRRect(RRect.fromRectAndRadius(rr, const Radius.circular(2.5)), Paint()..color = color);
-        if (mode == CabinMode.beltsFastening || mode == CabinMode.beltsDone) {
-          final k = ((progress - order * 0.8) * 5).clamp(0.0, 1.0);
-          if (k > 0.5) {
-            c.drawLine(
-              Offset(rr.left + 1, rr.center.dy),
-              Offset(rr.right - 1, rr.center.dy),
-              Paint()
-                ..color = const Color(0xFF1C3B2A)
-                ..strokeWidth = 1.4,
-            );
-          }
-        }
-        if ((mode == CabinMode.serving || mode == CabinMode.served) && order < progress) {
-          // Un plateau : l'assiette et la bouteille
-          c.drawCircle(rr.center.translate(-1.5, 0), rr.height * 0.28, Paint()..color = Colors.white);
-          c.drawRect(
-            Rect.fromCenter(center: rr.center.translate(rr.width * 0.3, 0), width: 2, height: rr.height * 0.6),
-            Paint()..color = const Color(0xFF8A4B1E),
-          );
-        }
-      }
-    }
-    if (mode == CabinMode.serving) {
-      // Le chariot dans l'allée
-      final x = 26 + progress * (s.width - 52);
-      final cart = Rect.fromCenter(center: Offset(x, s.height / 2 + 2), width: 18, height: 7);
-      c.drawRRect(RRect.fromRectAndRadius(cart, const Radius.circular(2)), Paint()..color = ChachaColors.yellow);
-      for (var k = 0; k < 3; k++) {
-        c.drawRect(Rect.fromLTWH(cart.left + 3 + k * 5, cart.top - 4, 2, 4), Paint()..color = const Color(0xFF8A4B1E));
-      }
-    }
-    // Le poste de pilotage, à l'avant
-    c.drawCircle(Offset(s.width - 8, s.height / 2), 5, Paint()..color = const Color(0x66FFFFFF));
+  State<_CabinScene> createState() => _CabinSceneState();
+}
+
+class _CabinSceneState extends State<_CabinScene> with SingleTickerProviderStateMixin {
+  late final _clock = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+
+  @override
+  void dispose() {
+    _clock.dispose();
+    super.dispose();
   }
 
   @override
-  bool shouldRepaint(_CabinPainter old) => old.progress != progress || old.mode != mode || old.seats != seats;
+  Widget build(BuildContext context) => CustomPaint(painter: _CabinPainter(widget.cabin, _clock));
 }
 
-/// Le menu du repas : le pilote compose le plateau, puis on sert.
+class _CabinPainter extends CustomPainter {
+  _CabinPainter(this.cabin, this.clock) : super(repaint: clock);
+
+  final CabinHud cabin;
+  final Animation<double> clock;
+
+  static const _skins = [Color(0xFF5B3A26), Color(0xFF7A4E32), Color(0xFF4A2E1E), Color(0xFF8A5C3C)];
+  static const _shirts = [
+    Color(0xFFD9483B),
+    Color(0xFF2F7FD1),
+    Color(0xFFF2C230),
+    Color(0xFF2E9E6B),
+    Color(0xFFEDEDED),
+    Color(0xFF8D4FB5),
+  ];
+
+  @override
+  void paint(Canvas c, Size s) {
+    final body = RRect.fromRectAndRadius(Offset.zero & s, const Radius.circular(16));
+    c.save();
+    c.clipRRect(body);
+    c.drawRect(
+      Offset.zero & s,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFF1EADB), Color(0xFFD5CBB6)],
+        ).createShader(Offset.zero & s),
+    );
+    final cols = math.max(5, (s.width / 50).floor());
+    final cell = s.width / cols;
+    final mode = cabin.mode;
+    final phase = clock.value * 2 * math.pi;
+    final shown = cabin.seats.clamp(1, cols);
+    for (var i = 0; i < cols; i++) {
+      final w = Rect.fromCenter(
+        center: Offset(cell * (i + 0.5), s.height * 0.2),
+        width: cell * 0.36,
+        height: s.height * 0.22,
+      );
+      c.drawRRect(RRect.fromRectAndRadius(w, const Radius.circular(8)), Paint()..color = const Color(0xFF7CC4F2));
+      c.drawRRect(
+        RRect.fromRectAndRadius(w, const Radius.circular(8)),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = const Color(0xFFB8AE98),
+      );
+    }
+    c.drawRect(Rect.fromLTWH(0, s.height * 0.86, s.width, s.height * 0.14), Paint()..color = const Color(0xFF34404F));
+    for (var i = 0; i < cols; i++) {
+      final x = cell * (i + 0.5);
+      final order = i / cols;
+      final seat = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(x, s.height * 0.66), width: cell * 0.8, height: s.height * 0.62),
+        const Radius.circular(9),
+      );
+      c.drawRRect(seat, Paint()..color = const Color(0xFF1F5FA8));
+      if (i < shown) _person(c, s, x, cell, i, order, mode, phase);
+    }
+    if (mode == CabinMode.serving) _hostess(c, s, cabin.progress * s.width, phase);
+    c.restore();
+  }
+
+  void _person(Canvas c, Size s, double x, double cell, int i, double order, CabinMode mode, double phase) {
+    final scared = cabin.scared;
+    final bob = scared ? math.sin(phase * 5 + i * 2) * 1.8 : math.sin(phase + i * 1.3) * 1.1;
+    final r = s.height * 0.13;
+    final head = Offset(x + (scared ? math.sin(phase * 7 + i) * 1.5 : 0), s.height * 0.46 + bob);
+    final skin = Paint()..color = _skins[i % _skins.length];
+    final shirt = _shirts[(i * 5 + 2) % _shirts.length];
+    final chest = Rect.fromCenter(center: head.translate(0, r * 2.5), width: r * 3.1, height: r * 2.8);
+    c.drawRRect(RRect.fromRectAndRadius(chest, Radius.circular(r * 0.9)), Paint()..color = shirt);
+    c.drawRect(Rect.fromCenter(center: head.translate(0, r * 1.15), width: r * 0.8, height: r), skin);
+    if (scared) {
+      final arm = Paint()
+        ..color = skin.color
+        ..strokeWidth = r * 0.55
+        ..strokeCap = StrokeCap.round;
+      for (final side in const [-1.0, 1.0]) {
+        c.drawLine(
+          chest.topCenter.translate(side * r * 1.35, r * 0.4),
+          head.translate(side * r * 1.75, -r * (1.2 + math.sin(phase * 6 + i) * 0.25)),
+          arm,
+        );
+      }
+    }
+    c.drawCircle(head, r, skin);
+    if (i % 3 == 1) {
+      // Un foulard de pagne
+      c.drawArc(
+        Rect.fromCircle(center: head.translate(0, -r * 0.1), radius: r * 1.14),
+        math.pi * 0.98,
+        math.pi * 1.04,
+        true,
+        Paint()..color = _shirts[(i + 3) % _shirts.length],
+      );
+    } else {
+      c.drawArc(
+        Rect.fromCircle(center: head, radius: r * 1.03),
+        math.pi * 1.02,
+        math.pi * 0.96,
+        true,
+        Paint()..color = const Color(0xFF17100C),
+      );
+    }
+    final eye = Paint()..color = Colors.white;
+    final pupil = Paint()..color = Colors.black;
+    final blink = !scared && (clock.value * 3 + i * 0.37) % 1 < 0.05;
+    for (final side in const [-1.0, 1.0]) {
+      final at = head.translate(side * r * 0.38, r * 0.08);
+      if (blink) {
+        c.drawLine(at.translate(-r * .15, 0), at.translate(r * .15, 0), pupil..strokeWidth = 1);
+      } else {
+        c.drawCircle(at, r * (scared ? 0.25 : 0.18), eye);
+        c.drawCircle(at, r * 0.1, pupil);
+      }
+    }
+    final mouth = head.translate(0, r * 0.55);
+    if (scared) {
+      c.drawOval(
+        Rect.fromCenter(center: mouth, width: r * 0.55, height: r * 0.65),
+        Paint()..color = const Color(0xFF2A0C0C),
+      );
+    } else {
+      c.drawArc(
+        Rect.fromCenter(center: mouth.translate(0, -r * 0.14), width: r * 0.8, height: r * 0.5),
+        0.25,
+        math.pi - 0.5,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.3
+          ..color = const Color(0xFF2A0C0C),
+      );
+    }
+    if (mode == CabinMode.beltsFastening || mode == CabinMode.beltsDone) {
+      final k = ((cabin.progress - order * 0.8) * 5).clamp(0.0, 1.0);
+      if (k > 0.3) {
+        c.drawLine(
+          chest.topLeft.translate(r * .25, r * .2),
+          Offset.lerp(chest.topLeft, chest.bottomRight.translate(-r * .1, -r * .1), k)!,
+          Paint()
+            ..color = const Color(0xFF20262E)
+            ..strokeWidth = r * 0.34,
+        );
+      }
+    }
+    if ((mode == CabinMode.serving || mode == CabinMode.served) && order < cabin.progress) {
+      final tray = Rect.fromCenter(center: Offset(x, s.height * 0.83), width: cell * 0.72, height: s.height * 0.05);
+      c.drawRect(tray, Paint()..color = const Color(0xFFC9A36B));
+      c.drawOval(
+        Rect.fromCenter(center: tray.center.translate(-cell * .1, -3), width: cell * .34, height: 7),
+        Paint()..color = Colors.white,
+      );
+      c.drawRect(
+        Rect.fromLTWH(tray.center.dx + cell * .16, tray.top - s.height * .15, 4, s.height * .15),
+        Paint()..color = const Color(0xFF7A4418),
+      );
+    }
+  }
+
+  void _hostess(Canvas c, Size s, double x, double phase) {
+    final r = s.height * 0.12;
+    final head = Offset(x, s.height * 0.27 + math.sin(phase * 2) * 1.2);
+    c.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(x + r * 1.3, s.height * .5, r * 3.2, s.height * .36),
+        const Radius.circular(3),
+      ),
+      Paint()..color = const Color(0xFFB9BEC6),
+    );
+    c.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(x, s.height * .66), width: r * 2.6, height: s.height * .68),
+        Radius.circular(r),
+      ),
+      Paint()..color = ChachaColors.red,
+    );
+    c.drawCircle(head, r, Paint()..color = _skins[1]);
+    c.drawArc(
+      Rect.fromCircle(center: head, radius: r * 1.05),
+      math.pi,
+      math.pi,
+      true,
+      Paint()..color = const Color(0xFF17100C),
+    );
+    c.drawRect(Rect.fromLTWH(x - r * 1.05, head.dy - r * 1.2, r * 2.1, r * .35), Paint()..color = ChachaColors.yellow);
+  }
+
+  @override
+  bool shouldRepaint(_CabinPainter old) => old.cabin != cabin;
+}
+
+/// Le repas à bord : on fait glisser les plats, on en choisit plusieurs, puis les boissons, et on sert.
 class _MealView extends StatefulWidget {
   const _MealView({super.key, required this.offer, required this.game});
 
@@ -2824,139 +2960,81 @@ class _MealView extends StatefulWidget {
 }
 
 class _MealViewState extends State<_MealView> {
-  String _base = mealBases.first, _dish = mealDishes.first;
+  final _food = <String>{};
+  final _drinks = <String>{'Eau'};
+  bool _drinking = false;
 
-  /// Les boissons chargées sur le chariot : plusieurs à la fois.
-  final _drinks = <String>{'Primus', 'Fanta'};
+  void _toggle(Set<String> set, String v) => setState(() {
+    if (!set.remove(v)) set.add(v);
+  });
 
-  Widget _drinkChips(List<String> items) => _chips(items, '', (v) {
-    if (!_drinks.remove(v)) _drinks.add(v);
-  }, drinks: true);
-
-  Widget _chips(List<String> items, String selected, void Function(String) pick, {bool drinks = false}) => Wrap(
-    spacing: 6,
-    runSpacing: 6,
-    children: [
-      for (final it in items)
-        GestureDetector(
-          onTap: () => setState(() => pick(it)),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-            decoration: BoxDecoration(
-              color: it == selected || (drinks && _drinks.contains(it))
-                  ? const Color(0x55F7D618)
-                  : const Color(0x22FFFFFF),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: it == selected || (drinks && _drinks.contains(it))
-                    ? ChachaColors.yellow
-                    : const Color(0x33FFFFFF),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (drinks) ...[
-                  SizedBox(width: 7, height: 16, child: CustomPaint(painter: _BottlePainter(_bottleColor(it)))),
-                  const SizedBox(width: 5),
-                ],
-                Text(
-                  it,
-                  style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800),
-                ),
-              ],
-            ),
-          ),
-        ),
-    ],
-  );
-
-  static Color _bottleColor(String drink) => switch (drink) {
-    'Fanta' => const Color(0xFFFF8A1E),
-    'Coca-Cola' => const Color(0xFF7A1010),
-    'Vitalo' => const Color(0xFFE8C21A),
-    'Eau' => const Color(0xFF8FD3FF),
-    'Turbo King' => const Color(0xFF2B1A10),
-    'Chivas' => const Color(0xFFC8862A),
-    'Red Label' => const Color(0xFFB0301E),
-    'Jameson' => const Color(0xFF2E6B3A),
-    _ => const Color(0xFF8A4B1E),
-  };
+  void _serve() {
+    final food = _food.toList();
+    widget.game.serveMeal(food.first, food.skip(1).join(', '), _drinks.toList());
+  }
 
   @override
   Widget build(BuildContext context) {
-    Text label(String t) => Text(
-      t,
-      style: TextStyle(
-        color: Colors.white.withValues(alpha: 0.6),
-        fontSize: 10,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1.2,
-      ),
-    );
-    // Sur un petit écran, les choix défilent ; le bouton « Servir » reste toujours visible en bas.
-    final maxHeight = MediaQuery.sizeOf(context).height - 40;
+    final o = widget.offer;
+    final items = _drinking ? const [...mealSodas, ...mealBeers, ...mealSpirits] : const [...mealBases, ...mealDishes];
+    final chosen = _drinking ? _drinks : _food;
     return Glass(
-      tint: const Color(0x66001A40),
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+      tint: const Color(0xB3001A40),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 600, maxHeight: maxHeight),
+        constraints: const BoxConstraints(maxWidth: 720),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.restaurant_rounded, color: ChachaColors.yellow, size: 18),
-                        const SizedBox(width: 6),
-                        Text(
-                          'REPAS À BORD · ${widget.offer.passengers} PASSAGERS',
-                          style: const TextStyle(
-                            color: ChachaColors.yellow,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Le plat du jour',
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
-                    ),
-                    Text(
-                      'Le même plat pour tout le monde ; pour boire, chacun choisit sur le chariot.',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
-                    ),
-                    const SizedBox(height: 10),
-                    label('ACCOMPAGNEMENT'),
-                    const SizedBox(height: 4),
-                    _chips(mealBases, _base, (v) => _base = v),
-                    const SizedBox(height: 8),
-                    label('PLAT'),
-                    const SizedBox(height: 4),
-                    _chips(mealDishes, _dish, (v) => _dish = v),
-                    const SizedBox(height: 8),
-                    label('SUR LE CHARIOT · BIÈRES'),
-                    const SizedBox(height: 4),
-                    _drinkChips(mealBeers),
-                    const SizedBox(height: 6),
-                    label('SUCRÉS'),
-                    const SizedBox(height: 4),
-                    _drinkChips(mealSodas),
-                    const SizedBox(height: 6),
-                    label('LIQUEURS'),
-                    const SizedBox(height: 4),
-                    _drinkChips(mealSpirits),
-                  ],
+            Text(
+              '${o.number == 1 ? 'REPAS À BORD' : '${o.number}E REPAS À BORD'} · ${o.passengers} PASSAGERS',
+              style: const TextStyle(
+                color: ChachaColors.yellow,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 2),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Text(
+                _drinking
+                    ? 'Et pour boire ?'
+                    : (o.number == 1
+                          ? 'Il est temps de servir vos passagers'
+                          : 'C\'est l\'heure du ${o.number == 2 ? 'deuxième' : '${o.number}e'} repas : vos passagers ont faim'),
+                key: ValueKey(_drinking),
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+              ),
+            ),
+            Text(
+              _drinking
+                  ? 'L\'eau est déjà sur le chariot · fais glisser et ajoute ce que tu veux'
+                  : 'Fais glisser les images · touche plusieurs plats pour les choisir',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 150,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 420),
+                transitionBuilder: (child, a) => SlideTransition(
+                  position: Tween(begin: const Offset(1, 0), end: Offset.zero).animate(a),
+                  child: FadeTransition(opacity: a, child: child),
+                ),
+                child: ListView.separated(
+                  key: ValueKey(_drinking),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: items.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 10),
+                  itemBuilder: (_, i) => _MealCard(
+                    name: items[i],
+                    index: i,
+                    selected: chosen.contains(items[i]),
+                    onTap: () => _toggle(chosen, items[i]),
+                  ),
                 ),
               ),
             ),
@@ -2965,35 +3043,43 @@ class _MealViewState extends State<_MealView> {
               children: [
                 Expanded(
                   child: Text(
-                    '$_base et $_dish pour ${widget.offer.passengers} · ${_drinks.length} boisson${_drinks.length > 1 ? 's' : ''} sur le chariot',
+                    chosen.isEmpty ? 'Rien de choisi pour le moment' : chosen.join(' · '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.85),
+                      color: Colors.white.withValues(alpha: 0.88),
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                if (widget.offer.canRefuse) ...[
+                const SizedBox(width: 8),
+                if (_drinking)
+                  GlassButton(
+                    onTap: () => setState(() => _drinking = false),
+                    tint: const Color(0x33FFFFFF),
+                    child: const Text('Retour', style: TextStyle(fontSize: 15)),
+                  )
+                else if (o.canRefuse)
                   GlassButton(
                     onTap: widget.game.refuseMeal,
                     tint: const Color(0x33FFFFFF),
                     child: const Text('Boko lia te', style: TextStyle(fontSize: 15)),
                   ),
-                  const SizedBox(width: 8),
-                ],
+                const SizedBox(width: 8),
                 GlassButton(
-                  onTap: _drinks.isEmpty
-                      ? null
-                      : () {
-                          widget.game.serveMeal(_base, _dish, _drinks.toList());
-                        },
-                  tint: const Color(0x55CE1021),
-                  child: const Row(
+                  onTap: chosen.isEmpty ? null : (_drinking ? _serve : () => setState(() => _drinking = true)),
+                  tint: const Color(0xCCCE1021),
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.room_service_rounded, color: Colors.white, size: 18),
-                      SizedBox(width: 8),
-                      Text('Servir', style: TextStyle(fontSize: 15)),
+                      Icon(
+                        _drinking ? Icons.room_service_rounded : Icons.local_bar_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(_drinking ? 'Servir' : 'À boire', style: const TextStyle(fontSize: 15)),
                     ],
                   ),
                 ),
@@ -3006,32 +3092,80 @@ class _MealViewState extends State<_MealView> {
   }
 }
 
-/// Une petite bouteille : goulot, épaule, étiquette blanche.
-class _BottlePainter extends CustomPainter {
-  _BottlePainter(this.color);
+/// Une image du menu : elle arrive en glissant, grossit quand on la choisit.
+class _MealCard extends StatelessWidget {
+  const _MealCard({required this.name, required this.index, required this.selected, required this.onTap});
 
-  final Color color;
+  final String name;
+  final int index;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
-  void paint(Canvas c, Size s) {
-    final p = Paint()..color = color;
-    final w = s.width, h = s.height;
-    final path = Path()
-      ..moveTo(w * 0.38, 0)
-      ..lineTo(w * 0.62, 0)
-      ..lineTo(w * 0.62, h * 0.28)
-      ..quadraticBezierTo(w, h * 0.36, w, h * 0.5)
-      ..lineTo(w, h)
-      ..lineTo(0, h)
-      ..lineTo(0, h * 0.5)
-      ..quadraticBezierTo(0, h * 0.36, w * 0.38, h * 0.28)
-      ..close();
-    c.drawPath(path, p);
-    c.drawRect(Rect.fromLTWH(0, h * 0.58, w, h * 0.22), Paint()..color = Colors.white.withValues(alpha: 0.85));
+  Widget build(BuildContext context) {
+    final photo = mealPhotos[name]!;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 300 + math.min(index, 6) * 70),
+      curve: Curves.easeOutBack,
+      builder: (_, v, child) => Transform.translate(offset: Offset((1 - v) * 40, 0), child: child),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedScale(
+          scale: selected ? 1 : 0.92,
+          duration: const Duration(milliseconds: 200),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 122,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D2547),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected ? ChachaColors.yellow : const Color(0x33FFFFFF),
+                width: selected ? 3 : 1,
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              children: [
+                Column(
+                  children: [
+                    Expanded(
+                      child: Image.asset(
+                        'assets/meals/$photo',
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        cacheWidth: 300,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
+                ),
+                if (selected)
+                  const Positioned(
+                    top: 5,
+                    right: 5,
+                    child: CircleAvatar(
+                      radius: 11,
+                      backgroundColor: ChachaColors.yellow,
+                      child: Icon(Icons.check_rounded, size: 16, color: Colors.black),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(_BottlePainter old) => old.color != color;
 }
 
 /// La pause : le vol attend ; on règle la musique, les sons et les vibrations.

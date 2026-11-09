@@ -8,6 +8,7 @@ import 'app_state.dart';
 import 'data/aircraft_types.dart';
 import 'game/ads.dart';
 import 'game/chacha_game.dart';
+import 'game/reminders.dart';
 import 'game/telemetry.dart';
 import 'theme/chacha_colors.dart';
 import 'ui/game_screen.dart';
@@ -33,6 +34,7 @@ Future<void> main() async {
   lockLandscape();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   runApp(const Chacha243App());
+  if (!kIsWeb) Reminders.start();
 }
 
 /// Gardé en vie tant que l'app tourne.

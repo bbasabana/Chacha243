@@ -278,6 +278,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     ),
                   ],
                 ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Objectif : arriver à Kinshasa le 30 juin 2027',
+                  style: TextStyle(color: ChachaColors.yellow, fontSize: 13, fontWeight: FontWeight.w900),
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 10,

@@ -191,8 +191,7 @@ void main() {
     }
     expect(g.phase, FlightPhase.ready);
     expect(songs, isNotEmpty, reason: 'aucune chanson au sol après la reprise');
-    expect(songs.first, 'okjazz');
-    expect(songs.skip(1), everyElement('fond'));
+    expect(songs, everyElement('fond'));
   });
 
   test('Mario pour Franco en 1989, le chant pour Mobutu le temps de son émotion, puis une autre chanson', () async {
