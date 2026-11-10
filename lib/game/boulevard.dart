@@ -893,9 +893,8 @@ abstract final class Boulevard {
 
   static const _skins = [Color(0xFF5A3A26), Color(0xFF6B4530), Color(0xFF4A2E1E), Color(0xFF7A4E34)];
 
-  static TextPainter? _slogan;
-
   /// Le « 207 » : le minibus Mercedes bleu en haut, jaune en bas, plein à craquer, le receveur à la porte.
+  /// Rien n'est écrit sur lui : « Esprit de mort », on ne le dit que dans la conversation.
   static void bus207(Canvas c, Offset base, double k, double t, {bool flip = false}) {
     _begin(c, base, k, flip);
     _shadow(c, 64, 1);
@@ -983,17 +982,6 @@ abstract final class Boulevard {
     c.drawRect(const Rect.fromLTRB(52, -13, 67, -8), Paint()..color = const Color(0xFF3A3F45));
     c.drawRect(const Rect.fromLTRB(-64, -13, -56, -8), Paint()..color = const Color(0xFF3A3F45));
     c.drawRect(const Rect.fromLTRB(-63, -34, -60, -26), Paint()..color = const Color(0xFFC0392B));
-    // Son nom de guerre, peint sur le flanc.
-    if (!flip) {
-      final p = _slogan ??= TextPainter(
-        text: const TextSpan(
-          text: 'ESPRIT DE MORT',
-          style: TextStyle(color: Color(0xFF14324A), fontSize: 6.4, fontWeight: FontWeight.w900, letterSpacing: 0.5),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      p.paint(c, const Offset(-56, -34));
-    }
     c.drawCircle(const Offset(-36, -9), 11.5, Paint()..color = const Color(0xFF1A2A33));
     c.drawCircle(const Offset(40, -9), 11.5, Paint()..color = const Color(0xFF1A2A33));
     _wheel(c, const Offset(-36, -9), 9.5, t);
