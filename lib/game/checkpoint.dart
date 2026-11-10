@@ -52,7 +52,26 @@ class Checkpoint {
   static Future<void> clear() async {
     Telemetry.saveProgress(null);
     try {
-      await (await SharedPreferences.getInstance()).remove(_key);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_key);
+      await prefs.remove(_seenKey);
+    } catch (_) {}
+  }
+
+  static const _seenKey = 'chacha243.seen';
+
+  /// Les moments d'histoire déjà lus pendant ce voyage : après un crash, la reprise ne les remontre pas.
+  static Future<Set<String>> loadSeen() async {
+    try {
+      return {...?(await SharedPreferences.getInstance()).getStringList(_seenKey)};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<void> saveSeen(Set<String> seen) async {
+    try {
+      await (await SharedPreferences.getInstance()).setStringList(_seenKey, seen.toList());
     } catch (_) {}
   }
 }

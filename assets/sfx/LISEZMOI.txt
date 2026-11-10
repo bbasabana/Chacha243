@@ -1,2 +1,5 @@
-Petits sons du vol (WAV mono, 22 kHz), gardés en local : medaille, kerosene, kit, etoile, ceinture.
+Petits sons du vol (WAV mono, 22 kHz), gardés en local : medaille, kerosene, kit, etoile, ceinture,
+foret (la forêt au-dessus du fleuve : insectes, oiseaux, singes, grenouilles, eau ; fabriqué pour le jeu).
 Sans eux, le jeu reste muet sur ces moments, sans erreur.
+choc (un coup sourd, la tôle qui vibre, deux bips d'alarme) et klaxon (le klaxon d'une moto, deux coups) :
+fabriqués pour le jeu, pour la descente sur le boulevard Lumumba.

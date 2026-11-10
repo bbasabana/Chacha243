@@ -4,7 +4,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../game/chacha_game.dart';
+import '../data/cabin_talk.dart';
 import '../theme/chacha_colors.dart';
+import 'finale.dart' show TypingDots;
 import 'passenger_art.dart';
 
 /// Le petit écran de bord : la cabine vue depuis l'avant, les passagers, l'hôtesse dans l'allée.
@@ -53,30 +55,28 @@ class _CabinCameraViewState extends State<CabinCameraView> with SingleTickerProv
                     child: CustomPaint(painter: _CabinPainter(_clock, widget.shot.seat, widget.fill)),
                   ),
                 ),
-                // La publicité de bord, en bas de l'écran de la cabine.
+                // La publicité de bord, en bas de l'écran de la cabine : deux marques à tour de rôle.
                 Positioned(
                   left: 0,
                   right: 0,
                   bottom: 0,
                   child: IgnorePointer(
-                    child: Container(
-                      height: 15,
-                      color: const Color(0xFF1B2E24),
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      child: Row(
-                        children: [
-                          Image.asset('assets/ads/zwacolis.png', width: 11, height: 11, cacheWidth: 44),
-                          const SizedBox(width: 4),
-                          const Expanded(
-                            child: Text(
-                              'ZwaColis · vos colis Europe-Afrique avec des voyageurs',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w700),
-                            ),
+                    child: AnimatedBuilder(
+                      animation: _clock,
+                      builder: (context, _) {
+                        final first = _clock.value < 0.5;
+                        return AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 500),
+                          child: _CabinAd(
+                            key: ValueKey(first),
+                            color: first ? const Color(0xFF1B2E24) : const Color(0xFF0B5C8E),
+                            logo: first ? 'assets/ads/zwacolis.png' : 'assets/ads/jompiks.png',
+                            text: first
+                                ? 'ZwaColis · vos colis Europe-Afrique avec des voyageurs'
+                                : 'Académie Digitale · Jompik\'s technology',
                           ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -112,33 +112,182 @@ class _CabinCameraViewState extends State<CabinCameraView> with SingleTickerProv
           ),
           IgnorePointer(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 5, 8, 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.speaker,
-                    style: const TextStyle(color: ChachaColors.yellow, fontSize: 9.5, fontWeight: FontWeight.w900),
-                  ),
-                  Text(
-                    l.lingala,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      height: 1.15,
-                    ),
-                  ),
-                  Text(
-                    l.french,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.72), fontSize: 10, height: 1.15),
-                  ),
-                ],
-              ),
+              padding: const EdgeInsets.fromLTRB(7, 6, 7, 7),
+              child: _ChatLine(key: ObjectKey(l), line: l, right: widget.shot.seat.isOdd),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Une réplique comme dans une messagerie : le visage de celui qui parle, les trois points, puis ses mots.
+class _CabinAd extends StatelessWidget {
+  const _CabinAd({super.key, required this.color, required this.logo, required this.text});
+
+  final Color color;
+  final String logo, text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 15,
+    color: color,
+    padding: const EdgeInsets.symmetric(horizontal: 5),
+    child: Row(
+      children: [
+        Image.asset(logo, width: 11, height: 11, cacheWidth: 44),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ChatLine extends StatefulWidget {
+  const _ChatLine({super.key, required this.line, required this.right});
+
+  final TalkLine line;
+  final bool right;
+
+  @override
+  State<_ChatLine> createState() => _ChatLineState();
+}
+
+class _ChatLineState extends State<_ChatLine> with SingleTickerProviderStateMixin {
+  static const _dots = 0.55;
+  late final _clock = AnimationController(vsync: this, duration: const Duration(seconds: 4))..forward();
+
+  @override
+  void dispose() {
+    _clock.dispose();
+    super.dispose();
+  }
+
+  /// Qui parle : la maman, la grand-mère, la jeune femme ou l'homme.
+  PassengerKind get _kind {
+    final who = widget.line.speaker.toLowerCase();
+    bool has(List<String> words) => words.any(who.contains);
+    if (has(['mamie', 'grand', 'koko', 'vieille'])) return PassengerKind.grandmother;
+    if (has(['maman', 'mama', 'mère'])) return PassengerKind.mother;
+    if (has(['hôtesse', 'voisine', 'femme', 'fille', 'sœur', 'dame', 'passagère', 'étudiante'])) {
+      return PassengerKind.youngWoman;
+    }
+    return PassengerKind.youngMan;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = widget.line, kind = _kind;
+    final face = Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xFFCFE3FF),
+        border: Border.all(color: ChachaColors.yellow, width: 1.5),
+      ),
+      clipBehavior: Clip.antiAlias,
+      // Une vraie photo si elle a été déposée dans assets/passengers, sinon le portrait dessiné.
+      child: Image.asset(
+        'assets/passengers/${kind.name}.jpg',
+        fit: BoxFit.cover,
+        cacheWidth: 136,
+        errorBuilder: (_, _, _) => CustomPaint(painter: PassengerPainter(kind)),
+      ),
+    );
+    const radius = Radius.circular(12);
+    return AnimatedBuilder(
+      animation: _clock,
+      builder: (_, _) {
+        final s = _clock.value * 4;
+        final pop = Curves.easeOutBack.transform((s / 0.3).clamp(0.0, 1.0));
+        final perLetter = math.min(0.03, 1.3 / math.max(1, l.lingala.length));
+        final letters = ((s - _dots) / perLetter).floor().clamp(0, l.lingala.length);
+        final typed = letters >= l.lingala.length;
+        final bubble = Flexible(
+          child: Transform.scale(
+            scale: 0.7 + 0.3 * pop,
+            alignment: widget.right ? Alignment.bottomRight : Alignment.bottomLeft,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(9, 5, 9, 6),
+              decoration: BoxDecoration(
+                color: widget.right ? const Color(0xFF1F6FE0) : const Color(0xFF22355C),
+                borderRadius: BorderRadius.only(
+                  topLeft: radius,
+                  topRight: radius,
+                  bottomLeft: widget.right ? radius : const Radius.circular(3),
+                  bottomRight: widget.right ? const Radius.circular(3) : radius,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.speaker,
+                    style: const TextStyle(color: ChachaColors.yellow, fontSize: 9, fontWeight: FontWeight.w900),
+                  ),
+                  if (s < _dots)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 2),
+                      child: Transform.scale(
+                        scale: 0.7,
+                        alignment: Alignment.centerLeft,
+                        child: TypingDots(phase: s),
+                      ),
+                    )
+                  else ...[
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(text: l.lingala.substring(0, letters)),
+                          TextSpan(
+                            text: l.lingala.substring(letters),
+                            style: const TextStyle(color: Colors.transparent),
+                          ),
+                        ],
+                      ),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        height: 1.15,
+                      ),
+                    ),
+                    // La traduction suit, une fois la phrase écrite.
+                    AnimatedOpacity(
+                      opacity: typed ? 1 : 0,
+                      duration: const Duration(milliseconds: 260),
+                      child: Text(
+                        l.french,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.78),
+                          fontSize: 10,
+                          fontStyle: FontStyle.italic,
+                          height: 1.15,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisAlignment: widget.right ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: widget.right ? [bubble, const SizedBox(width: 6), face] : [face, const SizedBox(width: 6), bubble],
+        );
+      },
     );
   }
 }

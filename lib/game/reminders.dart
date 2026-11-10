@@ -1,3 +1,4 @@
+import '../ui/onboarding_screen.dart';
 import 'dart:io' show Platform;
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -9,6 +10,8 @@ import 'package:timezone/timezone.dart' as tz;
 /// À chaque ouverture, le calendrier repart à zéro : un joueur qui revient n'est pas relancé pour son absence.
 class Reminders {
   Reminders._();
+
+  static const _asked = 'notifications_asked';
 
   static final _plugin = FlutterLocalNotificationsPlugin();
   static const _launches = 'reminders_launches';
@@ -98,12 +101,18 @@ class Reminders {
     } catch (_) {}
   }
 
-  /// La demande d'autorisation attend la deuxième ouverture : le joueur connaît déjà le jeu.
+  /// La demande d'autorisation attend la deuxième ouverture, et jamais par-dessus l'explication du jeu.
   static Future<void> _askOnce() async {
     final p = await SharedPreferences.getInstance();
-    final n = (p.getInt(_launches) ?? 0) + 1;
-    await p.setInt(_launches, n);
-    if (n != 2) return;
+    await p.setInt(_launches, (p.getInt(_launches) ?? 0) + 1);
+    if (!Onboarding.pending) await askIfDue();
+  }
+
+  /// Appelé aussi quand le joueur quitte l'explication.
+  static Future<void> askIfDue() async {
+    final p = await SharedPreferences.getInstance();
+    if ((p.getInt(_launches) ?? 0) < 2 || (p.getBool(_asked) ?? false)) return;
+    await p.setBool(_asked, true);
     await _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();

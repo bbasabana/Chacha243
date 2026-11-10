@@ -137,8 +137,8 @@ class AircraftPainter {
         _paintWord(canvas, l.wordSub!, l.wordX - 27, -h * 0.62, l.wordSize * 0.36, l.wordColor, weight: FontWeight.w800, spacing: 0.5);
       }
     }
-    if (l.fuselageFlag) {
-      FlagPainter.paintFlag(canvas, Rect.fromLTWH(17, -h * 0.05, 3.6, 2.4), FlagStyle.current2006);
+    if (l.fuselageFlag case final flag?) {
+      FlagPainter.paintFlag(canvas, Rect.fromLTWH(17, -h * 0.05, 3.6, 2.4), flag);
     }
     // Ombrage du liseré pour garder le volume
     canvas.drawRect(
@@ -374,14 +374,8 @@ class AircraftPainter {
       case TailEmblem.star:
         canvas.drawPath(FlagPainter.starPath(center, r), Paint()..color = ChachaColors.yellow);
       case TailEmblem.zaire:
-        canvas.drawCircle(center, r, Paint()..color = ChachaColors.yellow);
-        canvas.drawPath(
-          Path()
-            ..moveTo(center.dx, center.dy - r * 0.75)
-            ..quadraticBezierTo(center.dx + r * 0.5, center.dy, center.dx, center.dy + r * 0.4)
-            ..quadraticBezierTo(center.dx - r * 0.5, center.dy, center.dx, center.dy - r * 0.75),
-          Paint()..color = ChachaColors.red,
-        );
+        // Le bras et la torche du Zaïre, comme sur le drapeau.
+        FlagPainter.paintTorch(canvas, center, r * 1.1);
       case TailEmblem.flag:
         canvas.save();
         canvas.clipPath(fin);

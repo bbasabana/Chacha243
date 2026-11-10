@@ -89,6 +89,171 @@ class TalkBubbles extends StatelessWidget {
   }
 }
 
+/// Une pique en lingala, à côté de l'avion : trois points, puis le message s'écrit comme dans un chat.
+class TauntBubble extends StatelessWidget {
+  const TauntBubble({super.key, required this.game});
+
+  final ChachaGame game;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder(
+      valueListenable: game.taunt,
+      builder: (_, taunt, _) {
+        if (taunt == null) return const SizedBox.shrink();
+        return ValueListenableBuilder(
+          valueListenable: game.hud,
+          builder: (context, _, _) {
+            final size = MediaQuery.sizeOf(context);
+            final width = math.min(300.0, size.width * 0.42);
+            // Au crash, la parole est seule au milieu de l'écran, avant le bilan.
+            if (game.phase == FlightPhase.crashed) {
+              if (game.crashShown) return const SizedBox.shrink();
+              return Align(
+                alignment: const Alignment(0, -0.35),
+                child: SizedBox(
+                  width: math.min(380.0, size.width * 0.6),
+                  child: TauntMessage(key: ObjectKey(taunt), taunt: taunt, big: true),
+                ),
+              );
+            }
+            // Juste devant le nez de l'avion ; au-dessus quand il vole bas, en dessous quand il vole haut.
+            final above = game.planeY > size.height * 0.45;
+            final left = (game.planeX + game.planeLength * 0.2)
+                .clamp(12.0, math.max(12.0, size.width - width - 12))
+                .toDouble();
+            final gap = game.planeLength * 0.14 + 10;
+            return Stack(
+              children: [
+                Positioned(
+                  left: left,
+                  width: width,
+                  top: above ? null : game.planeY + gap,
+                  bottom: above ? size.height - game.planeY + gap : null,
+                  child: TauntMessage(key: ObjectKey(taunt), taunt: taunt, tailDown: above),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class TauntMessage extends StatefulWidget {
+  const TauntMessage({super.key, required this.taunt, this.tailDown = false, this.big = false});
+
+  final Taunt taunt;
+  final bool tailDown;
+
+  /// Plus grand, centré : la parole du crash.
+  final bool big;
+
+  @override
+  State<TauntMessage> createState() => _TauntMessageState();
+}
+
+class _TauntMessageState extends State<TauntMessage> with SingleTickerProviderStateMixin {
+  late final _a = AnimationController(
+    vsync: this,
+    duration: Duration(milliseconds: (widget.taunt.seconds * 1000).round()),
+  )..forward();
+
+  @override
+  void dispose() {
+    _a.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = widget.taunt.text;
+    const radius = Radius.circular(18);
+    return AnimatedBuilder(
+      animation: _a,
+      builder: (_, _) {
+        final s = _a.value * widget.taunt.seconds;
+        final pop = Curves.easeOutBack.transform((s / 0.28).clamp(0.0, 1.0));
+        final typing = s < Taunt.dots;
+        final letters = ((s - Taunt.dots) / Taunt.perLetter).floor().clamp(0, text.length);
+        return Align(
+          alignment: widget.big ? Alignment.center : Alignment.centerLeft,
+          child: Transform.scale(
+            scale: 0.6 + 0.4 * pop,
+            alignment: widget.tailDown ? Alignment.bottomLeft : Alignment.topLeft,
+            child: Opacity(
+              opacity: (s / 0.18).clamp(0.0, 1.0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: widget.tailDown ? radius : const Radius.circular(4),
+                    bottomLeft: widget.tailDown ? const Radius.circular(4) : radius,
+                    topRight: radius,
+                    bottomRight: radius,
+                  ),
+                  boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 14, offset: Offset(0, 4))],
+                ),
+                child: typing
+                    ? TypingDots(phase: s)
+                    : Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(text: text.substring(0, letters)),
+                            // Le reste garde sa place : la bulle ne saute pas pendant que le texte s'écrit.
+                            TextSpan(
+                              text: text.substring(letters),
+                              style: const TextStyle(color: Colors.transparent),
+                            ),
+                          ],
+                        ),
+                        style: TextStyle(
+                          color: const Color(0xFF0B1B3A),
+                          fontSize: widget.big ? 18 : 14.5,
+                          height: 1.25,
+                          fontWeight: widget.big ? FontWeight.w800 : FontWeight.w700,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Les trois points qui sautent, comme quand quelqu'un écrit.
+class TypingDots extends StatelessWidget {
+  const TypingDots({super.key, required this.phase});
+
+  final double phase;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 44,
+      height: 18,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          for (var i = 0; i < 3; i++)
+            Transform.translate(
+              offset: Offset(0, -4 * math.max(0, math.sin(phase * 9 - i * 0.9))),
+              child: Container(
+                width: 9,
+                height: 9,
+                decoration: const BoxDecoration(color: Color(0xFF8A94A6), shape: BoxShape.circle),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Bubble extends StatefulWidget {
   const _Bubble({super.key, required this.line, required this.delay, required this.left});
 

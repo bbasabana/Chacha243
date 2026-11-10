@@ -66,6 +66,13 @@ void main() {
     final oath = historyEvents.firstWhere((e) => e.title.contains('Joseph Kabila prête serment'));
     expect(oath.date, '26 janvier 2001');
     expect(oath.year > mzee.year, isTrue);
-    expect(historyEvents.firstWhere((e) => e.title.contains('Outeniqua')).text, contains('Mandela'));
+    expect(
+      warZones
+          .firstWhere((z) => z.name.contains('AFDL'))
+          .chapters
+          .firstWhere((c) => c.title.contains('Outeniqua'))
+          .text,
+      contains('Mandela'),
+    );
   });
 }

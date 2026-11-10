@@ -475,6 +475,8 @@ class Telemetry {
       if (y == null || y < 1961 || y > 2027) return;
       final cur = await Checkpoint.load();
       await jumpedCheckpoint(y, cur).save();
+      // The designer jumps to watch again: the cards and scenes already seen come back.
+      await Checkpoint.saveSeen(const {});
       await _post({'kind': 'jumped', 'year': y});
     } catch (_) {}
   }

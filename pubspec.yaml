@@ -76,7 +76,9 @@ flutter:
     - assets/notes/
     - assets/sfx/
     - assets/scenery/
+    - assets/animaux/
     - assets/ads/
+    - assets/passengers/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

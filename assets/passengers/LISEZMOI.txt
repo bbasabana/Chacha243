@@ -1,0 +1,9 @@
+Les portraits des passagers qui parlent dans la cabine.
+
+Sans photo ici, le jeu dessine les passagers. Pour mettre de vraies photos
+(générées ou dont vous avez les droits), déposez des images carrées, visage centré :
+
+  youngWoman.jpg    la jeune femme, l'hôtesse
+  mother.jpg        la maman
+  grandmother.jpg   la grand-mère
+  youngMan.jpg      l'homme, le voisin, le commandant

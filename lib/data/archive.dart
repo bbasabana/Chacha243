@@ -50,6 +50,8 @@ const archivePhotos = <String, ArchivePhoto>{
   ),
   'mpr': ArchivePhoto('logo-mpr.jpg', 'Le Mouvement populaire de la révolution', credit: 'MPR'),
   'leopards': ArchivePhoto('leopards-1974.jpg', 'Les Léopards du Zaïre, champions d\'Afrique 1974'),
+  'can74': ArchivePhoto('kidumu-can-1974.jpg', 'Le capitaine Kidumu soulève le trophée, Le Caire, 14 mars 1974'),
+  'mondial74': ArchivePhoto('zaire-mondial-1974.jpg', 'Les Léopards du Zaïre à la Coupe du monde 1974'),
   'carte': ArchivePhoto(
     'carte-citoyen-zaire.jpg',
     'La carte d\'identité pour citoyen, République du Zaïre',
@@ -82,6 +84,9 @@ const archivePhotos = <String, ArchivePhoto>{
   'tshisekedi': ArchivePhoto('felix-tshisekedi.jpg', 'Félix Tshisekedi'),
   'nyiragongo': ArchivePhoto('nyiragongo-goma.jpg', 'Le Nyiragongo au-dessus de Goma'),
   'gecamines': ArchivePhoto('gecamines-terril.jpg', 'Le terril de la Gécamines, Lubumbashi'),
+  'chan2009': ArchivePhoto('chan-2009.jpg', 'Les Léopards champions du CHAN, Abidjan, 8 mars 2009'),
+  'chan2016': ArchivePhoto('chan-2016.jpg', 'Les Léopards champions du CHAN, Kigali, 7 février 2016'),
+  'mandela': ArchivePhoto('nelson-mandela-1997.jpg', 'Nelson Mandela, président de l\'Afrique du Sud, 1997'),
   'outeniqua': ArchivePhoto('outeniqua-1997.jpg', 'Mobutu, Mandela et Kabila sur l\'Outeniqua, 1997'),
   'wagenia': ArchivePhoto('wagenia-kisangani.jpg', 'Les pêcheurs Wagenia, Kisangani'),
   'lumumba': ArchivePhoto('patrice-lumumba.jpg', 'Patrice Emery Lumumba'),
@@ -349,13 +354,23 @@ const momentSongs = <String, MomentSong>{
     fadeIn: 1,
     then: 'mpr',
   ),
+  // Le Zaïre redevient le Congo, Mzee prend le pouvoir : l'hymne chante pendant la fin de la guerre et le serment.
   'congo': MomentSong(
     'congo-hymne.mp3',
     'Debout Congolais',
     'Hymne national de la RDC',
-    seconds: 85,
-    level: 0.6,
-    fadeIn: 1,
+    seconds: 88,
+    level: 0.7,
+    fadeIn: 0.5,
+  ),
+  // Le 30 juin 1998, le franc congolais revient : le début de la chanson de la monnaie, une minute.
+  'monnaie': MomentSong(
+    'franc-congolais.mp3',
+    'Franc congolais',
+    'Chanson du lancement de la monnaie, 1998',
+    seconds: 62,
+    level: 0.7,
+    fadeIn: 0.4,
   ),
   // Les tam-tams, les harpes et la forêt remplacent les chansons d'artistes ; les moments de joie restent à Indépendance Cha Cha.
   // Le retour du M23, à partir de 2022 : on entre dans le noir de la forêt.
@@ -445,7 +460,8 @@ const momentSongs = <String, MomentSong>{
     level: 0.65,
     fadeIn: 3,
   ),
-  'bomaye': MomentSong('afrique/tam-tam-village.mp3', 'Tam-tams de la route', 'Chacha 243', seconds: 66),
+  // Le combat du siècle : la cloche du ring, les coups de gant, et la foule de Kinshasa qui chante.
+  'bomaye': MomentSong('afrique/ali-bomaye.mp3', 'Ali Bomaye', 'Chacha 243', seconds: 53, level: 0.75, fadeIn: 0.3),
   'viva': MomentSong('afrique/tam-tam-village.mp3', 'Tam-tams de la route', 'Chacha 243', seconds: 70),
   'wenge': MomentSong('afrique/tam-tam-village.mp3', 'Tam-tams de la route', 'Chacha 243', seconds: 66),
   'koffi': MomentSong('afrique/tam-tam-village.mp3', 'Tam-tams de la route', 'Chacha 243', seconds: 70),

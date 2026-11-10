@@ -15,7 +15,19 @@ class WarZone {
     required this.peaceTitle,
     required this.peaceText,
     this.part,
+    this.chapters = const [],
+    this.intro,
+    this.fierce = false,
   });
+
+  /// Les étapes de l'histoire racontées entre les vagues (la médiation, le refus…).
+  final List<WarChapter> chapters;
+
+  /// Pourquoi cette guerre commence, lu à l'entrée de la zone (sinon : sa date et son lieu).
+  final String? intro;
+
+  /// Une guerre plus dure : des missiles dès la deuxième vague, et plus nombreux.
+  final bool fierce;
 
   /// Une crise dans la crise (le Sud-Kasaï dans la sécession du Katanga) : ses avions ont leurs couleurs,
   /// et elle s'arrête quand toutes ses vagues sont passées.
@@ -34,6 +46,25 @@ class WarZone {
   final String peaceText;
 
   bool contains(double year) => year >= from && year < to;
+}
+
+/// Une étape racontée au milieu d'une guerre, quand [after] vagues sont passées : le jeu s'arrête,
+/// on lit (« Oyebi ke… », tu sais que…), puis les avions reviennent.
+class WarChapter {
+  const WarChapter({
+    required this.after,
+    required this.date,
+    required this.title,
+    required this.text,
+    this.photo,
+    this.face,
+  });
+
+  final int after;
+  final String date, title, text;
+
+  /// La photo (clé de archivePhotos) et le nom écrit dessous.
+  final String? photo, face;
 }
 
 class ZonePart {
@@ -87,8 +118,50 @@ const warZones = <WarZone>[
     name: "Guerre de l'AFDL",
     place: "De l'est du Congo jusqu'à Kinshasa",
     waves: 4,
+    fierce: true,
     peaceTitle: 'Une nouvelle page',
-    peaceText: "Mai 1997 : la guerre s'arrête, le Zaïre redevient le Congo.",
+    peaceText:
+        "Le 16 mai 1997, Mobutu quitte Kinshasa pour Gbadolite, puis l'exil. Le 17 mai, l'AFDL entre dans la capitale : "
+        'le Zaïre redevient le Congo.',
+    chapters: [
+      WarChapter(
+        after: 3,
+        date: 'novembre 1996',
+        title: 'La communauté internationale intervient',
+        text:
+            "Des centaines de milliers de réfugiés fuient les combats dans l'Est. Le 15 novembre 1996, le Conseil de sécurité "
+            "de l'ONU vote la résolution 1080 pour une force multinationale humanitaire. L'ONU, l'OUA, les États-Unis "
+            "et l'Afrique du Sud cherchent à arrêter la guerre.",
+      ),
+      WarChapter(
+        after: 5,
+        date: 'début 1997',
+        title: 'Mandela, le médiateur',
+        text:
+            "L'ONU et l'OUA comptent sur Nelson Mandela, le président de l'Afrique du Sud. Avec son vice-président "
+            'Thabo Mbeki, il accepte de servir de médiateur entre Mobutu et Laurent-Désiré Kabila.',
+        photo: 'mandela',
+        face: 'Nelson Mandela',
+      ),
+      WarChapter(
+        after: 7,
+        date: '4 mai 1997',
+        title: "Rencontre sur l'Outeniqua",
+        text:
+            "Au large de Pointe-Noire, Mandela réunit Mobutu, déjà malade, et Kabila sur le navire sud-africain Outeniqua. "
+            'Il veut que Mobutu quitte le pouvoir sans bataille pour Kinshasa.',
+        photo: 'outeniqua',
+        face: 'Mandela · 1997',
+      ),
+      WarChapter(
+        after: 9,
+        date: 'mai 1997',
+        title: 'Mobutu refuse : la guerre continue',
+        text:
+            'Mobutu ne veut pas céder le pouvoir, et la seconde rencontre, prévue le 14 mai, n\'a pas lieu. '
+            "L'AFDL reprend sa marche vers Kinshasa : tiens bon, ce sont les derniers combats.",
+      ),
+    ],
   ),
   WarZone(
     from: 1998.6,
@@ -96,6 +169,9 @@ const warZones = <WarZone>[
     name: 'Deuxième guerre du Congo',
     place: "L'Est, puis tout le pays",
     waves: 6,
+    intro:
+        "Mzee a renvoyé les soldats rwandais et ougandais qui l'avaient porté au pouvoir. Repliés à l'Est, "
+        'ils reviennent à l\'attaque avec une rébellion, le RCD ; au nord, Jean-Pierre Bemba et son MLC entrent aussi en guerre.',
     peaceTitle: 'La réconciliation',
     peaceText: 'Les accords de paix de 2002 et 2003 ouvrent une transition qui réunit le pays.',
   ),
@@ -123,6 +199,39 @@ const warZones = <WarZone>[
 ///
 /// À faire valider par des locuteurs avant la sortie.
 abstract final class Lingala {
+  /// « Tu es touché ! Tu ne sais pas porter un avion ! Tu es un faux pilote. »
+  static const ozui = 'Ozui ! Oyebi ko mema PEPO te ! Oza faux pilo pilo';
+
+  /// « Si tu es fatigué, demain on change de pilote. »
+  static const olembi = 'Soki olembi, lobi to changer pilo pilo';
+
+  /// « Ta vie est comme cette guerre : cherche Dieu. »
+  static const lukaNzambe = 'Vie na yo eza lokola guerre oyo. Luka Nzambe';
+
+  /// Une pique par crash, à tour de rôle.
+  static const crashes = [ozui, olembi, lukaNzambe];
+
+  /// « Pilote, attention aux missiles ! Sois vigilant. »
+  static const kebaMissile = 'Pilo pilo keba ba missile ! Zala ngele';
+
+  /// « Eh maman, j'ai fait tuer des gens ! »
+  static const mamaNaNga = 'Ehh mama na nga, na bomisi batu !';
+
+  /// « Dieu, donne-moi la force de gagner ce combat. »
+  static const nzambePesa = 'Nzambe, pesa nga makasi na longa etumba oyo';
+
+  /// « Pilote, sois vigilant… », donné par l'auteur (la traduction complète reste à écrire).
+  static const ekenge = 'Pilo pilo zala ekenge ndeti Mungala';
+
+  /// Touché une fois, deux fois, trois fois… : le pilote ne dit pas la même chose.
+  static const hits = [kebaMissile, ekenge, mamaNaNga, nzambePesa];
+
+  /// « Tu sais que… », avant un moment d'histoire.
+  static const oyebiKe = 'OYEBI KE';
+
+  /// « Tu as fait tomber un passager. Quel genre de pilote es-tu ? »
+  static const okweyisi = 'Okweyisi passager. Yango ozali pilo pilo ya ndenge nini ?';
+
   /// « Allons-y ! »
   static const tokende = 'To kende !';
 
@@ -150,8 +259,8 @@ abstract final class Lingala {
   /// « Courage ! », entre deux vagues.
   static const makasi = 'Makasi !';
 
-  /// « Le carburant va finir. »
-  static const mafuta = 'Mafuta ezali kosila';
+  /// « Le kérosène va finir. »
+  static const mafuta = 'Kerozene ezali ya ko sila';
 
   /// « Descends doucement. »
   static const kitaMalembe = 'Kita malembe';

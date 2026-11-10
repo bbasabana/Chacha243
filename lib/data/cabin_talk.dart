@@ -357,7 +357,7 @@ const cabinTalks = <TalkMoment, List<List<TalkLine>>>{
   ],
 };
 
-/// Le 30 juin 1960, sur la caméra de la cabine : la joie, une fois les explications finies.
+/// La première conversation de la caméra : une fois la sécession du Katanga passée, la joie de l'indépendance.
 const independenceCameraTalk = [
   TalkLine('Un passager', 'Indépendance ! Tozwi yango, bandeko !', 'Nous avons eu l\'indépendance, mes frères !'),
   TalkLine(
@@ -365,7 +365,6 @@ const independenceCameraTalk = [
     'Nzambe apambolama. Bana na biso bakozala na bonsomi.',
     'Dieu soit béni. Nos enfants seront libres.',
   ),
-  TalkLine('Un jeune', 'Yoka Indépendance Cha Cha ! Tobina !', 'Écoutez Indépendance Cha Cha ! Dansons !'),
 ];
 
 /// Ce qu'on entend sur la caméra de la cabine, décennie par décennie : chaque conversation ne passe qu'une fois.

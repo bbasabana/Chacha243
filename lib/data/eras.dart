@@ -18,7 +18,7 @@ class Livery {
     required this.emblem,
     this.nose,
     this.engine,
-    this.fuselageFlag = false,
+    this.fuselageFlag,
     this.tailBands = const [],
     this.tailDots,
     this.word,
@@ -45,8 +45,8 @@ class Livery {
   /// Couleur des capots moteurs (blancs par défaut).
   final Color? engine;
 
-  /// Petit drapeau peint à l'arrière du fuselage.
-  final bool fuselageFlag;
+  /// Petit drapeau peint à l'arrière du fuselage : celui du pays de l'époque.
+  final FlagStyle? fuselageFlag;
 
   /// Bandes en biais sur la dérive, de bas en haut (les couleurs d'une compagnie étrangère).
   final List<Color> tailBands;
@@ -75,9 +75,12 @@ class Livery {
 /// Les livrées sont « inspirées » des couleurs de l'époque, sans logo réel : les vrais
 /// logos des compagnies demandent une autorisation.
 class AirlineEra {
-  const AirlineEra(this.from, this.name, this.note, this.livery, {required this.flagship});
+  const AirlineEra(this.from, this.name, this.note, this.livery, {required this.flagship, this.headline});
 
   final double from;
+
+  /// Le titre de l'annonce quand le pays change (sinon « année · compagnie »).
+  final String? headline;
 
   /// L'avion que la compagnie fait voler en premier : l'avion du joueur change avec elle.
   final String flagship;
@@ -85,6 +88,17 @@ class AirlineEra {
   final String note;
   final Livery livery;
 }
+
+/// Les couleurs du Zaïre : le vert, le jaune et la torche, avec son drapeau sur le fuselage.
+const _zaire = Livery(
+  body: Color(0xFFF7F8FB),
+  belly: Color(0xFFC9D1DB),
+  stripe: ChachaColors.zaireGreen,
+  stripe2: ChachaColors.yellow,
+  tail: ChachaColors.zaireGreen,
+  emblem: TailEmblem.zaire,
+  fuselageFlag: FlagStyle.zaire1971,
+);
 
 const airlineEras = <AirlineEra>[
   AirlineEra(
@@ -115,38 +129,19 @@ const airlineEras = <AirlineEra>[
     ),
     flagship: 'dc6',
   ),
-  AirlineEra(
-    1971.82,
-    'Air Zaïre',
-    'Le pays devient le Zaïre : sa compagnie aussi.',
-    Livery(
-      body: Color(0xFFF7F8FB),
-      belly: Color(0xFFC9D1DB),
-      stripe: ChachaColors.zaireGreen,
-      stripe2: ChachaColors.yellow,
-      tail: ChachaColors.zaireGreen,
-      emblem: TailEmblem.zaire,
-    ),
-    flagship: 'b707',
-  ),
+  AirlineEra(1971.82, 'Air Zaïre', 'Le pays devient le Zaïre : sa compagnie aussi.', _zaire, flagship: 'b707'),
   AirlineEra(
     1995.45,
-    'Compagnies privées',
-    'Air Zaïre disparaît en 1995 : des compagnies privées prennent le relais.',
-    Livery(
-      body: Color(0xFFEEF0F3),
-      belly: Color(0xFF9AA3AE),
-      stripe: Color(0xFF59606B),
-      stripe2: Color(0xFF8E96A1),
-      tail: Color(0xFF59606B),
-      emblem: TailEmblem.none,
-    ),
+    'Compagnies zaïroises',
+    'Air Zaïre s\'arrête en 1995 : des compagnies privées volent encore aux couleurs du Zaïre.',
+    // Le pays reste le Zaïre jusqu'à l'arrivée de l'AFDL : l'avion garde le vert et la torche.
+    _zaire,
     flagship: 'b737',
   ),
   AirlineEra(
     1997.4,
     'Lignes Aériennes Congolaises',
-    'Après 1997, les LAC deviennent la compagnie nationale, jusqu\'en 2013.',
+    'Le Zaïre redevient la RD Congo : le vert du Zaïre s\'efface, l\'avion prend le bleu et l\'étoile des LAC.',
     Livery(
       body: Color(0xFFF7F8FB),
       belly: Color(0xFFC9D1DB),
@@ -154,20 +149,23 @@ const airlineEras = <AirlineEra>[
       stripe2: ChachaColors.red,
       tail: ChachaColors.sky,
       emblem: TailEmblem.star,
+      fuselageFlag: FlagStyle.star1997,
     ),
     flagship: 'b737',
+    headline: 'Ton avion devient congolais',
   ),
   AirlineEra(
     2013.5,
     'Compagnies privées',
-    'Les LAC sont liquidées en 2013.',
+    'Les LAC sont liquidées en 2013 : les compagnies privées volent aux couleurs de la RDC.',
     Livery(
-      body: Color(0xFFEEF0F3),
-      belly: Color(0xFF9AA3AE),
-      stripe: Color(0xFF59606B),
-      stripe2: Color(0xFF8E96A1),
-      tail: Color(0xFF59606B),
-      emblem: TailEmblem.none,
+      body: Color(0xFFF7F8FB),
+      belly: Color(0xFFC9D1DB),
+      stripe: ChachaColors.sky,
+      stripe2: ChachaColors.yellow,
+      tail: ChachaColors.sky,
+      emblem: TailEmblem.flag,
+      fuselageFlag: FlagStyle.current2006,
     ),
     flagship: 'b737',
   ),
@@ -201,7 +199,7 @@ const airlineEras = <AirlineEra>[
       emblem: TailEmblem.roundel,
       nose: Color(0xFF3FB6E8),
       engine: Color(0xFF3FB6E8),
-      fuselageFlag: true,
+      fuselageFlag: FlagStyle.current2006,
     ),
     flagship: 'b737',
   ),

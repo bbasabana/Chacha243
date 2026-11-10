@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/aircraft_types.dart';
 import '../data/eras.dart';
 import '../painting/aircraft_painter.dart';
+import '../game/reminders.dart';
 import '../theme/chacha_colors.dart';
 import 'home_screen.dart';
 
@@ -30,10 +32,10 @@ class Onboarding {
 }
 
 const _message =
-    'Commandant, conduisez l\'avion du 30 juin 1960 au 30 juin 2027. '
+    'Yo nde PILOTE! MEMA BISO NA Le\u00A030\u00A0JUIN\u00A01960  Ti\u00A030\u00A0JUIN\u00A02027\n'
     'Évitez les avions de guerre : ce sont les moments difficiles du pays.';
 
-const _perLetter = 0.06, _afterText = 3.5, _replayAfter = 7.0;
+const _perLetter = 0.035, _afterText = 1.8, _replayAfter = 7.0;
 
 /// La démonstration joue un peu au ralenti, le temps de lire et de voir.
 const _demoPace = 0.72;
@@ -106,6 +108,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
   void _leave() {
     if (_leaving) return;
     _leaving = true;
+    if (!kIsWeb) Reminders.askIfDue();
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 500),
@@ -157,7 +160,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text(
-                          'À vous de piloter,\ncommandant',
+                          'PILO PILO TELEKA',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900),
                         ),
@@ -198,17 +201,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                 ),
               if (done <= 0)
                 Positioned(
-                  top: 10,
-                  right: 12,
+                  left: 0,
+                  right: 0,
+                  bottom: 18,
                   child: SafeArea(
-                    child: TextButton(
-                      onPressed: _leave,
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        backgroundColor: const Color(0x33FFFFFF),
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                    child: Center(
+                      child: OutlinedButton(
+                        onPressed: _leave,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: const Color(0x66000000),
+                          side: const BorderSide(color: Colors.white, width: 1.5),
+                          padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 14),
+                        ),
+                        child: const Text('Passer', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                       ),
-                      child: const Text('Passer', style: TextStyle(fontWeight: FontWeight.w800)),
                     ),
                   ),
                 ),

@@ -27,6 +27,7 @@ class Ad {
   final String id, name, tagline, site, builtin, logoVersion;
   final Color color;
   final Set<String> slots;
+
   /// Les années du jeu où la marque paraît, ex. « 1960, 2000-2005 » ; vide : toutes.
   final String years;
 
@@ -56,7 +57,10 @@ class Ad {
     if (_unit == unit) return;
     _unit = unit;
     TextPainter text(String s, double size, FontWeight w, Color c, double width, int lines) => TextPainter(
-      text: TextSpan(text: s, style: TextStyle(color: c, fontSize: size * unit, fontWeight: w, height: 1.12)),
+      text: TextSpan(
+        text: s,
+        style: TextStyle(color: c, fontSize: size * unit, fontWeight: w, height: 1.12),
+      ),
       textDirection: TextDirection.ltr,
       maxLines: lines,
       ellipsis: '…',
@@ -92,6 +96,17 @@ class Ads {
     color: const Color(0xFF1B2E24),
     slots: {'p1', 'p2', 'p3', 'kerosene', 'ciel', 'independance', 'arrivee'},
     builtin: 'zwacolis',
+  );
+
+  /// L'Académie Digitale (Jompik's technology) paraît toujours, elle aussi.
+  static Ad _academie() => Ad(
+    id: 'jompiks',
+    name: 'Académie Digitale',
+    tagline: 'Jompik\'s technology : apprends le numérique, crée ton avenir.',
+    site: '',
+    color: const Color(0xFF0B5C8E),
+    slots: {'p1', 'p2', 'p3', 'kerosene', 'ciel', 'independance', 'arrivee'},
+    builtin: 'jompiks',
   );
 
   static List<Ad> _bundled() => [
@@ -150,6 +165,7 @@ class Ads {
       slots: {'p1', 'p2', 'kerosene', 'ciel', 'independance', 'arrivee'},
       builtin: 'promptauth',
     ),
+    _academie(),
   ];
 
   /// Lu une fois au lancement : d'abord ce qu'on a déjà, puis le tableau de bord.
@@ -198,6 +214,7 @@ class Ads {
         ),
     ];
     if (!ads.any((a) => a.id == 'zwacolis')) ads.add(_zwaColis());
+    if (!ads.any((a) => a.id == 'jompiks')) ads.add(_academie());
     return ads;
   }
 
@@ -409,7 +426,10 @@ class Ads {
     if (a._said != label) {
       a._said = label;
       a._offered = TextPainter(
-        text: TextSpan(text: label, style: TextStyle(color: const Color(0xE6FFFFFF), fontSize: 9 * u, fontWeight: FontWeight.w600)),
+        text: TextSpan(
+          text: label,
+          style: TextStyle(color: const Color(0xE6FFFFFF), fontSize: 9 * u, fontWeight: FontWeight.w600),
+        ),
         textDirection: TextDirection.ltr,
         maxLines: 1,
       )..layout(maxWidth: 170 * u);

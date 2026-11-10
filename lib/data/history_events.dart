@@ -33,7 +33,11 @@ class HistoryEvent {
     this.medal,
     this.intro,
     this.tag,
+    this.balls = false,
   });
+
+  /// Des ballons de football traversent le ciel : chacun apporte un peu de kérosène et d'entretien.
+  final bool balls;
 
   /// Une étiquette propre à ce moment, à la place de celle de son genre.
   final String? tag;
@@ -147,15 +151,6 @@ const historyEvents = <HistoryEvent>[
     photo: 'bcdc',
   ),
   HistoryEvent(
-    1960.9,
-    EventKind.life,
-    'années 1960',
-    'Léopoldville',
-    'Franco et l\'OK Jazz',
-    'Franco Luambo Makiadi et son OK Jazz, né en 1956, font danser tout le pays sur la rumba.',
-    song: 'okjazz',
-  ),
-  HistoryEvent(
     1961.05,
     EventKind.memory,
     '17 janvier 1961',
@@ -164,6 +159,15 @@ const historyEvents = <HistoryEvent>[
     'Patrice Emery Lumumba, premier Premier ministre du Congo, est assassiné au Katanga avec Maurice Mpolo et Joseph Okito. Un moment de silence.',
     tag: 'À SAVOIR · BOYEBI',
     photo: 'lumumba',
+  ),
+  HistoryEvent(
+    1961.2,
+    EventKind.life,
+    'années 1960',
+    'Léopoldville',
+    'Franco et l\'OK Jazz font danser le pays',
+    'Franco Luambo Makiadi, né en 1938, et son OK Jazz, fondé en 1956, font danser tout le pays sur la rumba.',
+    song: 'okjazz',
   ),
   HistoryEvent(
     1961.49,
@@ -269,12 +273,15 @@ const historyEvents = <HistoryEvent>[
     photo: 'billet1z',
   ),
   HistoryEvent(
-    1968.1,
+    1968.3,
     EventKind.glory,
     '21 janvier 1968',
     'Addis-Abeba',
     'Champions d\'Afrique',
     'Les Léopards remportent leur première Coupe d\'Afrique des nations en battant le Ghana 1 à 0 en finale.',
+    medal: 'CAN 1968',
+    intro: 'Première Coupe d\'Afrique pour le Congo · attrape les ballons',
+    balls: true,
   ),
   HistoryEvent(
     1968.76,
@@ -314,8 +321,22 @@ const historyEvents = <HistoryEvent>[
     '14 mars 1974',
     'Le Caire',
     'Deuxième titre africain',
-    'Les Léopards du Zaïre battent la Zambie 2 à 0 en finale rejouée et sont encore champions d\'Afrique. Ils jouent ensuite la Coupe du monde en Allemagne.',
-    photo: 'leopards',
+    'Les Léopards du Zaïre battent la Zambie 2 à 0 en finale rejouée : le capitaine Kidumu soulève la coupe. Le Zaïre est encore champion d\'Afrique.',
+    photo: 'can74',
+    medal: 'CAN 1974',
+    intro: 'Deuxième Coupe d\'Afrique · attrape les ballons',
+    balls: true,
+  ),
+  HistoryEvent(
+    1974.52,
+    EventKind.glory,
+    'juin 1974',
+    'Allemagne',
+    'Les Léopards à la Coupe du monde',
+    'Le Zaïre est la première nation d\'Afrique noire à jouer une Coupe du monde, en Allemagne en 1974.',
+    photo: 'mondial74',
+    medal: 'Mondial 74',
+    intro: 'Premier pays d\'Afrique noire à la Coupe du monde',
   ),
   HistoryEvent(
     1974.7,
@@ -331,7 +352,9 @@ const historyEvents = <HistoryEvent>[
     '30 octobre 1974',
     'Kinshasa',
     'Ali – Foreman',
-    '« Ali boma ye ! » Le combat du siècle se déroule au stade du 20 Mai.',
+    'Vers 4 heures du matin, au stade du 20 Mai, Mohamed Ali bat George Foreman par KO au 8e round '
+        'et redevient champion du monde des poids lourds. Toute la foule de Kinshasa chante « Ali, boma ye ! » : '
+        'c\'est « le combat du siècle », the Rumble in the Jungle.',
     photo: 'ali',
     photo2: 'aliforeman',
     song: 'bomaye',
@@ -399,7 +422,9 @@ const historyEvents = <HistoryEvent>[
     '15 février 1982',
     'Kinshasa',
     'Naissance de l\'UDPS',
-    'Étienne Tshisekedi et douze parlementaires fondent l\'UDPS, premier parti d\'opposition sous Mobutu.',
+    'Le 15 février 1982, Étienne Tshisekedi wa Mulumba et douze autres parlementaires fondent l\'Union pour la démocratie '
+        'et le progrès social : le premier parti d\'opposition face au parti unique de Mobutu. Son fondateur, « le Sphinx '
+        'de Limete », en restera la grande figure.',
     photo: 'etienne',
   ),
   HistoryEvent(
@@ -443,15 +468,15 @@ const historyEvents = <HistoryEvent>[
     '1er – 15 juillet 1984',
     'Tout le pays',
     'Le recensement',
-    'Premier recensement scientifique du Zaïre : on compte environ 30 millions d\'habitants. Chaque citoyen a sa carte d\'identité pour citoyen (lien avec le recensement à confirmer).',
-    photo: 'carte',
+    'Du 1er au 15 juillet 1984, le Zaïre fait son premier recensement scientifique : des agents passent de maison en '
+        'maison dans tout le pays et comptent environ 30 millions d\'habitants.',
   ),
   HistoryEvent(
     1985.62,
     EventKind.glory,
     '14 – 16 août 1985',
     'Kinshasa',
-    'Jean-Paul II revient',
+    'Deuxième visite de Jean-Paul II',
     'Deuxième visite du pape au Zaïre. Le 15 août 1985, à Kinshasa, il béatifie sœur Anuarite Nengapeta, '
         'la première Zaïroise déclarée bienheureuse.',
     photo: 'jeanpaul2',
@@ -499,7 +524,8 @@ const historyEvents = <HistoryEvent>[
     'septembre 1991',
     'Kinshasa',
     'Les pillages',
-    'Kinshasa et d\'autres villes sont pillées.',
+    'Les 23 et 24 septembre 1991, des militaires mal payés, puis une partie de la population, pillent magasins et usines '
+        'de Kinshasa et d\'autres villes. L\'économie du Zaïre s\'effondre.',
   ),
   HistoryEvent(
     1992.12,
@@ -565,24 +591,13 @@ const historyEvents = <HistoryEvent>[
     war: true,
   ),
   HistoryEvent(
-    1997.34,
-    EventKind.life,
-    '4 mai 1997',
-    'Au large de Pointe-Noire',
-    'Rencontre sur l\'Outeniqua',
-    'L\'AFDL approche de Kinshasa. Le président sud-africain Nelson Mandela réunit Mobutu, déjà malade, et Laurent-Désiré Kabila sur le navire Outeniqua, au large de Pointe-Noire. Il veut que Mobutu quitte le pouvoir sans bataille pour Kinshasa. Les deux hommes ne s\'entendent pas : l\'AFDL continue, et Mobutu quitte Kinshasa le 16 mai.',
-    photo: 'outeniqua',
-    medal: 'Mandela · 1997',
-    intro: 'Mandela réunit Mobutu et Kabila sur un bateau',
-  ),
-  HistoryEvent(
     1997.38,
     EventKind.life,
     '17 mai 1997',
     'Kinshasa',
     'Le Zaïre redevient le Congo',
-    'L\'AFDL de Laurent-Désiré Kabila entre à Kinshasa, Mobutu part. Le Zaïre redevient la République démocratique du Congo, et les FAZ deviennent les FAC.',
-    photo: 'ldk',
+    'L\'AFDL de Laurent-Désiré Kabila entre à Kinshasa, Mobutu est parti. Le Zaïre redevient la République démocratique du Congo : '
+        'le drapeau à l\'étoile revient, les FAZ deviennent les FAC, et le franc congolais remplacera le zaïre.',
     song: 'congo',
     big: true,
   ),
@@ -592,8 +607,9 @@ const historyEvents = <HistoryEvent>[
     '29 mai 1997',
     'Kinshasa, stade des Martyrs',
     'Mzee Laurent-Désiré Kabila prête serment',
-    'Douze jours après l\'entrée de l\'AFDL à Kinshasa, Laurent-Désiré Kabila prête serment au stade des Martyrs '
-        'et devient président de la République démocratique du Congo. On l\'appelle Mzee, « le sage ».',
+    'Le 29 mai 1997, douze jours après l\'entrée de l\'AFDL à Kinshasa, Laurent-Désiré Kabila prête serment '
+        'devant la foule du stade des Martyrs et devient le troisième président du Congo. Il a 57 ans ; '
+        'on l\'appelle Mzee, « le sage ». Il dirige le pays jusqu\'à sa mort, le 16 janvier 2001.',
     photo: 'ldkserment',
     medal: 'Mzee · 1997',
     intro: 'Mzee Laurent-Désiré Kabila devient président',
@@ -615,6 +631,7 @@ const historyEvents = <HistoryEvent>[
     'Retour du franc congolais',
     'Le franc congolais remplace le nouveau zaïre : 1 franc vaut 100 000 nouveaux zaïres. La Banque du Zaïre devient la Banque centrale du Congo.',
     photo: 'billet1f',
+    song: 'monnaie',
   ),
   HistoryEvent(
     1998.57,
@@ -820,6 +837,19 @@ const historyEvents = <HistoryEvent>[
     'Des affrontements entre la police et le mouvement Bundu dia Kongo font de nombreuses victimes au Bas-Congo.',
   ),
   HistoryEvent(
+    2009.18,
+    EventKind.glory,
+    '8 mars 2009',
+    'Abidjan, Côte d\'Ivoire',
+    'Les Léopards gagnent le premier CHAN',
+    'Au stade Félix-Houphouët-Boigny, les Léopards battent le Ghana 2 à 0 en finale du tout premier '
+        'Championnat d\'Afrique des nations, joué par les footballeurs des championnats africains. '
+        'Kaluyituka et Mbenza Bedi marquent : le Congo est le premier champion du CHAN.',
+    photo: 'chan2009',
+    medal: 'CHAN 2009',
+    balls: true,
+  ),
+  HistoryEvent(
     2010.5,
     EventKind.glory,
     '30 juin 2010',
@@ -870,6 +900,18 @@ const historyEvents = <HistoryEvent>[
     'Kinshasa',
     'Congo Airways décolle',
     'Premier vol de Congo Airways, avec deux Airbus A320.',
+  ),
+  HistoryEvent(
+    2016.1,
+    EventKind.glory,
+    '7 février 2016',
+    'Kigali, Rwanda',
+    'Deuxième CHAN pour les Léopards',
+    'Au stade Amahoro, les Léopards de Florent Ibenge battent le Mali 3 à 0 en finale : Meschak Elia marque deux fois, '
+        'Jonathan Bolingi une fois. Le Congo devient le premier pays à gagner le CHAN deux fois.',
+    photo: 'chan2016',
+    medal: 'CHAN 2016',
+    balls: true,
   ),
   HistoryEvent(
     2016.3,
