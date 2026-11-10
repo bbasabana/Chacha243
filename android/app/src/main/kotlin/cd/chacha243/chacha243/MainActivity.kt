@@ -10,6 +10,8 @@ import android.os.Looper
 import android.view.View
 import android.provider.Settings
 import android.telephony.TelephonyManager
+import com.google.android.gms.games.PlayGames
+import com.google.android.gms.games.PlayGamesSdk
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -41,6 +43,8 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Play Games connecte le joueur tout seul au lancement, s'il a un compte Google Play Jeux.
+        PlayGamesSdk.initialize(this)
         cap60()
     }
 
@@ -94,6 +98,21 @@ class MainActivity : FlutterActivity() {
                     "simCountry" to (tm?.simCountryIso ?: ""),
                 ),
             )
+        }
+        // Play Games : « player » dit qui est connecté (ou null), « signIn » le demande au joueur, d'un clic.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "chacha243/games").setMethodCallHandler { call, result ->
+            val auth = PlayGames.getGamesSignInClient(this)
+            val task = when (call.method) {
+                "player" -> auth.isAuthenticated
+                "signIn" -> auth.signIn()
+                else -> return@setMethodCallHandler result.notImplemented()
+            }
+            task.addOnCompleteListener { done ->
+                if (!done.isSuccessful || done.result?.isAuthenticated != true) return@addOnCompleteListener result.success(null)
+                PlayGames.getPlayersClient(this).currentPlayer.addOnCompleteListener { me ->
+                    result.success(if (me.isSuccessful) me.result?.displayName else null)
+                }
+            }
         }
     }
 }

@@ -47,6 +47,10 @@
         <meta-data
             android:name="io.flutter.embedding.android.ImpellerBackend"
             android:value="opengles" />
+        <!-- Play Games : le joueur est connecté tout seul, sans clic, avec son compte Google Play Jeux. -->
+        <meta-data
+            android:name="com.google.android.gms.games.APP_ID"
+            android:value="@string/game_services_project_id" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"/>
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
             <intent-filter>

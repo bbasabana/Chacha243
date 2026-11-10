@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Le projet Play Games de Chacha243 (Play Console → Services de jeux Play → Configuration). -->
+    <string name="game_services_project_id" translatable="false">13510206863</string>
+</resources>
