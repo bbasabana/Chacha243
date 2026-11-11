@@ -606,6 +606,8 @@ class _Hud extends StatelessWidget {
                 valueListenable: game.stagePause,
                 builder: (_, pause, _) => pause == null
                     ? const SizedBox.shrink()
+                    : pause.tribute != null
+                    ? _TributeView(key: ValueKey(pause), event: pause.tribute!, game: game)
                     : _StagePauseView(key: ValueKey(pause), pause: pause, game: game),
               ),
             ),
@@ -1433,6 +1435,232 @@ class _StoryCardView extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Un hommage : le ciel s'assombrit, la grande photo entre en scène et glisse lentement, l'autre photo lui succède
+/// en fondu ; le nom, les années, puis quelques lignes arrivent l'une après l'autre. Il se referme seul, ou d'un toucher.
+class _TributeView extends StatefulWidget {
+  const _TributeView({super.key, required this.event, required this.game});
+
+  final HistoryEvent event;
+  final ChachaGame game;
+
+  @override
+  State<_TributeView> createState() => _TributeViewState();
+}
+
+class _TributeViewState extends State<_TributeView> with SingleTickerProviderStateMixin {
+  static const _photoSeconds = 3.4;
+  late final _clock = AnimationController(
+    vsync: this,
+    duration: Duration(milliseconds: (ChachaGame.tributeSeconds * 1000).round()),
+  )..forward().whenComplete(_close);
+  bool _closing = false;
+
+  List<ArchivePhoto> get _photos => [
+    for (final key in [widget.event.photo, widget.event.photo2])
+      if (archivePhotos[key] case final ArchivePhoto p when p.visible) p,
+  ];
+
+  @override
+  void dispose() {
+    _clock.dispose();
+    super.dispose();
+  }
+
+  void _close() {
+    if (_closing || !mounted) return;
+    _closing = true;
+    if (widget.game.stagePause.value?.tribute == widget.event) widget.game.closePause();
+  }
+
+  /// Une étape de l'entrée : 0 avant [from] secondes, 1 après [from] + [length].
+  double _step(double from, double length) {
+    final s = _clock.value * ChachaGame.tributeSeconds;
+    return Curves.easeOutCubic.transform(((s - from) / length).clamp(0.0, 1.0));
+  }
+
+  /// La sortie : tout s'efface pendant la dernière demi-seconde.
+  double get _out => ((ChachaGame.tributeSeconds - _clock.value * ChachaGame.tributeSeconds) / 0.5).clamp(0.0, 1.0);
+
+  Widget _reveal(double k, Widget child, {double rise = 14}) => Opacity(
+    opacity: k,
+    child: Transform.translate(offset: Offset(0, rise * (1 - k)), child: child),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final e = widget.event;
+    final photos = _photos;
+    final wide = photos.isNotEmpty && photos.every((p) => p.wide);
+    const gold = Color(0xFFE9C46A);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _close,
+      child: LayoutBuilder(
+        builder: (_, box) => AnimatedBuilder(
+          animation: _clock,
+          builder: (_, _) {
+            final s = _clock.value * ChachaGame.tributeSeconds;
+            final frameH = math.min(box.maxHeight * 0.8, 360.0);
+            final frameW = math.min(frameH * (wide ? 1.35 : 0.78), box.maxWidth * 0.5);
+            final shown = photos.isEmpty ? 0 : (s / _photoSeconds).floor() % photos.length;
+            // Chaque photo glisse et grossit doucement pendant qu'on la regarde.
+            final drift = (s % _photoSeconds) / _photoSeconds;
+            final photoIn = _step(0, 0.7);
+            return Opacity(
+              opacity: _out,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (photos.isNotEmpty)
+                        Opacity(
+                          opacity: photoIn,
+                          child: Transform.translate(
+                            offset: Offset(-40 * (1 - photoIn), 0),
+                            child: Transform.scale(
+                              scale: 1.06 - 0.06 * photoIn,
+                              child: Container(
+                                width: frameW,
+                                height: frameH,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: gold.withValues(alpha: 0.7), width: 1.5),
+                                  boxShadow: const [
+                                    BoxShadow(color: Color(0x99000000), blurRadius: 30, spreadRadius: 2),
+                                  ],
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 800),
+                                  child: Transform.scale(
+                                    key: ValueKey(shown),
+                                    scale: 1.02 + 0.08 * drift,
+                                    alignment: shown.isEven ? Alignment.topLeft : Alignment.bottomRight,
+                                    child: Image.asset(
+                                      photos[shown].asset,
+                                      width: frameW,
+                                      height: frameH,
+                                      fit: BoxFit.cover,
+                                      alignment: Alignment.topCenter,
+                                      cacheWidth: (frameW * 2.5).round(),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(width: 26),
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 380),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _reveal(
+                                _step(0.6, 0.6),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text(
+                                      'HOMMAGE',
+                                      style: TextStyle(
+                                        color: gold,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 3,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Container(width: 60 * _step(0.8, 0.9), height: 1.5, color: gold),
+                                  ],
+                                ),
+                                rise: 0,
+                              ),
+                              const SizedBox(height: 6),
+                              _reveal(
+                                _step(0.9, 0.6),
+                                Text(
+                                  e.title.replaceFirst(RegExp(r"^Mort (de |d')"), ''),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 26,
+                                    height: 1.05,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              _reveal(
+                                _step(1.25, 0.6),
+                                Text(
+                                  [?e.lifespan, e.date, e.city].join(' · '),
+                                  style: const TextStyle(color: gold, fontSize: 13, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              _reveal(
+                                _step(1.7, 0.8),
+                                Text(
+                                  e.text,
+                                  maxLines: 7,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                    fontSize: 13.5,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              _reveal(
+                                _step(2.4, 0.6),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Le temps qui reste : un fil doré qui se vide.
+                                    Container(
+                                      width: 120,
+                                      height: 2,
+                                      alignment: Alignment.centerLeft,
+                                      color: Colors.white.withValues(alpha: 0.15),
+                                      child: FractionallySizedBox(
+                                        widthFactor: 1 - _clock.value,
+                                        child: Container(color: gold),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      'Toucher pour continuer',
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.6),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                rise: 0,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

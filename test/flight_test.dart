@@ -735,6 +735,37 @@ void main() {
     },
   );
 
+  test(
+    'Mobutu, Étienne Tshisekedi, Dikembe Mutombo : un hommage en grand, dans son année, avec ses deux photos',
+    () async {
+      for (final (from, title) in [
+        (1997.55, 'Mort de Mobutu'),
+        (2016.95, 'Mort d\'Étienne Tshisekedi'),
+        (2024.6, 'Mort de Dikembe Mutombo'),
+      ]) {
+        final g = await start(year: from, autopilot: true);
+        double? at;
+        g.stagePause.addListener(() {
+          if (g.stagePause.value?.tribute?.title == title) at ??= g.year;
+        });
+        for (var i = 0; i < 60 * 60 * 3 && g.year < from + 0.6; i++) {
+          g.lives = 5;
+          g.condition = 100;
+          g.fuel = 80;
+          g.update(1 / 60);
+          if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+        }
+        final e = historyEvents.firstWhere((e) => e.title == title);
+        expect(at, isNotNull, reason: '$title : l\'hommage passe');
+        expect(at, closeTo(e.year, 0.15), reason: '$title passe dans son année');
+        expect(archivePhotos[e.photo], isNotNull);
+        expect(archivePhotos[e.photo2], isNotNull, reason: 'deux photos qui alternent');
+        expect(e.lifespan, isNotNull);
+        expect(g.stagePause.value, isNull, reason: 'l\'hommage se referme et le vol reprend');
+      }
+    },
+  );
+
   test('après le boulevard de 1990, personne ne propose de descendre avant mi-1994', () async {
     final g = await start(year: 1990.95, autopilot: true);
     final offers = <String>[];

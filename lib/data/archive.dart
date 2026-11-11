@@ -176,6 +176,31 @@ const archivePhotos = <String, ArchivePhoto>{
   'fallysdf': ArchivePhoto('fally-stade-de-france-2026.jpg', 'Fally Ipupa au Stade de France, 2 et 3 mai 2026'),
   'fallychevalier': ArchivePhoto('fally-chevalier-2026.jpg', 'Fally Ipupa reçoit les insignes de chevalier du Léopard'),
   'president': ArchivePhoto('tshisekedi-president.jpg', 'Félix Tshisekedi, président de la République'),
+  'mutombo': ArchivePhoto('dikembe-mutombo.jpg', 'Dikembe Mutombo, ambassadeur de la NBA, avec le drapeau de la RDC'),
+  'mutombohawks': ArchivePhoto(
+    'dikembe-mutombo-hawks.jpg',
+    'Dikembe Mutombo et son doigt levé, avec les Hawks d\'Atlanta',
+  ),
+  'etienneudps': ArchivePhoto(
+    'etienne-tshisekedi-udps.jpg',
+    'Étienne Tshisekedi au milieu de ses partisans',
+    wide: true,
+  ),
+  'etienneadieu': ArchivePhoto(
+    'etienne-tshisekedi-adieu.jpg',
+    'Le cercueil d\'Étienne Tshisekedi, sous le drapeau',
+    wide: true,
+  ),
+  'mobutuobseques': ArchivePhoto(
+    'mobutu-obseques-1997.jpg',
+    'Les obsèques de Mobutu à Rabat, septembre 1997',
+    wide: true,
+  ),
+  'mobutumausolee': ArchivePhoto(
+    'mobutu-mausolee-rabat.jpg',
+    'Le mausolée de Mobutu au cimetière chrétien de Rabat, marqué MSS',
+    wide: true,
+  ),
   'billet1f': ArchivePhoto('notes/billet-1-franc-1997.jpg', 'Billet de 1 franc congolais', credit: 'BCC, 1997'),
   'billet1z': ArchivePhoto('notes/billet-1-zaire-1977.jpg', 'Billet de 1 zaïre', credit: 'Banque du Zaïre, 1977'),
   'billetnz': ArchivePhoto(

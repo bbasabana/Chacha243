@@ -35,7 +35,15 @@ class HistoryEvent {
     this.tag,
     this.balls = false,
     this.brief,
+    this.tribute = false,
+    this.lifespan,
   });
+
+  /// Un hommage : le vol fait une courte pause, la grande photo s'affiche (les deux en alternance), puis le texte.
+  final bool tribute;
+
+  /// Les années de vie, sous le nom, dans l'hommage (« 1966 – 2024 »).
+  final String? lifespan;
 
   /// Une ligne pour comprendre, sous le titre de la fiche en vol (qui est Mutamba, ce que disent les accords…).
   final String? brief;
@@ -430,6 +438,7 @@ const historyEvents = <HistoryEvent>[
         'et le progrès social : le premier parti d\'opposition face au parti unique de Mobutu. Son fondateur, « le Sphinx '
         'de Limete », en restera la grande figure.',
     photo: 'etienne',
+    photo2: 'etienneudps',
   ),
   HistoryEvent(
     1982.9,
@@ -617,6 +626,19 @@ const historyEvents = <HistoryEvent>[
     photo: 'ldkserment',
     medal: 'Mzee · 1997',
     intro: 'Mzee Laurent-Désiré Kabila devient président',
+  ),
+  HistoryEvent(
+    1997.68,
+    EventKind.memory,
+    '7 septembre 1997',
+    'Rabat (Maroc)',
+    'Mort de Mobutu',
+    'Chassé de Kinshasa par l\'AFDL en mai, malade d\'un cancer, Mobutu Sese Seko meurt en exil à Rabat, à 66 ans, '
+        'après 32 ans au pouvoir. Il repose au cimetière chrétien de Rabat, dans un petit mausolée marqué de ses initiales, MSS.',
+    photo: 'mobutuobseques',
+    photo2: 'mobutumausolee',
+    tribute: true,
+    lifespan: '1930 – 1997',
   ),
   HistoryEvent(
     1998.3,
@@ -995,8 +1017,13 @@ const historyEvents = <HistoryEvent>[
     '1er février 2017',
     'Bruxelles',
     'Mort d\'Étienne Tshisekedi',
-    'Figure de l\'opposition depuis Mobutu, le « Sphinx de Limete » s\'éteint à Bruxelles.',
+    'Fondateur de l\'UDPS en 1982, trois fois Premier ministre, opposant à Mobutu puis à Kabila : le « Sphinx de Limete » '
+        's\'éteint à Bruxelles, à 84 ans. Il ne verra pas son fils Félix devenir président. Son corps rentre à Kinshasa '
+        'le 30 mai 2019.',
     photo: 'etienne',
+    photo2: 'etienneadieu',
+    tribute: true,
+    lifespan: '1932 – 2017',
   ),
   HistoryEvent(
     2018.0,
@@ -1211,6 +1238,20 @@ const historyEvents = <HistoryEvent>[
     'Le Service national, rattaché à la Présidence, lance à Lubumbashi ses trains : ils doivent amener '
         'sa production agricole vers les grands centres de consommation du pays.',
     photo: 'servicenational',
+  ),
+  HistoryEvent(
+    2024.75,
+    EventKind.memory,
+    '30 septembre 2024',
+    'Atlanta (États-Unis)',
+    'Mort de Dikembe Mutombo',
+    'Né à Kinshasa, il devient l\'un des plus grands contreurs de la NBA : 18 saisons, quatre fois meilleur défenseur, '
+        'au Temple de la renommée en 2015, célèbre pour son doigt levé. Au-delà du basket, il est entrepreneur et bâtit '
+        'à Masina l\'hôpital Biamba Marie Mutombo, du nom de sa mère. Une tumeur au cerveau l\'emporte à 58 ans.',
+    photo: 'mutombo',
+    photo2: 'mutombohawks',
+    tribute: true,
+    lifespan: '1966 – 2024',
   ),
   HistoryEvent(
     2024.92,

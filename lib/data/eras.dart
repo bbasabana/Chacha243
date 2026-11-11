@@ -209,8 +209,7 @@ const airlineEras = <AirlineEra>[
   AirlineEra(
     1998.3,
     'Hewa Bora Airways',
-    'Zaïre Airlines, Zaïre Express et Congo Airlines s\'unissent : Hewa Bora Airways (HBA, « le bon air » en swahili) '
-        'devient la grande compagnie privée de Kinshasa, avec ses Lockheed TriStar.',
+    'Ton avion passe aux couleurs de Hewa Bora Airways, la grande compagnie privée de Kinshasa.',
     hewaBoraLivery,
     flagship: 'l1011',
   ),

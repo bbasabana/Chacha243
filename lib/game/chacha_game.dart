@@ -264,9 +264,13 @@ class StagePause {
     this.people = const [],
     this.acclaim = false,
     this.war = false,
+    this.tribute,
   });
 
   final String kicker, title, text;
+
+  /// Un hommage (Mobutu, Étienne Tshisekedi, Dikembe Mutombo) : la grande photo, puis le texte.
+  final HistoryEvent? tribute;
 
   /// Les visages de l'étape.
   final List<HistoryEvent> people;
@@ -1605,6 +1609,21 @@ class ChachaGame extends FlameGame {
     if (e.war || independenceFaces.contains(e)) return;
     // Chaque fiche ne passe qu'une fois dans le voyage, même après un crash, sauf si la suite n'a pas été lue.
     if (_alreadyTold(e)) return;
+    // Un hommage : le vol s'arrête un instant pour la grande photo ; la suite attend qu'il soit refermé.
+    if (e.tribute && !_duel) {
+      _cue(
+        () {
+          _told.add(e.title);
+          if (_seen.add(e.title) && !_offRecord) Checkpoint.saveSeen(_seen);
+          _pause(StagePause('HOMMAGE', e.title, e.text, tribute: e));
+        },
+        1e9,
+        hold: true,
+        done: () => stagePause.value == null && _pauseComing == null,
+        story: e.year,
+      );
+      return;
+    }
     if (e.big && caught) {
       // Grand tournant : le ciel bout, le drapeau change, la fiche suit.
       _cue(
@@ -1896,7 +1915,8 @@ class ChachaGame extends FlameGame {
       // L'avion se remet droit pendant qu'on lit : jamais figé en pleine montée.
       pitch *= math.max(0, 1 - dt * 5);
       vy = 0;
-      if (_pauseWait > (autopilot ? 0.3 : 20)) closePause();
+      // Un hommage se lit vite : il se referme seul au bout de quelques secondes.
+      if (_pauseWait > (autopilot ? 0.3 : (stagePause.value?.tribute != null ? tributeSeconds + 1 : 20))) closePause();
       return;
     }
     // Une étape arrive : le vol ralentit jusqu'à l'arrêt. Après « Continuer », il reprend sa vitesse en douceur.
@@ -4449,11 +4469,15 @@ class ChachaGame extends FlameGame {
     } else {
       onBuzz?.call(p.acclaim ? 260 : 160, 170);
       HapticFeedback.mediumImpact();
-      if (!p.acclaim) onSound?.call('medaille');
+      // Un hommage arrive en silence : pas de son de médaille.
+      if (!p.acclaim && p.tribute == null) onSound?.call('medaille');
     }
   }
 
   static const _pauseLeadTime = 0.8, _resumeTime = 0.9;
+
+  /// Le temps d'un hommage, de la photo au texte.
+  static const tributeSeconds = 13.0;
   StagePause? _pauseComing;
   double _pauseLead = 0, _resumeT = _resumeTime;
 
@@ -7285,9 +7309,15 @@ class ChachaGame extends FlameGame {
     if (stagePause.value case final sp?) {
       // Une étape : tout l'écran se teinte, rouge pour la guerre, vert pour la victoire, d'un bord à l'autre.
       final k = Curves.easeOutCubic.transform((_pauseWait / 0.6).clamp(0.0, 1.0));
-      final color = sp.acclaim ? const Color(0xFF39C46E) : (sp.war ? const Color(0xFFE0262B) : const Color(0xFFFFC93C));
+      final color = sp.tribute != null
+          ? const Color(0xFFE9DDB8)
+          : (sp.acclaim ? const Color(0xFF39C46E) : (sp.war ? const Color(0xFFE0262B) : const Color(0xFFFFC93C)));
       final full = Offset.zero & s;
-      canvas.drawRect(full, Paint()..color = const Color(0xFF05070D).withValues(alpha: 0.35 * k));
+      // L'hommage assombrit davantage le ciel : la photo prend toute la place.
+      canvas.drawRect(
+        full,
+        Paint()..color = const Color(0xFF05070D).withValues(alpha: (sp.tribute != null ? 0.72 : 0.35) * k),
+      );
       final pulse = sp.war ? 0.5 + 0.5 * math.sin(_pauseWait * 4) : 0.5;
       canvas.drawRect(
         full,
