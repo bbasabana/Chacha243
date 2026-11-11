@@ -7,7 +7,9 @@ import 'package:chacha243/data/war_zones.dart';
 import 'package:chacha243/data/window_animals.dart';
 import 'package:chacha243/game/boulevard.dart';
 import 'package:chacha243/game/chacha_game.dart';
+import 'package:chacha243/game/checkpoint.dart';
 import 'package:chacha243/game/kinshasa_descent.dart';
+import 'package:chacha243/game/telemetry.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -740,7 +742,7 @@ void main() {
     () async {
       for (final (from, title) in [
         (1997.55, 'Mort de Mobutu'),
-        (2016.95, 'Mort d\'Étienne Tshisekedi'),
+        (2017.02, 'Mort d\'Étienne Tshisekedi'),
         (2024.6, 'Mort de Dikembe Mutombo'),
       ]) {
         final g = await start(year: from, autopilot: true);
@@ -765,6 +767,13 @@ void main() {
       }
     },
   );
+
+  test('un saut du tableau de bord vers 2017 reprend en 2017, avec de quoi faire le plein', () async {
+    final cp = Telemetry.jumpedCheckpoint(2017.02, Checkpoint(1997.6, 0, 40, money: 540, seconds: 1363));
+    final g = await start(year: cp.year, resumed: true, money: cp.money);
+    expect(g.year.floor(), 2017);
+    expect(g.stranded, isFalse, reason: 'pas de « Recommencer en 1960 » au sol');
+  });
 
   test('après le boulevard de 1990, personne ne propose de descendre avant mi-1994', () async {
     final g = await start(year: 1990.95, autopilot: true);

@@ -555,7 +555,8 @@ class Telemetry {
           .length;
       return cur != null && cur.year < year ? math.max(cur.medals, passed) : passed;
     }(),
-    money: cur?.money ?? 3000,
+    // At least the money of 1960: with less, the plane could not pay its fuel and the jump would end on « Recommencer en 1960 ».
+    money: math.max(cur?.money ?? 0, 3000),
     seconds: cur?.seconds ?? 0,
   );
 

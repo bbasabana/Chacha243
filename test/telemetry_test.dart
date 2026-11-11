@@ -48,6 +48,10 @@ void main() {
     expect(cp.seconds, 700);
     expect(cp.medals, greaterThan(20));
     expect(Telemetry.jumpedCheckpoint(2023, null).money, 3000);
+    // Presque sans argent (540 après un vol) : le saut redonne de quoi payer le plein, pas un avion bloqué au sol.
+    final poor = Telemetry.jumpedCheckpoint(2017.02, Checkpoint(1997.6, 0, 40, money: 540, seconds: 1363));
+    expect(poor.money, 3000);
+    expect(poor.year.floor(), 2017);
     // Retour en arrière : 2016, 2017, 2018 ramènent le pilote, avec moins de médaillons.
     for (final y in [2016.0, 2017.0, 2018.0]) {
       final back = Telemetry.jumpedCheckpoint(y, Checkpoint(2023, 900, 99, money: 9000, seconds: 700));
