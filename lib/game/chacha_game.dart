@@ -2359,7 +2359,8 @@ class ChachaGame extends FlameGame {
       _float('Kérosène 50 % · attrape les bidons rouges', planeX, planeY - 44 * _unit, const Color(0xFFFFD54A));
     }
     // L'alerte ne vient que si la réserve ne suffit pas à tenir.
-    if (fuel < 22 && fuel + reserve < 30 && t >= _nextFuelAlert && !_offerPending) _fuelAlert();
+    // Pendant la chanson d'Ali, la tour ne parle du kérosène qu'en cas d'urgence.
+    if (fuel < (_listening ? 10 : 22) && fuel + reserve < 30 && t >= _nextFuelAlert && !_offerPending) _fuelAlert();
     // La question attend un moment sans message, dix secondes après une étape. À sec, elle n'attend plus.
     final calm = _onStage == null && _cues.isEmpty && cabin.value == null && t >= _pauseClosedAt + 10;
     if ((fuel < 25 && calm || fuel < 8 && t >= _pauseClosedAt + 4) && _quizCount < 3 && t >= _nextQuiz || quizNow) {
@@ -4049,6 +4050,7 @@ class ChachaGame extends FlameGame {
   /// Le bouton ATTERRIR ne se montre que s'il sert : kérosène bas, avion abîmé, ou passagers à prendre ou à déposer.
   bool get landingUseful =>
       canLand &&
+      (!_listening || fuel < 10) &&
       (fuel < 35 || condition < 45 || mission.value != null && (!mission.value!.boarded || t - _missionSince > 15));
 
   /// Le vol traverse une guerre en ce moment.
@@ -4501,8 +4503,11 @@ class ChachaGame extends FlameGame {
   /// Le moment d'une descente : on pilote, plus aucun message depuis quelques secondes, pas de guerre en vue.
   bool get _offerCalm {
     final ahead = _nextZone < warZones.length ? warZones[_nextZone] : null;
-    return t - _busyAt >= 3 && _zone == null && (ahead == null || year < ahead.from - 1.2);
+    return t - _busyAt >= 3 && _zone == null && !_listening && (ahead == null || year < ahead.from - 1.2);
   }
+
+  /// De 1974 à 1976, on écoute « Ali, boma ye ! » : personne ne demande au pilote de descendre.
+  bool get _listening => year >= 1974 && year < 1976;
 
   void _updateCamera() {
     // Des fiches attendent leur année dans la file : seul ce qui est à l'écran compte.

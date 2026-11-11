@@ -655,6 +655,28 @@ void main() {
     expect(momentSongs['bomaye']!.seconds, 48);
   });
 
+  test('de 1974 à 1976, pendant « Ali, boma ye ! », personne ne propose de descendre', () async {
+    final g = await start(year: 1973.95, autopilot: true);
+    final offers = <String>[];
+    g.radio.addListener(() {
+      final r = g.radio.value;
+      if (r?.offer != null && g.year >= 1974 && g.year < 1976) offers.add('${g.year.toStringAsFixed(2)} ${r!.french}');
+    });
+    var useful = 0;
+    for (var i = 0; i < 60 * 60 * 6 && g.year < 1976.3; i++) {
+      g.lives = 5;
+      // Kérosène bas et avion abîmé : en temps normal, la tour proposerait une escale.
+      g.fuel = 30;
+      g.condition = 28;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+      if (g.year >= 1974 && g.year < 1976 && g.landingUseful) useful++;
+    }
+    expect(g.year, greaterThan(1976));
+    expect(offers, isEmpty);
+    expect(useful, 0);
+  });
+
   test('de 1965 à 1985, les fiches restent dans leur année, et le MPR et Ali ont leur chanson', () async {
     final g = await start(year: 1965.5, autopilot: true);
     final wrong = <String>[];
