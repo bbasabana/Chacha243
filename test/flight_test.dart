@@ -691,6 +691,50 @@ void main() {
     expect(menus.any((m) => m.$1.length >= 9), isTrue, reason: 'un grand chariot');
   });
 
+  test(
+    'Fally Ipupa fait chevalier : la chanson joue jusqu\'au bout avant Kabila et le FRN ; plus de repas en 2026',
+    () async {
+      final g = await start(year: 2026.38, autopilot: true);
+      var clock = 0.0, songAt = -1.0, frnAt = -1.0, meals = 0;
+      String? cardSong;
+      g.onSong = ((key, {level, loop = false}) {
+        if (key == 'fally2026' && songAt < 0) songAt = clock;
+      });
+      for (var i = 0; i < 60 * 60 * 3 && g.year < 2026.9; i++) {
+        g.lives = 5;
+        g.condition = 100;
+        g.fuel = 80;
+        g.update(1 / 60);
+        clock += 1 / 60;
+        if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+        if (g.meal.value != null || g.cabin.value?.mode == CabinMode.serving) meals++;
+        final c = g.card.value?.event;
+        if (c?.title == 'Fally Ipupa, chevalier' && cardSong == null) cardSong = songAt >= 0 ? 'fally2026' : 'aucune';
+        if (c?.title == 'Kabila prend la tête du FRN' && frnAt < 0) frnAt = clock;
+      }
+      expect(cardSong, 'fally2026', reason: 'la chanson part avec la fiche');
+      final song = momentSongs['fally2026']!;
+      expect(song.file, 'afrique/fally-chevalier.mp3');
+      expect(song.level, lessThanOrEqualTo(0.3), reason: 'très douce');
+      expect(song.then, 'fond', reason: 'Indépendance Cha Cha prend la suite');
+      expect(frnAt - songAt, greaterThanOrEqualTo(song.seconds + 5), reason: 'la chanson finit, on lit, puis le FRN');
+      expect(meals, 0, reason: 'plus de repas ni de boissons à la fin du voyage');
+      for (final title in [
+        'Constant Mutamba condamné',
+        'Les Accords de Washington',
+        'Juliana Lumumba à la Francophonie',
+        'Double Stade de France',
+        'Fally Ipupa, chevalier',
+      ]) {
+        final e = historyEvents.firstWhere((e) => e.title == title);
+        expect(e.brief, isNotNull, reason: title);
+        expect(e.brief!.length, lessThan(130), reason: '$title : une ligne courte');
+      }
+      final knight = historyEvents.firstWhere((e) => e.title == 'Fally Ipupa, chevalier');
+      expect(knight.brief!.toLowerCase(), isNot(contains('chevalier')), reason: 'le mot ne revient pas dans la fiche');
+    },
+  );
+
   test('après le boulevard de 1990, personne ne propose de descendre avant mi-1994', () async {
     final g = await start(year: 1990.95, autopilot: true);
     final offers = <String>[];

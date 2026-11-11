@@ -34,7 +34,11 @@ class HistoryEvent {
     this.intro,
     this.tag,
     this.balls = false,
+    this.brief,
   });
+
+  /// Une ligne pour comprendre, sous le titre de la fiche en vol (qui est Mutamba, ce que disent les accords…).
+  final String? brief;
 
   /// Des ballons de football traversent le ciel : chacun apporte un peu de kérosène et d'entretien.
   final bool balls;
@@ -1243,6 +1247,8 @@ const historyEvents = <HistoryEvent>[
         'La Cour de cassation le condamne à trois ans de travaux forcés pour des fonds détournés '
         'd\'une prison à Kisangani. Il nie et dénonce un procès politique.',
     photo: 'mutamba',
+    brief:
+        'Ancien ministre de la Justice : trois ans de travaux forcés pour 19 millions de dollars détournés d\'une prison.',
   ),
   HistoryEvent(
     2025.92,
@@ -1253,6 +1259,7 @@ const historyEvents = <HistoryEvent>[
     'Sous la médiation de Donald Trump, Félix Tshisekedi et Paul Kagame signent à Washington un accord de paix entre la RDC et le Rwanda, '
         'après des mois de négociations. Kagame prévient qu\'il y aura « des hauts et des bas » : la paix reste à construire.',
     photo: 'washington',
+    brief: 'Tshisekedi et Kagame signent la paix entre la RDC et le Rwanda, devant Donald Trump.',
   ),
   HistoryEvent(
     2026.14,
@@ -1272,6 +1279,7 @@ const historyEvents = <HistoryEvent>[
         'internationale de la Francophonie. La RDC est le premier pays francophone d\'Afrique et l\'un des tout premiers au monde. '
         'Le vote est prévu au sommet de Phnom Penh, à la mi-novembre 2026 : rien n\'est encore joué.',
     photo: 'julianalumumba',
+    brief: 'La fille de Patrice Lumumba, candidate de la RDC pour diriger la Francophonie. Vote en novembre 2026.',
   ),
   HistoryEvent(
     2026.33,
@@ -1283,6 +1291,9 @@ const historyEvents = <HistoryEvent>[
         'il en ajoute un second, le 3 mai. Un exploit pour un artiste congolais.',
     photo: 'fallysdf',
     medal: 'Stade de France',
+    brief:
+        'Deux soirs complets, pour ses vingt ans de carrière : une première pour un Congolais '
+        'et pour un artiste d\'Afrique francophone.',
   ),
   HistoryEvent(
     2026.43,
@@ -1295,6 +1306,7 @@ const historyEvents = <HistoryEvent>[
     photo: 'fallychevalier',
     medal: 'Chevalier · 2026',
     song: 'fally2026',
+    brief: 'Après le Stade de France, le président Tshisekedi lui remet les insignes de l\'Ordre national du Léopard.',
   ),
   HistoryEvent(
     2026.78,

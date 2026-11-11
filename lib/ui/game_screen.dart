@@ -1407,7 +1407,19 @@ class _StoryCardView extends StatelessWidget {
                         e.title,
                         style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
                       ),
-                      if (e.song != null) _SongLine(songKey: e.song!),
+                      // Une ligne pour comprendre ; elle remplace la ligne de la chanson, pour garder la fiche petite.
+                      if (e.brief != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Text(
+                            e.brief!,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12, height: 1.25),
+                          ),
+                        )
+                      else if (e.song != null)
+                        _SongLine(songKey: e.song!),
                     ],
                   ),
                 ),

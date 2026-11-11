@@ -4117,8 +4117,9 @@ class ChachaGame extends FlameGame {
       if (e.song != null && e.song != 'fond') e.song!,
   };
 
-  /// Les chansons qu'on écoute jusqu'au bout : le calendrier n'atteint cette année qu'à la fin de la chanson.
-  static const _songYears = {'bomaye': 1975.0};
+  /// Les chansons qu'on écoute jusqu'au bout : le calendrier n'atteint cette année qu'à la fin de la chanson
+  /// (et quelques secondes de plus pour finir de lire la fiche).
+  static const _songYears = {'bomaye': (1975.0, 0.0), 'fally2026': (2026.74, 8.0)};
 
   /// Une chanson qui retient le calendrier : quand elle a commencé, l'année d'alors, l'année visée, sa durée.
   (double, double, double, double)? _songHold;
@@ -4138,9 +4139,9 @@ class ChachaGame extends FlameGame {
       _anthemAt = t;
     }
     if (_storySongs.contains(key)) _storySongAt = t;
-    // « Ali, boma ye ! » se laisse écouter : le calendrier n'arrive en 1975 qu'à la fin de la chanson.
-    if (_songYears[key] case final until? when year < until) {
-      _songHold = (t, year, until, momentSongs[key]?.seconds ?? 48);
+    // « Ali, boma ye ! » et « Chevalier du Léopard » se laissent écouter : le calendrier attend la fin de la chanson.
+    if (_songYears[key] case (final until, final more) when year < until) {
+      _songHold = (t, year, until, (momentSongs[key]?.seconds ?? 48) + more);
     }
     onSong?.call(key, level: level, loop: loop);
   }
@@ -5447,6 +5448,7 @@ class ChachaGame extends FlameGame {
     // Le chariot vient de passer : pas de second service tout de suite.
     if (_drinksDue && t < _nextDrinks) _drinksDue = false;
     if (_drinksDue &&
+        !_crowdedYears &&
         _camTalk == null &&
         _zone == null &&
         cabin.value == null &&
@@ -5474,6 +5476,7 @@ class ChachaGame extends FlameGame {
         !_katangaWaiting &&
         t >= _nextMeal &&
         year >= _mealYear &&
+        !_crowdedYears &&
         _turbulence <= 0 &&
         cabin.value == null &&
         meal.value == null &&
@@ -5487,6 +5490,9 @@ class ChachaGame extends FlameGame {
       _offerMeal();
     }
   }
+
+  /// De 2025 à la fin du voyage, les fiches se suivent de près : plus de repas ni de tournée de boissons.
+  bool get _crowdedYears => year >= 2025;
 
   /// La tour annonce des turbulences : le pilote doit allumer le signal des ceintures.
   void _askBelts(String why, {bool first = false}) {

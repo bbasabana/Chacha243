@@ -502,13 +502,15 @@ const momentSongs = <String, MomentSong>{
     level: 0.7,
     fadeIn: 2,
   ),
+  // Fally Ipupa fait chevalier du Léopard : la chanson joue tout bas, jusqu'au bout, puis Indépendance Cha Cha reprend.
   'fally2026': MomentSong(
-    'afrique/tam-tam-village.mp3',
-    'Tam-tams de la route',
-    'Chacha 243',
-    seconds: 60,
-    level: 0.7,
+    'afrique/fally-chevalier.mp3',
+    'Chevalier du Léopard',
+    'Kinshasa 2026',
+    seconds: 40,
+    level: 0.3,
     fadeIn: 2,
+    then: 'fond',
   ),
   'moloto': MomentSong(
     'afrique/reveil-tam-tams.mp3',

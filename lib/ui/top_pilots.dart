@@ -129,7 +129,9 @@ class _TopPilotsTickerState extends State<TopPilotsTicker> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  p.place == 1 ? '🏆 LE MEILLEUR PILOTE' : 'LES MEILLEURS PILOTES · ${p.place}/${widget.top.length}',
+                  p.place == 1
+                      ? '🏆 LE MEILLEUR PILO PILO'
+                      : 'LES MEILLEURS PILO PILO · ${p.place}/${widget.top.length}',
                   style: TextStyle(color: c, fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: 1.1),
                 ),
                 const SizedBox(height: 1),

@@ -200,7 +200,7 @@ class _RankingScreenState extends State<RankingScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${s.rank}${s.rank == 1 ? 'er' : 'e'} sur ${s.total} pilote${s.total > 1 ? 's' : ''}',
+                      '${s.rank}${s.rank == 1 ? 'er' : 'e'} sur ${s.total} Pilo Pilo',
                       style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
                     ),
                     const SizedBox(height: 2),
@@ -317,11 +317,7 @@ class AchievementsPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [for (final a in Achievement.values) _tile(a, got.contains(a))],
-            ),
+            Wrap(spacing: 8, runSpacing: 8, children: [for (final a in Achievement.values) _tile(a, got.contains(a))]),
           ],
         );
       },
@@ -343,13 +339,15 @@ class AchievementsPanel extends StatelessWidget {
               height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: won
-                    ? RadialGradient(colors: [Color.lerp(a.color, Colors.white, 0.35)!, a.color])
-                    : null,
+                gradient: won ? RadialGradient(colors: [Color.lerp(a.color, Colors.white, 0.35)!, a.color]) : null,
                 color: won ? null : Colors.white.withValues(alpha: 0.08),
                 border: Border.all(color: won ? Colors.white.withValues(alpha: 0.7) : Colors.white24, width: 1.5),
               ),
-              child: Icon(won ? a.icon : Icons.lock_rounded, color: won ? ChachaColors.night : Colors.white38, size: 21),
+              child: Icon(
+                won ? a.icon : Icons.lock_rounded,
+                color: won ? ChachaColors.night : Colors.white38,
+                size: 21,
+              ),
             ),
             const SizedBox(width: 9),
             Expanded(
@@ -374,7 +372,11 @@ class AchievementsPanel extends StatelessWidget {
                         : a.how,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.white.withValues(alpha: won ? 0.85 : 0.6), fontSize: 11, height: 1.2),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: won ? 0.85 : 0.6),
+                      fontSize: 11,
+                      height: 1.2,
+                    ),
                   ),
                 ],
               ),
