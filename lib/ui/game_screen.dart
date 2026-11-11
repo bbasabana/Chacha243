@@ -477,10 +477,14 @@ class _Hud extends StatelessWidget {
                       duration: const Duration(milliseconds: 300),
                       child: shot == null
                           ? const SizedBox.shrink()
-                          : CabinCameraView(
-                              shot: shot,
-                              fill: hud.seats == 0 ? 1 : hud.passengers / hud.seats,
-                              onClose: game.closeCabinCamera,
+                          : _SwipeAway(
+                              onGone: game.closeCabinCamera,
+                              tap: false,
+                              child: CabinCameraView(
+                                shot: shot,
+                                fill: hud.seats == 0 ? 1 : hud.passengers / hud.seats,
+                                onClose: game.closeCabinCamera,
+                              ),
                             ),
                     ),
                   ),
@@ -751,6 +755,59 @@ class _Reveal extends StatelessWidget {
 
 /// La place unique des messages, sous les points : la tour, les bannières, les moments d'histoire,
 /// la fiche de l'avion et la cabine y passent un par un, jamais ensemble.
+/// Un message en vol : on le touche, ou on le glisse du doigt (de côté ou vers le haut), et il s'en va.
+/// Il suit le doigt ; lâché trop tôt, il revient à sa place.
+class _SwipeAway extends StatefulWidget {
+  const _SwipeAway({super.key, required this.onGone, required this.child, this.tap = true});
+
+  final VoidCallback onGone;
+  final Widget child;
+
+  /// Le toucher ferme aussi le message ; la caméra de la cabine garde ses propres boutons.
+  final bool tap;
+
+  @override
+  State<_SwipeAway> createState() => _SwipeAwayState();
+}
+
+class _SwipeAwayState extends State<_SwipeAway> with SingleTickerProviderStateMixin {
+  late final AnimationController _back = AnimationController(vsync: this, duration: const Duration(milliseconds: 220))
+    ..addListener(() => setState(() => _drag = _from * (1 - _back.value)));
+  Offset _drag = Offset.zero, _from = Offset.zero;
+  bool _gone = false;
+
+  @override
+  void dispose() {
+    _back.dispose();
+    super.dispose();
+  }
+
+  void _end(DragEndDetails d) {
+    final v = d.velocity.pixelsPerSecond;
+    if (_drag.dx.abs() > 70 || _drag.dy < -40 || v.dx.abs() > 500 || v.dy < -500) {
+      _gone = true;
+      widget.onGone();
+      return;
+    }
+    _from = _drag;
+    _back.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.tap ? widget.onGone : null,
+      onPanStart: (_) => _back.stop(),
+      onPanUpdate: (d) => setState(() => _drag = Offset(_drag.dx + d.delta.dx, math.min(0.0, _drag.dy + d.delta.dy))),
+      onPanEnd: _end,
+      child: Opacity(
+        opacity: _gone ? 0 : (1 - _drag.distance / 260).clamp(0.25, 1.0),
+        child: Transform.translate(offset: _drag, child: widget.child),
+      ),
+    );
+  }
+}
+
 class _StageSlot extends StatelessWidget {
   const _StageSlot({required this.game, this.zoneNext});
 
@@ -772,27 +829,27 @@ class _StageSlot extends StatelessWidget {
           // Avec un choix (le plein, l'escale), la tour attend son bouton ; sinon on la touche et elle s'en va.
           child = r.offer != null
               ? _RadioView(key: ValueKey(r), call: r, game: g)
-              : GestureDetector(
+              : _SwipeAway(
                   key: ValueKey(r),
-                  onTap: g.skipMessage,
+                  onGone: g.skipMessage,
                   child: _RadioView(call: r, game: g),
                 );
         } else if (g.banner.value case final b?) {
-          child = GestureDetector(
+          child = _SwipeAway(
             key: ValueKey(b),
-            onTap: g.skipMessage,
+            onGone: g.skipMessage,
             child: _BannerView(banner: b),
           );
         } else if (g.card.value case final c?) {
-          child = GestureDetector(
+          child = _SwipeAway(
             key: ValueKey(c),
-            onTap: g.finishReading,
+            onGone: g.finishReading,
             child: _StoryCardView(card: c),
           );
         } else if (g.planeCard.value case final pc?) {
-          child = GestureDetector(
+          child = _SwipeAway(
             key: ValueKey(pc),
-            onTap: g.skipMessage,
+            onGone: g.skipMessage,
             child: _PlaneCardView(card: pc),
           );
         } else if ((g.zoneHud.value, zoneNext) case (final z?, final next?)) {

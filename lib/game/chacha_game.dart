@@ -21,6 +21,7 @@ import 'achievements.dart';
 import 'ads.dart';
 import 'checkpoint.dart';
 import 'boulevard.dart';
+import 'kinshasa_descent.dart';
 import 'play_games.dart';
 import 'scenery.dart';
 import 'telemetry.dart';
@@ -1126,7 +1127,13 @@ class ChachaGame extends FlameGame {
   static const _yearSeconds = 18.0;
   static const _endYear = 2027.5;
   // L'approche prend son temps : la ville et la piste montent peu à peu, le train sort.
-  static const _approachTime = 13.0;
+  static const _glideTime = 13.0;
+
+  /// À Kinshasa, l'avion survole d'abord la ville vue d'en haut : le stade, le boulevard, N'djili.
+  bool _kinView = false;
+  int _kinSaid = 0;
+  double get _aerialTime => _kinView ? KinshasaDescent.seconds : 0;
+  double get _approachTime => _aerialTime + _glideTime;
 
   double get _w => size.x;
   double get _h => size.y;
@@ -4015,6 +4022,16 @@ class ChachaGame extends FlameGame {
     acceptStopover();
   }
 
+  /// Pour les tests : atterrir tout de suite à [city].
+  @visibleForTesting
+  void landAt(String city) {
+    _airport = airports.firstWhere((a) => a.city == city);
+    _stopPurpose = 0;
+    _gusty = false;
+    _offerPending = true;
+    acceptStopover();
+  }
+
   /// On peut demander l'atterrissage : en vol, hors des guerres et de la dernière ligne droite.
   /// Au sol, tout est prêt : TURBO appelle le pouce.
   bool get turboWanted => phase == FlightPhase.ready && _boardT < 0 && _truckT < 0 && fuel >= 50 && !boost;
@@ -4173,8 +4190,10 @@ class ChachaGame extends FlameGame {
     _approachSpeed = _unit * 420;
     _prevShift = _groundShift;
     _cueGear = _cueRunway = _earlySaid = false;
+    _kinView = _homeApproach || _airport?.city == 'Kinshasa';
+    _kinSaid = 0;
     // La piste commence sous l'avion juste avant la fin de la descente.
-    _runwayOrigin = worldX + _approachSpeed * _approachTime * 0.84 + _w * 0.22 - _runwayStart * _unit;
+    _runwayOrigin = worldX + _approachSpeed * (_aerialTime + _glideTime * 0.84) + _w * 0.22 - _runwayStart * _unit;
     _setPhase(FlightPhase.approach);
   }
 
@@ -4216,8 +4235,12 @@ class ChachaGame extends FlameGame {
 
   /// Hauteur cible sur le couloir d'approche, [k] secondes après le début.
   double _glide(double k) {
-    final f = (k / _approachTime).clamp(0.0, 1.0);
-    return _approachY0 + (_planeOnGroundY - _approachY0) * (f * f * (3 - 2 * f));
+    double smooth(double f) => f * f * (3 - 2 * f);
+    // Pendant le survol de Kinshasa, l'avion se place haut dans le ciel, la ville bien visible dessous ;
+    // c'est la ville qui se rapproche. Puis il descend vers la piste.
+    final from = _kinView ? _h * 0.3 : _approachY0;
+    if (k < _aerialTime) return _approachY0 + (from - _approachY0) * smooth((k / 3).clamp(0.0, 1.0));
+    return from + (_planeOnGroundY - from) * smooth(((k - _aerialTime) / _glideTime).clamp(0.0, 1.0));
   }
 
   bool _earlySaid = false;
@@ -4244,9 +4267,23 @@ class ChachaGame extends FlameGame {
     planeY = math.max(_h * 0.1, planeY + vy * dt);
     pitch += ((vy / maxVy) * 0.28 - pitch) * math.min(1, dt * 6);
 
-    if (_approachT > _approachTime * 0.35 && !_cueGear) {
+    if (_kinView) {
+      // Une phrase de la tour par moment du survol : le stade, le boulevard, puis N'djili.
+      final k = _approachT / _aerialTime;
+      final line = switch (_kinSaid) {
+        0 when k > 0.04 => (Lingala.mbote, KinshasaDescent.stadiumLine(year)),
+        1 when k > 0.4 => (Lingala.kitaMalembe, KinshasaDescent.roadLine(year)),
+        2 when k > 0.78 => (Lingala.kitaMalembe, KinshasaDescent.airportLine(year)),
+        _ => null,
+      };
+      if (line != null) {
+        _kinSaid++;
+        _say('Tour de Kinshasa', line.$1, line.$2);
+      }
+    }
+    if (_approachT > _aerialTime + _glideTime * 0.35 && !_cueGear) {
       _cueGear = true;
-      if (!_homeApproach) {
+      if (!_homeApproach && !_kinView) {
         final city = _airport!.cityAt(year);
         _say('Tour de $city', Lingala.kitaMalembe, switch (_airport!.city) {
           'Goma' => 'Voici le volcan Nyiragongo : vous êtes à Goma.',
@@ -4257,7 +4294,7 @@ class ChachaGame extends FlameGame {
         });
       }
     }
-    if (_approachT > _approachTime * 0.7 && !_cueRunway) {
+    if (_approachT > _aerialTime + _glideTime * 0.7 && !_cueRunway) {
       _cueRunway = true;
       _homeApproach
           ? _say('Tour de Kinshasa', Lingala.elonga, 'Piste de N\'djili en vue. Tout le pays te regarde.')
@@ -6856,6 +6893,11 @@ class ChachaGame extends FlameGame {
     final riverFade = _riverFade;
     if (riverFade > 0) Scenery.river(canvas, s, _riverFlow, t, riverFade, _unit);
     if (_bT >= 0) _drawBoulevard(canvas, s, front: false);
+    if (phase == FlightPhase.approach && _kinView) {
+      // Le survol de Kinshasa s'efface dans la dernière seconde : la piste habituelle apparaît dessous.
+      final k = _approachT / _aerialTime;
+      KinshasaDescent.draw(canvas, s, k, t, ((1.06 - k) / 0.14).clamp(0.0, 1.0), year, 1 - day);
+    }
     for (final b in _bombs) {
       Scenery.glow(canvas, Offset(b.x, b.y), b.size * 0.7, b.color);
     }
@@ -7203,6 +7245,7 @@ class ChachaGame extends FlameGame {
 
   /// Le couloir d'approche : des anneaux jaunes jusqu'à la piste.
   void _drawGlidePath(Canvas canvas) {
+    if (_approachT < _aerialTime) return;
     for (var k = 1; k <= 7; k++) {
       final dt = k * 0.55;
       if (_approachT + dt > _approachTime) break;

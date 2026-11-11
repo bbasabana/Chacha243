@@ -7,6 +7,7 @@ import 'package:chacha243/data/war_zones.dart';
 import 'package:chacha243/data/window_animals.dart';
 import 'package:chacha243/game/boulevard.dart';
 import 'package:chacha243/game/chacha_game.dart';
+import 'package:chacha243/game/kinshasa_descent.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -362,6 +363,46 @@ void main() {
       }
     },
     timeout: const Timeout(Duration(minutes: 10)),
+  );
+
+  test('à Kinshasa, on survole le stade, le boulevard puis N\'djili, et on se pose sur le tarmac', () async {
+    final g = await start(year: 2025.6, autopilot: true);
+    for (var i = 0; i < 60 * 4; i++) {
+      g.update(1 / 60);
+    }
+    g.landAt('Kinshasa');
+    final said = <String>[];
+    g.radio.addListener(() {
+      final r = g.radio.value;
+      if (r != null && r.speaker == 'Tour de Kinshasa') said.add(r.french);
+    });
+    for (var i = 0; i < 60 * 45 && g.phase != FlightPhase.ground; i++) {
+      g.lives = 5;
+      g.condition = 100;
+      g.update(1 / 60);
+    }
+    expect(g.phase, FlightPhase.ground, reason: said.join(' > '));
+    expect(said.take(3), [
+      KinshasaDescent.stadiumLine(g.year),
+      KinshasaDescent.roadLine(g.year),
+      KinshasaDescent.airportLine(g.year),
+    ]);
+    expect(said, contains(contains('Piste en vue')));
+  });
+
+  test(
+    'le survol de Kinshasa suit les années : stade des Martyrs en 1994, passerelle en 2015, saut-de-mouton en 2020',
+    () {
+      expect(KinshasaDescent.stadiumLine(1965), contains('Roi Baudouin'));
+      expect(KinshasaDescent.stadiumLine(1980), contains('20 Mai'));
+      expect(KinshasaDescent.stadiumLine(2010), contains('Martyrs'));
+      expect(KinshasaDescent.roadLine(2010), isNot(contains('passerelle')));
+      expect(KinshasaDescent.roadLine(2016), contains('passerelle'));
+      expect(KinshasaDescent.roadLine(2016), isNot(contains('saut-de-mouton')));
+      expect(KinshasaDescent.roadLine(2024), contains('saut-de-mouton'));
+      expect(KinshasaDescent.airportLine(2010), isNot(contains('orange')));
+      expect(KinshasaDescent.airportLine(2016), contains('orange'));
+    },
   );
 
   test('la guerre se joue par étapes : pause, combat, acclamation, étape suivante', () async {
