@@ -41,6 +41,18 @@ const _perLetter = 0.035, _afterText = 1.8, _replayAfter = 7.0;
 const _demoPace = 0.72;
 const _ink = Color(0xFF0B1B3A);
 
+/// « Passer » en bleu nuit plein, lettres blanches et bord jaune : il se voit sur le ciel clair comme sur la ville.
+final _skipStyle = FilledButton.styleFrom(
+  backgroundColor: _ink,
+  foregroundColor: Colors.white,
+  disabledBackgroundColor: _ink,
+  disabledForegroundColor: Colors.white,
+  elevation: 6,
+  shadowColor: Colors.black,
+  side: const BorderSide(color: ChachaColors.yellow, width: 2),
+  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+);
+
 /// Le début de la démonstration, en secondes.
 final double _demo = _message.length * _perLetter + _afterText;
 
@@ -168,15 +180,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            OutlinedButton(
+                            FilledButton(
                               onPressed: done > 0.5 ? _leave : null,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                disabledForegroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.white, width: 1.5),
-                                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                              ),
-                              child: const Text('Passer', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                              style: _skipStyle,
+                              child: const Text('Passer', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
                             ),
                             const SizedBox(width: 12),
                             FilledButton(
@@ -206,15 +213,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                   bottom: 18,
                   child: SafeArea(
                     child: Center(
-                      child: OutlinedButton(
+                      child: FilledButton.icon(
                         onPressed: _leave,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          backgroundColor: const Color(0x66000000),
-                          side: const BorderSide(color: Colors.white, width: 1.5),
-                          padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 14),
-                        ),
-                        child: const Text('Passer', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                        style: _skipStyle,
+                        icon: const Icon(Icons.skip_next_rounded, size: 24),
+                        iconAlignment: IconAlignment.end,
+                        label: const Text('Passer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                       ),
                     ),
                   ),

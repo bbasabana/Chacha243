@@ -1584,8 +1584,8 @@ class ChachaGame extends FlameGame {
   void _showCard(HistoryEvent e, {bool caught = true, String? label}) {
     // Leurs détails sont déjà passés au sol ; la guerre s'explique pendant la pause.
     if (e.war || independenceFaces.contains(e)) return;
-    // Chaque fiche ne passe qu'une fois dans le voyage, même après un crash.
-    if (_seen.contains(e.title)) return;
+    // Chaque fiche ne passe qu'une fois dans le voyage, même après un crash, sauf si la suite n'a pas été lue.
+    if (_alreadyTold(e)) return;
     if (e.big && caught) {
       // Grand tournant : le ciel bout, le drapeau change, la fiche suit.
       _cue(
@@ -1664,9 +1664,26 @@ class ChachaGame extends FlameGame {
   /// Le calendrier attend une fiche en retard, et ne passe jamais à l'année suivante tant qu'un moment
   /// de l'année en cours (sa fiche, ou son médaillon encore dans le ciel) n'a pas été montré.
   bool get _storyLate {
-    bool late(double story) => story < year - 0.2 || year >= story.floor() + 0.985;
+    // Trois semaines de retard au plus : « fin août 1998 » ne se lit pas en octobre.
+    bool late(double story) => story < year - 0.06 || year >= story.floor() + 0.985;
     if (_cues.any((c) => c.story != null && late(c.story!))) return true;
     if (_onStage?.story case final s? when late(s)) return true;
+    // Sa date est arrivée mais elle attend la fiche d'avant (le 17 janvier 2001 pendant qu'on lit la mort de Mzee),
+    // ou la fin de la conversation des passagers :
+    // le calendrier l'attend, pour qu'elle passe à sa date et pas deux mois plus tard.
+    if (_nextEvent < historyEvents.length) {
+      final next = historyEvents[_nextEvent];
+      if (!next.war && next.year <= year && next.year > 1960.6 && (_storyBefore(next.year) || _camTalk != null)) {
+        return true;
+      }
+    }
+    // On n'entre pas dans une guerre avant les fiches qui l'expliquent : en 1998, le franc de juin et la rupture
+    // de juillet passent avant le 2 août. Le calendrier attend au seuil.
+    if (_zone == null && _nextZone < warZones.length) {
+      final from = warZones[_nextZone].from;
+      final untold = _nextEvent < historyEvents.length && historyEvents[_nextEvent].year < from;
+      if (year >= from - 0.01 && year < from + 0.1 && (untold || _storyBefore(from))) return true;
+    }
     return _pickups.any((p) => !p.taken && p.kind == _PickupKind.medal && p.event != null && late(p.event!.year));
   }
 
@@ -2565,7 +2582,7 @@ class ChachaGame extends FlameGame {
       speed: 120,
       size: 5,
     );
-    _talk(TalkMoment.arrival, force: true, seconds: 13.5, first: true);
+    _talk(TalkMoment.arrival, force: true, seconds: 18, first: true);
   }
 
   /// Une fête : des confettis aux couleurs du drapeau, appelée par l'écran à chaque « Vive… ».
@@ -2605,8 +2622,8 @@ class ChachaGame extends FlameGame {
   /// La part du voyage qui reste jusqu'au 30 juin 2027, en pour cent.
   int get tripLeft => ((2027.5 - year) / (2027.5 - 1960.5) * 100).clamp(0, 100).ceil();
 
-  /// Le temps de lire une réplique, en lingala puis en français.
-  double _lineTime(TalkLine l) => (2.5 + '${l.lingala} ${l.french}'.split(' ').length / 3.2).clamp(4.0, 8.0);
+  /// Le temps de lire une réplique, en lingala puis en français : six secondes au moins, dix au plus.
+  double _lineTime(TalkLine l) => (3 + '${l.lingala} ${l.french}'.split(' ').length / 3.0).clamp(6.0, 10.0);
 
   /// Un moment difficile : une louange douce réconforte, sans revenir trop souvent.
   void _comfort() {
@@ -2666,17 +2683,17 @@ class ChachaGame extends FlameGame {
       () => talk.value = CabinTalk([
         TalkLine('${tr.airline.name} · vers ${tr.to}', b.theirLingala, b.theirs),
       ], at: () => Offset(tr.x, tr.y)),
-      4.5,
+      6,
       hide: () => talk.value = null,
     );
     _cue(
       () => talk.value = CabinTalk([TalkLine('Commandant', b.oursLingala, b.ours.replaceAll('{to}', tr.to))]),
-      5,
+      6.5,
       hide: () => talk.value = null,
     );
     _cue(
       () => talk.value = const CabinTalk([TalkLine('Passagers', 'Ha ha ha !', 'Ha ha ha !')]),
-      2.5,
+      3.5,
       hide: () => talk.value = null,
     );
     _nextTalk = t + 20;
@@ -2687,9 +2704,20 @@ class ChachaGame extends FlameGame {
       (e.kind == EventKind.life || e.kind == EventKind.glory) &&
       (e.intro != null || (e.photo != null && (archivePhotos[e.photo]?.isPortrait ?? false)));
 
-  /// Une fiche d'histoire d'une date plus ancienne attend encore, ou se lit en ce moment.
+  /// Une fiche d'histoire d'une date plus ancienne attend encore, se lit en ce moment, ou son médaillon vole encore
+  /// vers l'avion (un visage passe lentement : celui d'après ne le double pas).
   bool _storyBefore(double y) =>
-      (_onStage?.story ?? 1e9) < y || _cues.any((c) => (c.story ?? 1e9) < y) || card.value != null;
+      (_onStage?.story ?? 1e9) < y ||
+      _cues.any((c) => (c.story ?? 1e9) < y) ||
+      card.value != null ||
+      _pickups.any((p) => (p.event?.year ?? 1e9) < y);
+
+  /// Lue avant un crash, et sa suite aussi : elle ne revient pas. Mais si la suite n'a pas été lue (la mort de Mzee
+  /// lue, le serment de Joseph Kabila pas encore), elle repasse : l'histoire ne saute jamais une marche.
+  bool _alreadyTold(HistoryEvent e) {
+    if (!_seen.contains(e.title)) return false;
+    return historyEvents.every((n) => n.year <= e.year || n.year > e.year + 0.3 || _seen.contains(n.title));
+  }
 
   void _spawnHistory() {
     final secondsToPlane = (_w + 60 - planeX) / _scroll;
@@ -2711,11 +2739,14 @@ class ChachaGame extends FlameGame {
       if (part != null && !_partSaid && _wavesCleared < part.from && historyEvents[_nextEvent].title == part.name) {
         break;
       }
-      // Un visage annoncé (Joseph Kabila en 2001) attend que la fiche d'avant (la mort de Mzee) soit passée.
-      if (_faceEvent(historyEvents[_nextEvent]) && _storyBefore(historyEvents[_nextEvent].year)) break;
+      // Chaque fiche attend que celle d'avant soit passée : Joseph Kabila après la mort de Mzee, l'Angola après
+      // la rupture de 1998. On lit, ça disparaît, la suivante vient.
+      if (_storyBefore(historyEvents[_nextEvent].year)) break;
+      // Un souvenir n'a rien qui vole vers l'avion : sa fiche s'ouvre à sa date, pas avant.
+      if (historyEvents[_nextEvent].kind == EventKind.memory && historyEvents[_nextEvent].year > year + 0.02) break;
       final e = historyEvents[_nextEvent++];
       // Un médaillon déjà lu avant le crash ne revient pas ; une épreuve (volcan, guerre) se rejoue, sans sa fiche.
-      if (_seen.contains(e.title) && (e.kind == EventKind.life || e.kind == EventKind.glory)) continue;
+      if (_alreadyTold(e) && (e.kind == EventKind.life || e.kind == EventKind.glory)) continue;
       // La mort de Mzee arrête « Franc congolais » ; Indépendance Cha Cha prend la suite.
       if (e.year >= 2001 && _francOn) {
         _francOn = false;
@@ -4393,7 +4424,7 @@ class ChachaGame extends FlameGame {
     if (_onStage != null) _cueLeft = 0;
   }
 
-  double _cameraLineTime(TalkLine l) => math.min(_lineTime(l), 5.5);
+  double _cameraLineTime(TalkLine l) => _lineTime(l);
 
   /// Une conversation passe comme un message : rien d'autre à l'écran tant qu'ils parlent.
   void _converse(List<TalkLine> lines, {bool first = false}) => _cue(
@@ -5953,6 +5984,20 @@ class ChachaGame extends FlameGame {
     _payBelts();
     // L'avion s'arrête : le nom de la guerre, qui l'a faite. On le lit une fois, puis on se bat.
     final why = historyEvents.where((e) => e.war && z.contains(e.year) && e.title != z.part?.name).firstOrNull;
+    // Repris en 2001 au milieu de la guerre de 1998 (le vol est parti après son début) : on n'y « entre » pas,
+    // elle continue. On dit l'année où l'on reprend ; la fiche de son début (2 août 1998) appartient à 1998.
+    if ((startYear ?? 0) > z.from + 0.02) {
+      _pause(
+        StagePause(
+          'ÉTAPE ${_stageNumber(z)} · MOMENT DE GUERRE',
+          'La guerre continue : ${z.name}',
+          'Reprise en ${year.floor()}. Commencée en ${z.from.floor()}, elle n\'est pas finie. '
+              'Ça va secouer : esquive les avions de chasse et leurs missiles.',
+          war: true,
+        ),
+      );
+      return;
+    }
     _pause(
       StagePause(
         'ÉTAPE ${_stageNumber(z)} · MOMENT DE GUERRE',
@@ -6023,10 +6068,14 @@ class ChachaGame extends FlameGame {
         );
         // Les passagers respirent, seuls à l'écran ; l'étape suivante attend qu'ils aient fini.
         if (!_camClosed && passengers > 0) _converse(independenceCameraTalk, first: true);
+        // Repris après son début (en 1961, le Sud-Kasaï d'août 1960 est déjà derrière) : on n'y entre pas, elle continue.
+        final began = historyEvents.where((e) => e.title == part.name).firstOrNull?.year ?? z.from;
         _partIntro = StagePause(
           'ÉTAPE ${_stageNumber(z) + 1} · MOMENT DE GUERRE',
-          'Le Congo entre dans : ${part.name}',
-          '${why == null ? '' : '${why.date} · '}${part.place}. Ça va secouer encore : garde les yeux sur le ciel.',
+          why == null ? 'La guerre continue : ${part.name}' : 'Le Congo entre dans : ${part.name}',
+          why == null
+              ? 'Commencée en ${began.floor()}, elle n\'est pas finie : ${part.place}. Ça va secouer encore : garde les yeux sur le ciel.'
+              : '${why.date} · ${part.place}. Ça va secouer encore : garde les yeux sur le ciel.',
           war: true,
         );
         return;

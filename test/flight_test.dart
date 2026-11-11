@@ -238,9 +238,14 @@ void main() {
   });
 
   test('après un crash, une fiche déjà lue ne revient pas (le serment de Mzee passe une fois)', () async {
-    final oath = historyEvents.firstWhere((e) => e.title.contains('Mzee Laurent-Désiré Kabila prête serment')).title;
+    final e = historyEvents.firstWhere((e) => e.title.contains('Mzee Laurent-Désiré Kabila prête serment'));
+    final oath = e.title;
+    // Le crash est venu plus tard : la fiche et sa suite ont été lues.
     SharedPreferences.setMockInitialValues({
-      'chacha243.seen': [oath],
+      'chacha243.seen': [
+        for (final n in historyEvents)
+          if (n.year >= e.year && n.year <= e.year + 0.3) n.title,
+      ],
     });
     final g = await start(year: 1997.36, autopilot: true);
     final cards = <String>[];
@@ -253,6 +258,111 @@ void main() {
     expect(g.year, greaterThan(1997.45));
     expect(cards, isNot(contains(oath)), reason: cards.toSet().join(' > '));
   });
+
+  test('lue juste avant le crash, la mort de Mzee repasse avant le serment de Joseph Kabila', () async {
+    final death = historyEvents.firstWhere((e) => e.title.contains('Mzee Laurent-Désiré Kabila est assassiné'));
+    SharedPreferences.setMockInitialValues({
+      'chacha243.seen': [
+        for (final n in historyEvents)
+          if (n.year <= death.year) n.title,
+      ],
+    });
+    final g = await start(year: 2000.9, resumed: true, autopilot: true);
+    final cards = <String>[];
+    for (var i = 0; i < 60 * 60 * 4 && g.year < 2001.3; i++) {
+      g.lives = 5;
+      g.condition = 100;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+      for (final c in [g.card.value?.event, g.turningPoint.value?.event]) {
+        if (c != null && (cards.isEmpty || cards.last != c.title)) cards.add(c.title);
+      }
+    }
+    final d = cards.indexOf(death.title), j = cards.indexOf('Joseph Kabila prête serment');
+    expect(d, greaterThanOrEqualTo(0), reason: cards.join(' > '));
+    expect(j, greaterThan(d), reason: cards.join(' > '));
+  });
+
+  test(
+    'de 1961 à 2026, une reprise ne fait pas « entrer » dans une guerre déjà commencée, et les fiches restent à leur date',
+    () async {
+      final titles = {for (final e in historyEvents) e.title};
+      final problems = <String>[];
+      for (var y = 1961.0; y < 2026.6; y += 0.5) {
+        // Le crash est venu un peu plus tard : tout ce qui le précède a été lu.
+        SharedPreferences.setMockInitialValues({
+          'chacha243.seen': [
+            for (final e in historyEvents)
+              if (e.year < y + 1.2) e.title,
+          ],
+        });
+        final g = await start(year: y, resumed: true, autopilot: true);
+        final shown = <(String, double, double)>[];
+        void card(HistoryEvent e) => titles.contains(e.title) ? shown.add((e.title, e.year, g.year)) : null;
+        g.card.addListener(() => g.card.value == null ? null : card(g.card.value!.event));
+        g.turningPoint.addListener(() => g.turningPoint.value == null ? null : card(g.turningPoint.value!.event));
+        g.stagePause.addListener(() {
+          final title = g.stagePause.value?.title ?? '';
+          if (!title.startsWith('Le Congo entre dans : ')) return;
+          final z = warZones.where((z) => title.endsWith(z.name)).firstOrNull;
+          if (z != null && y > z.from + 0.02) problems.add('reprise $y : « $title » en ${g.year.toStringAsFixed(2)}');
+        });
+        for (var i = 0; i < 60 * 60 * 6 && g.year < y + 2; i++) {
+          g.lives = 5;
+          g.condition = 100;
+          g.fuel = 80;
+          g.update(1 / 60);
+          if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+          if (g.phase == FlightPhase.crashed || g.phase == FlightPhase.finished) break;
+        }
+        var last = 0.0;
+        for (final (title, ey, at) in shown) {
+          if (at < ey - 0.08) problems.add('reprise $y : « $title » ($ey) trop tôt, en ${at.toStringAsFixed(2)}');
+          if (at > ey + 0.7) problems.add('reprise $y : « $title » ($ey) trop tard, en ${at.toStringAsFixed(2)}');
+          if (ey < last - 0.01) problems.add('reprise $y : « $title » ($ey) après une fiche de $last');
+          last = ey;
+        }
+      }
+      expect(problems, isEmpty);
+    },
+    timeout: const Timeout(Duration(minutes: 20)),
+  );
+
+  test(
+    '1998 : le franc et la rupture avant la guerre, puis le RCD, l\'Angola, Lusaka ; 2001 : Mzee, l\'intérim, Joseph',
+    () async {
+      final g = await start(year: 1997.9, autopilot: true);
+      final said = <String>[];
+      void add(String s) => said.contains(s) ? null : said.add(s);
+      for (var i = 0; i < 60 * 60 * 30 && g.year < 2001.3; i++) {
+        g.lives = 5;
+        g.condition = 100;
+        g.fuel = 80;
+        g.update(1 / 60);
+        if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+        if (g.card.value case final c?) add(c.event.title);
+        if (g.turningPoint.value case final c?) add(c.event.title);
+        if (g.stagePause.value case final p? when p.title.contains('Deuxième guerre')) add(p.title);
+      }
+      final order = [
+        'Retour du franc congolais',
+        'Kabila renvoie ses anciens alliés',
+        'Le Congo entre dans : Deuxième guerre du Congo',
+        'Le RCD naît à Goma',
+        'L\'Angola et le Zimbabwe au secours de Kinshasa',
+        'Le cessez-le-feu de Lusaka',
+        'Mzee Laurent-Désiré Kabila est assassiné',
+        'Qui succède à Mzee ?',
+        'Joseph Kabila prête serment',
+      ];
+      final at = [for (final o in order) said.indexOf(o)];
+      expect(at, isNot(contains(-1)), reason: said.join(' > '));
+      for (var i = 1; i < at.length; i++) {
+        expect(at[i], greaterThan(at[i - 1]), reason: said.join(' > '));
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 10)),
+  );
 
   test('la guerre se joue par étapes : pause, combat, acclamation, étape suivante', () async {
     final g = await start(year: 1960.52, resumed: true, autopilot: true);

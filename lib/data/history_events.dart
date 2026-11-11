@@ -655,6 +655,26 @@ const historyEvents = <HistoryEvent>[
     war: true,
   ),
   HistoryEvent(
+    1998.625,
+    EventKind.life,
+    '16 août 1998',
+    'Goma, Nord-Kivu',
+    'Le RCD naît à Goma',
+    'Le 2 août 1998, des soldats se soulèvent à Goma ; le 4 août, des troupes rwandaises atterrissent à Kitona, '
+        'à l\'ouest, pour marcher sur Kinshasa. Le 16 août, la rébellion prend son nom à Goma : le Rassemblement congolais '
+        'pour la démocratie, le RCD, mené par Ernest Wamba dia Wamba et soutenu par le Rwanda et l\'Ouganda.',
+  ),
+  HistoryEvent(
+    1998.65,
+    EventKind.life,
+    'fin août 1998',
+    'Kinshasa, Bas-Congo',
+    'L\'Angola et le Zimbabwe au secours de Kinshasa',
+    'Mzee appelle le pays à résister et demande l\'aide de ses voisins. Les parachutistes du Zimbabwe arrivent à Kinshasa ; '
+        'le 22 août, l\'armée angolaise entre par le Bas-Congo, reprend Kitona puis Matadi, et la Namibie les rejoint. '
+        'Fin août, Kinshasa tient : les rebelles venus de l\'ouest reculent, la guerre se fixe à l\'est.',
+  ),
+  HistoryEvent(
     1998.85,
     EventKind.life,
     'fin 1998',
@@ -665,6 +685,16 @@ const historyEvents = <HistoryEvent>[
     photo: 'bembamlc',
     medal: 'Bemba · MLC',
     intro: 'Jean-Pierre Bemba entre dans la guerre',
+  ),
+  HistoryEvent(
+    1999.52,
+    EventKind.life,
+    '10 juillet 1999',
+    'Lusaka, Zambie',
+    'Le cessez-le-feu de Lusaka',
+    'À Lusaka, le Congo, l\'Angola, la Namibie, le Zimbabwe, le Rwanda et l\'Ouganda signent un cessez-le-feu. '
+        'Le MLC de Jean-Pierre Bemba signe le 1er août, le RCD le 31 août. Sur le terrain, les combats reprennent vite.',
+    medal: 'Lusaka · 1999',
   ),
   HistoryEvent(
     1999.91,
@@ -690,12 +720,23 @@ const historyEvents = <HistoryEvent>[
     'Mzee Laurent-Désiré Kabila est assassiné',
     'Le 16 janvier 2001, le président Laurent-Désiré Kabila, que l\'on appelle Mzee, est assassiné par balles '
         'dans son palais de marbre, à Kinshasa. Le pays est en deuil : ses obsèques ont lieu le 23 janvier, '
-        'et il repose au mausolée près du palais de la Nation. Son aide de camp, le colonel Eddy Kapend, '
-        'sera arrêté et accusé du complot.',
+        'et il repose au mausolée près du palais de la Nation.',
     photo: 'obseques',
     photo2: 'cercueil',
     song: 'fond',
     intro: 'Le deuil de Mzee Laurent-Désiré Kabila',
+  ),
+  HistoryEvent(
+    2001.05,
+    EventKind.memory,
+    '17 janvier 2001',
+    'Kinshasa',
+    'Qui succède à Mzee ?',
+    'Kinshasa retient son souffle. Le 17 janvier, le gouvernement confie la direction du pays et le haut commandement '
+        'de l\'armée au général-major Joseph Kabila, le fils de Mzee ; la mort n\'est annoncée officiellement que le 18. '
+        'Le colonel Eddy Kapend, l\'aide de camp de Mzee, est arrêté peu après avec d\'autres officiers, accusé du complot.',
+    photo: 'kapend',
+    intro: 'Qui succède à Mzee ?',
   ),
   HistoryEvent(
     2001.07,
