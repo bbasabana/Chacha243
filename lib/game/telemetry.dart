@@ -255,6 +255,39 @@ class Telemetry {
     }
   }
 
+  /// The five best pilots, shown one by one when the game opens to make the others want to beat them.
+  /// Empty offline.
+  static Future<List<TopPilot>> top() async {
+    try {
+      final r = await http.get(Uri.parse('$_url/top')).timeout(const Duration(seconds: 5));
+      if (r.statusCode != 200) return const [];
+      final list = (jsonDecode(r.body) as Map<String, dynamic>)['top'] as List<dynamic>? ?? const [];
+      return Future.wait([
+        for (final x in list.cast<Map<String, dynamic>>())
+          () async {
+            final place = (x['place'] as num?)?.toInt() ?? 0;
+            Uint8List? photo;
+            if (x['photo'] == true) {
+              try {
+                final ph = await http.get(Uri.parse('$_url/top?photo=$place')).timeout(const Duration(seconds: 6));
+                if (ph.statusCode == 200) photo = ph.bodyBytes;
+              } catch (_) {}
+            }
+            return TopPilot(
+              place,
+              x['name'] as String? ?? '',
+              (x['year'] as num?)?.toInt() ?? 1960,
+              x['arrived'] == true,
+              (x['score'] as num?)?.toInt() ?? 0,
+              photo,
+            );
+          }(),
+      ]);
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// The Mobile Money number where a championship prize is sent. True once the server kept it.
   static Future<bool> sendMomo(String number) async {
     try {
@@ -641,4 +674,14 @@ class Championship {
   /// The first to arrive wins; otherwise the fastest flight from 1960 to 2027.
   final bool first;
   final DateTime? ends;
+}
+
+/// One of the five best pilots.
+class TopPilot {
+  const TopPilot(this.place, this.name, this.year, this.arrived, this.score, this.photo);
+
+  final int place, year, score;
+  final String name;
+  final bool arrived;
+  final Uint8List? photo;
 }

@@ -17,9 +17,11 @@ import '../data/war_zones.dart';
 import '../data/window_animals.dart';
 import '../painting/aircraft_painter.dart';
 import '../theme/chacha_colors.dart';
+import 'achievements.dart';
 import 'ads.dart';
 import 'checkpoint.dart';
 import 'boulevard.dart';
+import 'play_games.dart';
 import 'scenery.dart';
 import 'telemetry.dart';
 import 'tilt_control.dart';
@@ -1295,6 +1297,33 @@ class ChachaGame extends FlameGame {
     return m > 0 ? '$m min ${r.toString().padLeft(2, '0')} s' : '$r s';
   }
 
+  /// Un succès de plus. Play Jeux l'annonce lui-même ; sans compte Play Jeux, un petit mot doré le dit.
+  void _achieve(Achievement a, [String? thing]) {
+    if (_offRecord) return;
+    Achievements.step(a, thing).then((won) {
+      if (won && PlayGames.player.value == null) {
+        _float('🏆 Succès · ${a.title}', planeX, planeY - planeLength * 0.4, ChachaColors.yellow);
+      }
+    });
+  }
+
+  /// Les médailles de bronze à platine, selon l'année atteinte.
+  void _yearMedals() {
+    for (final (a, y) in const [
+      (Achievement.bronze, 1970),
+      (Achievement.silver, 1990),
+      (Achievement.gold, 2005),
+      (Achievement.platinum, 2020),
+    ]) {
+      if (year >= y) _achieve(a);
+    }
+  }
+
+  void _earnStage() {
+    _achieve(Achievement.ceasefire);
+    _achieve(Achievement.peacemaker);
+  }
+
   void _report(String kind, [String detail = '']) {
     if (_offRecord) return;
     Telemetry.send(
@@ -1320,10 +1349,19 @@ class ChachaGame extends FlameGame {
       _startSent = true;
       _yearSent = year.floor();
       _report('start');
+      _achieve(Achievement.takeoff);
     }
     if (p == FlightPhase.crashed || p == FlightPhase.finished) onSuspense?.call(false);
     if (p == FlightPhase.crashed && phase != p) _report('crash', _failWhy.isEmpty ? 'Plus de vies' : _failWhy);
-    if (p == FlightPhase.finished && phase != p) _report('win');
+    if (p == FlightPhase.finished && phase != p) {
+      _report('win');
+      _yearMedals();
+      _achieve(Achievement.diamond);
+    }
+    if ((p == FlightPhase.crashed || p == FlightPhase.finished) && phase != p && !_offRecord) {
+      Achievements.submit(Board.farthest, year.floor());
+      Achievements.submit(Board.score, score);
+    }
     if (p == FlightPhase.crashed && phase != p) {
       onBuzz?.call(700, 255);
       _impact = false;
@@ -2286,6 +2324,7 @@ class ChachaGame extends FlameGame {
     if (year.floor() > _yearSent && _startSent) {
       _yearSent = year.floor();
       _report('year');
+      _yearMedals();
     }
     // Chaque nouvelle année devient le point de reprise, guerre comprise : après un crash en 1962,
     // on reprend en 1962, au milieu de la sécession, avec les vagues déjà passées.
@@ -4213,6 +4252,7 @@ class ChachaGame extends FlameGame {
 
   void _land() {
     _setPhase(FlightPhase.ground);
+    _achieve(Achievement.traveller, _airport!.city);
     _service = -1;
     vy = 0;
     pitch = 0;
@@ -4428,6 +4468,7 @@ class ChachaGame extends FlameGame {
     _nextWindow = t + 75 + _rng.nextDouble() * 45;
     final animal = WindowAnimal.values[_windowCount++ % WindowAnimal.values.length];
     _windowShown.add(animal);
+    _achieve(Achievement.naturalist, animal.name);
     _cue(() => windowView.value = animal, 8, hide: () => windowView.value = null, still: () => _skyFree);
   }
 
@@ -4898,6 +4939,7 @@ class ChachaGame extends FlameGame {
     gear = 0;
     score += 300;
     _float('+300 points · sang-froid', planeX, planeY - planeLength * 0.3, ChachaColors.yellow);
+    _achieve(Achievement.boulevard);
     _calmUntil = math.max(_calmUntil, t + 14);
     _nextRiver = math.max(_nextRiver, t + 70);
     _nextStraight = math.max(_nextStraight, t + 40);
@@ -5471,6 +5513,7 @@ class ChachaGame extends FlameGame {
   void serveMeal(String base, String dish, List<String> drinks) {
     if (drinks.isEmpty) return;
     meal.value = null;
+    _achieve(Achievement.crew);
     final served = math.max(1, passengers);
     // Chacun se sert : les goûts se répartissent au hasard, sans être égaux.
     final weights = [for (final _ in drinks) 0.5 + _rng.nextDouble()];
@@ -5710,6 +5753,7 @@ class ChachaGame extends FlameGame {
       _addFuel(55);
       score += 150;
       _confetti();
+      _achieve(Achievement.quiz);
       if (q.event case final e? when e.song != null && e.year.floor() == year.floor()) _song(e.song!);
       _queueBanner(
         FlightBanner(
@@ -5855,6 +5899,7 @@ class ChachaGame extends FlameGame {
         // Le ciel s'est vidé : on attend que plus rien ne parle avant de dire bravo.
         if (_onStage != null || _camTalk != null) return;
         _partSaid = true;
+        _earnStage();
         score += 300;
         _confetti();
         HistoryEvent? why;
@@ -6053,6 +6098,7 @@ class ChachaGame extends FlameGame {
     final z = _zone!;
     year = math.max(year, z.to);
     _report('stage', '${z.name} · ${_clock(_stageT)}');
+    _earnStage();
     _stageT = 0;
     _zone = null;
     onSuspense?.call(false);

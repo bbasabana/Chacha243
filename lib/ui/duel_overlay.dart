@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../game/achievements.dart';
 import '../game/chacha_game.dart';
 import '../game/duel.dart';
 import '../game/telemetry.dart';
@@ -106,6 +107,7 @@ class _DuelOverlayState extends State<DuelOverlay> {
     if (net.outcome != null && !_sent) {
       _sent = true;
       Telemetry.sendDuel({'kind': 'result', ...net.result()});
+      if (net.outcome!.winners.contains(net.myId)) Achievements.step(Achievement.duel);
     }
     if (mounted) setState(() {});
   }

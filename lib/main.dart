@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'app_state.dart';
 import 'data/aircraft_types.dart';
+import 'game/achievements.dart';
 import 'game/ads.dart';
 import 'game/chacha_game.dart';
 import 'game/play_games.dart';
@@ -34,7 +35,9 @@ Future<void> main() async {
   // Au retour dans l'app, ce qui a été joué hors connexion part vers le tableau de bord.
   if (!kIsWeb) _resume = AppLifecycleListener(onResume: Telemetry.flush);
   Ads.load();
-  PlayGames.check();
+  // Les succès gagnés hors connexion (ou avant Play Jeux) partent dès que le joueur y est connecté.
+  await Achievements.load();
+  PlayGames.check().then((_) => Achievements.sync());
   lockLandscape();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   runApp(const Chacha243App());

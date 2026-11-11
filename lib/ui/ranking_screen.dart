@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 
 import '../app_state.dart';
 import '../data/medals.dart';
+import '../game/achievements.dart';
+import '../game/play_games.dart';
 import '../game/telemetry.dart';
 import '../theme/chacha_colors.dart';
 import 'glass.dart';
@@ -264,7 +266,122 @@ class _RankingScreenState extends State<RankingScreen> {
               ],
             ),
           ),
+        const SizedBox(height: 16),
+        const AchievementsPanel(),
       ],
+    );
+  }
+}
+
+/// Les succès du pilote : gagnés en couleur, les autres en gris avec où il en est.
+/// Avec Play Jeux, un bouton ouvre ses succès Google (ceux que ses amis voient).
+class AchievementsPanel extends StatelessWidget {
+  const AchievementsPanel({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([Achievements.earned, Achievements.progress, PlayGames.player]),
+      builder: (_, _) {
+        final got = Achievements.earned.value;
+        final points = got.fold(0, (n, a) => n + a.points);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'MES SUCCÈS · ${got.length}/${Achievement.values.length} · $points/1000 PTS',
+                  style: const TextStyle(
+                    color: ChachaColors.yellow,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+                const Spacer(),
+                if (PlayGames.player.value != null)
+                  GlassButton(
+                    onTap: PlayGames.showAchievements,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    radius: 14,
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.sports_esports_rounded, color: Colors.white, size: 16),
+                        SizedBox(width: 6),
+                        Text('Voir dans Play Jeux', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [for (final a in Achievement.values) _tile(a, got.contains(a))],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _tile(Achievement a, bool won) {
+    final done = Achievements.progress.value[a] ?? 0;
+    return SizedBox(
+      width: 214,
+      child: Glass(
+        radius: 16,
+        tint: won ? a.color.withValues(alpha: 0.22) : ChachaColors.glassFill,
+        padding: const EdgeInsets.fromLTRB(8, 8, 10, 8),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: won
+                    ? RadialGradient(colors: [Color.lerp(a.color, Colors.white, 0.35)!, a.color])
+                    : null,
+                color: won ? null : Colors.white.withValues(alpha: 0.08),
+                border: Border.all(color: won ? Colors.white.withValues(alpha: 0.7) : Colors.white24, width: 1.5),
+              ),
+              child: Icon(won ? a.icon : Icons.lock_rounded, color: won ? ChachaColors.night : Colors.white38, size: 21),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    a.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: won ? Colors.white : Colors.white70,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    won
+                        ? '+${a.points} pts ✓'
+                        : a.goal > 1
+                        ? '$done/${a.goal} · ${a.how}'
+                        : a.how,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white.withValues(alpha: won ? 0.85 : 0.6), fontSize: 11, height: 1.2),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

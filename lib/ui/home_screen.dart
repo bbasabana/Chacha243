@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../app_state.dart';
 import '../data/aircraft_types.dart';
 import '../data/eras.dart';
+import '../game/app_update.dart';
 import '../game/checkpoint.dart';
 import '../game/music.dart';
 import '../game/scenery.dart';
@@ -22,6 +23,7 @@ import 'hangar_screen.dart';
 import 'ranking_screen.dart';
 import 'soft_dialog.dart';
 import 'timeline_screen.dart';
+import 'top_pilots.dart';
 
 /// L'accueil : l'avion dessine la diagonale du drapeau dans le ciel, comme sur l'icône.
 class HomeScreen extends StatefulWidget {
@@ -35,6 +37,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   late final _clock = AnimationController(vsync: this, duration: const Duration(seconds: 30))..repeat();
   Checkpoint? _saved;
 
+  /// Les cinq meilleurs pilotes qui défilent à l'ouverture ; null quand ils sont passés.
+  List<TopPilot>? _top;
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +51,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       if (mounted && !kIsWeb) await _showNews();
       // Un don fait pendant que l'app était fermée : le merci arrive à l'ouverture.
       if (mounted && !kIsWeb && await Telemetry.newGift() && mounted) await showGiftThanks(context);
+      // Une nouvelle version sur le Play Store : on le dit une fois par jour, au plus.
+      if (mounted && await AppUpdate.due() && mounted) await showUpdateDialog(context);
+      // Puis les meilleurs pilotes défilent, pour donner envie de les battre.
+      if (!mounted || kIsWeb) return;
+      final top = await Telemetry.top();
+      if (mounted && top.isNotEmpty) setState(() => _top = top);
     });
   }
 
@@ -138,6 +149,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return Stack(
       children: [
         Positioned.fill(child: _main()),
+        if (_top case final top?)
+          Positioned(
+            top: 14,
+            left: 22,
+            child: TopPilotsTicker(top, onDone: () => setState(() => _top = null)),
+          ),
         Positioned(
           top: 14,
           right: 22,

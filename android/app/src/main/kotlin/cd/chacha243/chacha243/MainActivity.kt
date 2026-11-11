@@ -11,6 +11,11 @@ import android.view.View
 import android.provider.Settings
 import android.telephony.TelephonyManager
 import com.google.android.gms.games.PlayGames
+import com.google.android.play.core.appupdate.AppUpdateInfo
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.install.model.AppUpdateType
+import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.android.gms.games.PlayGamesSdk
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -52,7 +57,17 @@ class MainActivity : FlutterActivity() {
         super.onResume()
         lockLandscape()
         cap60()
+        // Une mise à jour commencée puis quittée reprend là où elle était.
+        updates.appUpdateInfo.addOnSuccessListener { info ->
+            if (info.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) startUpdate(info)
+        }
     }
+
+    // La mise à jour depuis le Play Store, sans quitter le jeu : Google la télécharge, l'installe et relance l'app.
+    private val updates by lazy { AppUpdateManagerFactory.create(this) }
+
+    private fun startUpdate(info: AppUpdateInfo) =
+        updates.startUpdateFlowForResult(info, this, AppUpdateOptions.defaultOptions(AppUpdateType.IMMEDIATE), 243)
 
     // L'écran verrouillé est en portrait : au déverrouillage, certains téléphones rendent le jeu
     // à l'ancienne taille, écrasé dans un coin. On redemande la taille de la vue quand l'app revient
@@ -99,9 +114,28 @@ class MainActivity : FlutterActivity() {
                 ),
             )
         }
-        // Play Games : « player » dit qui est connecté (ou null), « signIn » le demande au joueur, d'un clic.
+        // Play Games : « player » dit qui est connecté (ou null), « signIn » le demande au joueur, d'un clic ;
+        // « unlock » donne un succès, « submit » envoie un score à un classement, « achievements » et
+        // « leaderboards » ouvrent les écrans de Google Play Jeux.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "chacha243/games").setMethodCallHandler { call, result ->
             val auth = PlayGames.getGamesSignInClient(this)
+            when (call.method) {
+                "unlock" -> {
+                    PlayGames.getAchievementsClient(this).unlock(call.argument<String>("id") ?: "")
+                    return@setMethodCallHandler result.success(null)
+                }
+                "submit" -> {
+                    val score = call.argument<Number>("score")?.toLong() ?: 0L
+                    PlayGames.getLeaderboardsClient(this).submitScore(call.argument<String>("id") ?: "", score)
+                    return@setMethodCallHandler result.success(null)
+                }
+                "achievements", "leaderboards" -> {
+                    val screen = if (call.method == "achievements") PlayGames.getAchievementsClient(this).achievementsIntent
+                    else PlayGames.getLeaderboardsClient(this).allLeaderboardsIntent
+                    screen.addOnSuccessListener { startActivityForResult(it, 9001) }
+                    return@setMethodCallHandler result.success(true)
+                }
+            }
             val task = when (call.method) {
                 "player" -> auth.isAuthenticated
                 "signIn" -> auth.signIn()
@@ -112,6 +146,25 @@ class MainActivity : FlutterActivity() {
                 PlayGames.getPlayersClient(this).currentPlayer.addOnCompleteListener { me ->
                     result.success(if (me.isSuccessful) me.result?.displayName else null)
                 }
+            }
+        }
+        // La mise à jour : « check » dit si une nouvelle version attend sur le Play Store, « start » la lance.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "chacha243/update").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "check" -> updates.appUpdateInfo
+                    .addOnSuccessListener { info ->
+                        result.success(
+                            info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
+                                info.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE),
+                        )
+                    }
+                    .addOnFailureListener { result.success(false) }
+                "start" -> updates.appUpdateInfo
+                    .addOnSuccessListener { info ->
+                        result.success(info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE && startUpdate(info))
+                    }
+                    .addOnFailureListener { result.success(false) }
+                else -> result.notImplemented()
             }
         }
     }
