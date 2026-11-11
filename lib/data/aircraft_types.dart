@@ -1,5 +1,3 @@
-import 'package:flutter/painting.dart';
-
 import 'eras.dart';
 
 /// Les avions que le joueur peut piloter, du DC-3 de 1960 au Boeing 787 d'Air Congo.
@@ -189,21 +187,7 @@ const aircraftTypes = <AircraftType>[
     layout: EngineLayout.triJet,
     inCongo: '1998 – 2011',
     operator: 'Hewa Bora Airways',
-    livery: Livery(
-      body: Color(0xFFF4F5F7),
-      belly: Color(0xFFC9D1DB),
-      stripe: Color(0x00000000),
-      stripe2: Color(0xFF1F2A5C),
-      tail: Color(0xFFF4F5F7),
-      emblem: TailEmblem.none,
-      word: 'HBA',
-      wordSub: 'HEWA BORA AIRWAYS',
-      wordColor: Color(0xFF1F3E8C),
-      wordX: 77,
-      wordSize: 7.2,
-      tailWord: 'HBA',
-      tailBase: Color(0xFF1F3E8C),
-    ),
+    livery: hewaBoraLivery,
     from: 1998.3,
     to: 2011.52,
     seats: 246,
@@ -221,21 +205,7 @@ const aircraftTypes = <AircraftType>[
     layout: EngineLayout.twinJets,
     inCongo: '2005 – 2013',
     operator: 'LAC',
-    livery: Livery(
-      body: Color(0xFFF1EEE6),
-      belly: Color(0xFFCFCCC4),
-      stripe: Color(0x00000000),
-      stripe2: Color(0x00000000),
-      tail: Color(0xFF2468D8),
-      emblem: TailEmblem.star,
-      engine: Color(0xFF2468D8),
-      word: 'LAC',
-      wordColor: Color(0xFF6B6B6B),
-      wordX: 77,
-      wordSize: 8.5,
-      wordSerif: true,
-      tailStars: true,
-    ),
+    livery: lacLivery,
     from: 2005.0,
     to: 2013.5,
     seats: 200,

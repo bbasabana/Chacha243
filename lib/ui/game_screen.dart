@@ -3506,7 +3506,7 @@ class _MealViewState extends State<_MealView> {
   @override
   Widget build(BuildContext context) {
     final o = widget.offer;
-    final items = _drinking ? const [...mealSodas, ...mealBeers, ...mealSpirits] : const [...mealBases, ...mealDishes];
+    final items = _drinking ? o.drinks : o.food;
     final chosen = _drinking ? _drinks : _food;
     return Glass(
       tint: const Color(0xB3001A40),
@@ -3542,6 +3542,8 @@ class _MealViewState extends State<_MealView> {
             Text(
               _drinking
                   ? 'L\'eau est déjà sur le chariot · fais glisser et ajoute ce que tu veux'
+                  : o.short
+                  ? 'Aujourd\'hui, on n\'a que ça · touche plusieurs plats pour les choisir'
                   : 'Fais glisser les images · touche plusieurs plats pour les choisir',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
             ),

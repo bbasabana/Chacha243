@@ -677,6 +677,41 @@ void main() {
     expect(useful, 0);
   });
 
+  test('le chariot du repas change à chaque fois : autre ordre, parfois peu de plats, parfois beaucoup', () {
+    final menus = [for (var i = 0; i < 40; i++) ChachaGame.mealMenu()];
+    for (var i = 1; i < menus.length; i++) {
+      expect(menus[i].$1.take(3).join(), isNot(menus[i - 1].$1.take(3).join()), reason: 'pas deux fois le même');
+    }
+    for (final (food, drinks) in menus) {
+      expect(food.any(mealBases.contains), isTrue, reason: 'toujours un accompagnement');
+      expect(drinks.first, 'Eau');
+      expect(food.toSet(), hasLength(food.length));
+    }
+    expect(menus.any((m) => m.$1.length <= 5), isTrue, reason: 'un petit chariot');
+    expect(menus.any((m) => m.$1.length >= 9), isTrue, reason: 'un grand chariot');
+  });
+
+  test('après le boulevard de 1990, personne ne propose de descendre avant mi-1994', () async {
+    final g = await start(year: 1990.95, autopilot: true);
+    final offers = <String>[];
+    g.radio.addListener(() {
+      final r = g.radio.value;
+      if (r?.offer != null && g.year < 1994.5) offers.add('${g.year.toStringAsFixed(2)} ${r!.french}');
+    });
+    var useful = 0;
+    for (var i = 0; i < 60 * 60 * 6 && g.year < 1994.8; i++) {
+      g.lives = 5;
+      g.fuel = 30;
+      g.condition = 28;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+      if (g.year < 1994.5 && g.landingUseful) useful++;
+    }
+    expect(g.year, greaterThan(1994.5));
+    expect(offers, isEmpty);
+    expect(useful, 0);
+  });
+
   test('de 1965 à 1985, les fiches restent dans leur année, et le MPR et Ali ont leur chanson', () async {
     final g = await start(year: 1965.5, autopilot: true);
     final wrong = <String>[];
@@ -935,6 +970,56 @@ void main() {
     expect(low.phase, FlightPhase.crashed, reason: 'année ${low.year}');
     expect(low.failWhy, contains('Nyiragongo'));
   });
+  test(
+    'à chaque compagnie, son message et son avion ensemble : les LAC, Hewa Bora, le retour des LAC',
+    () async {
+      final g = await start(year: 1960.4, autopilot: true);
+      final announced = <String>[];
+      var shown = g.liveryShown, type = g.type, planeBanners = 0;
+      String? banner;
+      for (var i = 0; i < 60 * 60 * 120 && g.year < 2025.5; i++) {
+        g.lives = 5;
+        g.condition = 100;
+        g.fuel = 80;
+        g.update(1 / 60);
+        if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+        if (g.phase == FlightPhase.crashed || g.phase == FlightPhase.finished) break;
+        final b = g.banner.value?.title;
+        final changed = !identical(g.liveryShown, shown) || g.type != type;
+        if (b != banner && b != null) {
+          final era = airlineEras.where((a) => b == (a.headline ?? '${a.from.floor()} · ${a.name}')).firstOrNull;
+          if (era != null) {
+            announced.add(b);
+            expect(g.year, closeTo(era.from, 0.6), reason: '« $b » passe dans son année');
+          }
+          if (b.startsWith('Nouvel avion')) planeBanners++;
+        }
+        if (g.type != type) {
+          expect(b, isNotNull, reason: 'le nouvel avion arrive avec son message (${g.year})');
+        }
+        if (changed) {
+          shown = g.liveryShown;
+          type = g.type;
+        }
+        banner = b;
+      }
+      expect(announced, [
+        '1961 · Air Congo',
+        '1971 · Air Zaïre',
+        '1997 · Lignes Aériennes Congolaises',
+        '1998 · Hewa Bora Airways',
+        '2005 · Les LAC reviennent',
+        '2013 · Compagnies privées',
+        '2015 · Congo Airways',
+        '2024 · Air Congo',
+      ]);
+      expect(planeBanners, 1, reason: 'seul le 707 retiré en 1990 a son propre message');
+      expect(airlineAt(1999).livery.word, 'HBA');
+      expect(airlineAt(1997.5).livery.word, 'LAC');
+    },
+    timeout: const Timeout(Duration(minutes: 10)),
+  );
+
   test('la descente sur le boulevard Lumumba : treize répliques lentes, puis l\'avion remonte', () async {
     final g = await start(year: 1997.6, autopilot: true)
       ..showcase = 'boulevard';
@@ -991,7 +1076,7 @@ void main() {
         String? playing;
         final during = <String>[], later = <String>[];
         final swells = <(double, double)>[];
-        var began = false, lifted = false;
+        var began = false, lifted = false, looped = false;
         g
           ..songBusy = (() => playing != null)
           ..onHush = (() => playing = null)
@@ -1002,15 +1087,24 @@ void main() {
             playing = key;
             if (g.onBoulevard && !lifted) during.add(key);
             if (lifted) later.add(key);
-            if (key == 'boulevard') began = true;
+            if (key == 'boulevard') {
+              began = true;
+              looped = loop;
+            }
           });
         for (var i = 0; i < 60 * 100; i++) {
           g.update(1 / 60);
-          if (began && !lifted && g.onBoulevard && swells.isNotEmpty) lifted = true;
+          if (swells.any((s) => s.$1 == 0)) lifted = true;
         }
         expect(during, ['boulevard'], reason: '$from : aucune autre chanson pendant la descente');
         expect(later.first, after, reason: '$from : la chanson du vol repart après le décollage');
-        expect(swells.first.$1, 0, reason: 'la chanson du boulevard s\'éteint');
+        expect(looped, isTrue, reason: 'l\'extrait de 9 à 30 secondes tourne en boucle');
+        expect(
+          swells.where((s) => s.$1 < 0.1 && s.$1 > 0),
+          hasLength(3),
+          reason: 'la chanson se fait petite à chaque klaxon',
+        );
+        expect(swells.where((s) => s.$1 == 0), hasLength(1), reason: 'puis elle s\'éteint au décollage');
         expect(swells.last.$1, greaterThan(0.3), reason: 'puis le Cha Cha grandit');
         expect(g.onBoulevard, isFalse);
       }
@@ -1044,7 +1138,7 @@ void main() {
         }
       }
       expect(ended - began, lessThan(72), reason: 'plus courte que les deux autres');
-      expect(lines, hasLength(11));
+      expect(lines, hasLength(12));
       expect(lines.map((l) => l.voice), containsAll([SceneVoice.bus, SceneVoice.street, SceneVoice.police]));
       for (var i = 1; i < at.length; i++) {
         expect(at[i] - at[i - 1], greaterThanOrEqualTo(5), reason: 'le temps de lire chaque réplique');
@@ -1052,6 +1146,8 @@ void main() {
       final said = lines.map((l) => l.text).join('\n');
       for (final words in [
         'Tozo kita na Boulevard Lumumba',
+        'La piste est occupée',
+        'La piste est occupée',
         'Eza normal te avion akita awa',
         'epesa santa kindoki',
         'Eza te',

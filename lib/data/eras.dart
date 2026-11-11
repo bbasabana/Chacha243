@@ -100,6 +100,58 @@ const _zaire = Livery(
   fuselageFlag: FlagStyle.zaire1971,
 );
 
+/// Les Lignes Aériennes Congolaises : fuselage crème, dérive bleue à l'étoile jaune, le nom « LAC » sur le côté.
+const lacLivery = Livery(
+  body: Color(0xFFF1EEE6),
+  belly: Color(0xFFCFCCC4),
+  stripe: Color(0x00000000),
+  stripe2: Color(0x00000000),
+  tail: Color(0xFF2468D8),
+  emblem: TailEmblem.star,
+  engine: Color(0xFF2468D8),
+  word: 'LAC',
+  wordColor: Color(0xFF6B6B6B),
+  wordX: 77,
+  wordSize: 8.5,
+  wordSerif: true,
+  tailStars: true,
+);
+
+/// Les LAC de 1997, avec le drapeau à l'étoile de l'époque peint à l'arrière.
+const _lac1997 = Livery(
+  body: Color(0xFFF1EEE6),
+  belly: Color(0xFFCFCCC4),
+  stripe: Color(0x00000000),
+  stripe2: Color(0x00000000),
+  tail: Color(0xFF2468D8),
+  emblem: TailEmblem.star,
+  engine: Color(0xFF2468D8),
+  fuselageFlag: FlagStyle.star1997,
+  word: 'LAC',
+  wordColor: Color(0xFF6B6B6B),
+  wordX: 77,
+  wordSize: 8.5,
+  wordSerif: true,
+  tailStars: true,
+);
+
+/// Hewa Bora Airways : tout blanc, « HBA » en bleu sur le fuselage et la dérive.
+const hewaBoraLivery = Livery(
+  body: Color(0xFFF4F5F7),
+  belly: Color(0xFFC9D1DB),
+  stripe: Color(0x00000000),
+  stripe2: Color(0xFF1F2A5C),
+  tail: Color(0xFFF4F5F7),
+  emblem: TailEmblem.none,
+  word: 'HBA',
+  wordSub: 'HEWA BORA AIRWAYS',
+  wordColor: Color(0xFF1F3E8C),
+  wordX: 77,
+  wordSize: 7.2,
+  tailWord: 'HBA',
+  tailBase: Color(0xFF1F3E8C),
+);
+
 const airlineEras = <AirlineEra>[
   AirlineEra(
     1960.0,
@@ -129,7 +181,14 @@ const airlineEras = <AirlineEra>[
     ),
     flagship: 'dc6',
   ),
-  AirlineEra(1971.82, 'Air Zaïre', 'Le pays devient le Zaïre : sa compagnie aussi.', _zaire, flagship: 'b707'),
+  AirlineEra(
+    1971.82,
+    'Air Zaïre',
+    'Le pays devient le Zaïre, avec un nouveau drapeau : Air Congo devient Air Zaïre, en vert et jaune, '
+        'avec la torche sur la dérive.',
+    _zaire,
+    flagship: 'b707',
+  ),
   AirlineEra(
     1995.45,
     'Compagnies zaïroises',
@@ -141,18 +200,27 @@ const airlineEras = <AirlineEra>[
   AirlineEra(
     1997.4,
     'Lignes Aériennes Congolaises',
-    'Le Zaïre redevient la RD Congo : le vert du Zaïre s\'efface, l\'avion prend le bleu et l\'étoile des LAC.',
-    Livery(
-      body: Color(0xFFF7F8FB),
-      belly: Color(0xFFC9D1DB),
-      stripe: ChachaColors.sky,
-      stripe2: ChachaColors.red,
-      tail: ChachaColors.sky,
-      emblem: TailEmblem.star,
-      fuselageFlag: FlagStyle.star1997,
-    ),
+    'Le Zaïre redevient la RD Congo, avec le drapeau à l\'étoile. Air Zaïre laisse la place aux Lignes Aériennes '
+        'Congolaises (LAC), la nouvelle compagnie nationale : ton avion prend leur bleu, leur étoile et leur nom.',
+    _lac1997,
     flagship: 'b737',
-    headline: 'Ton avion devient congolais',
+    headline: '1997 · Lignes Aériennes Congolaises',
+  ),
+  AirlineEra(
+    1998.3,
+    'Hewa Bora Airways',
+    'Zaïre Airlines, Zaïre Express et Congo Airlines s\'unissent : Hewa Bora Airways (HBA, « le bon air » en swahili) '
+        'devient la grande compagnie privée de Kinshasa, avec ses Lockheed TriStar.',
+    hewaBoraLivery,
+    flagship: 'l1011',
+  ),
+  AirlineEra(
+    2005.0,
+    'Lignes Aériennes Congolaises',
+    'Les LAC renaissent en 2005 : la compagnie nationale revient, en Boeing 767, jusqu\'à sa liquidation en 2013.',
+    lacLivery,
+    flagship: 'b767',
+    headline: '2005 · Les LAC reviennent',
   ),
   AirlineEra(
     2013.5,

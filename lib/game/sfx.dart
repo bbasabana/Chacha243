@@ -28,7 +28,8 @@ class Sfx {
 
   void play(String name) {
     if (!soundsOn.value) return;
-    final volume = musicVolume.value.clamp(0.3, 1.0) * (name == 'etoile' ? 0.35 : 0.7);
+    // Le klaxon du Wewa sonne à fond : tout le boulevard doit l'entendre.
+    final volume = name == 'klaxon' ? 1.0 : musicVolume.value.clamp(0.3, 1.0) * (name == 'etoile' ? 0.35 : 0.7);
     final pair = _players[name] ??= [
       for (var i = 0; i < 2; i++)
         AudioPlayer()

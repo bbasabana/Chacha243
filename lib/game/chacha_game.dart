@@ -209,7 +209,19 @@ class CabinHud {
 
 /// Le menu du repas à bord, proposé au pilote ; le vol attend son choix.
 class MealOffer {
-  const MealOffer(this.passengers, {this.canRefuse = false, this.number = 1});
+  const MealOffer(
+    this.passengers, {
+    this.canRefuse = false,
+    this.number = 1,
+    this.food = const [...mealBases, ...mealDishes],
+    this.drinks = const [...mealSodas, ...mealBeers, ...mealSpirits],
+  });
+
+  /// Ce que le chariot propose aujourd'hui, dans l'ordre où on le fait glisser : jamais deux fois le même menu.
+  final List<String> food, drinks;
+
+  /// Un petit chariot : on n'a que ça aujourd'hui.
+  bool get short => food.length <= 5;
 
   /// Le premier repas du vol, le deuxième…
   final int number;
@@ -2359,7 +2371,7 @@ class ChachaGame extends FlameGame {
       _float('Kérosène 50 % · attrape les bidons rouges', planeX, planeY - 44 * _unit, const Color(0xFFFFD54A));
     }
     // L'alerte ne vient que si la réserve ne suffit pas à tenir.
-    // Pendant la chanson d'Ali, la tour ne parle du kérosène qu'en cas d'urgence.
+    // Pendant la chanson d'Ali et après le boulevard de 1990, la tour ne parle du kérosène qu'en cas d'urgence.
     if (fuel < (_listening ? 10 : 22) && fuel + reserve < 30 && t >= _nextFuelAlert && !_offerPending) _fuelAlert();
     // La question attend un moment sans message, dix secondes après une étape. À sec, elle n'attend plus.
     final calm = _onStage == null && _cues.isEmpty && cabin.value == null && t >= _pauseClosedAt + 10;
@@ -4507,8 +4519,9 @@ class ChachaGame extends FlameGame {
     return t - _busyAt >= 3 && _zone == null && !_listening && (ahead == null || year < ahead.from - 1.2);
   }
 
-  /// De 1974 à 1976, on écoute « Ali, boma ye ! » : personne ne demande au pilote de descendre.
-  bool get _listening => year >= 1974 && year < 1976;
+  /// Personne ne demande au pilote de descendre : de 1974 à 1976, on écoute « Ali, boma ye ! » ;
+  /// après la descente du boulevard de 1990, l'avion vient de prendre un choc, on ne redescend pas avant mi-1994.
+  bool get _listening => (year >= 1974 && year < 1976) || (year >= 1990.9 && year < 1994.5);
 
   void _updateCamera() {
     // Des fiches attendent leur année dans la file : seul ce qui est à l'écran compte.
@@ -4811,6 +4824,9 @@ class ChachaGame extends FlameGame {
   /// La musique de la scène : 0 la chanson du boulevard, 1 elle s'éteint, 2 la chanson du vol repart bas, 3 elle monte.
   int _bMusic = 0;
 
+  /// Le dernier coup de klaxon : la chanson se fait toute petite le temps qu'on l'entende.
+  double _bHonkAt = -1;
+
   /// La descente se joue en ce moment.
   bool get onBoulevard => _bT >= 0;
 
@@ -4840,11 +4856,11 @@ class ChachaGame extends FlameGame {
 
   static const _bScenes = [
     _BScene(0, _bLines1963, _bLineAt, cockpit: 17.6, aerial: 24.0, street: 29.6, elan: 65.4, lift: 70.2, end: 77.0),
-    // 1990 : plus court. On descend tout de suite ; dans la rue, chacun dit son mot, puis le robot roulage.
+    // 1990 : plus court. La tour refuse la piste, on descend tout de suite ; dans la rue, chacun dit son mot, puis le robot roulage.
     _BScene(
       1,
       _bLines1990,
-      [0.8, 6.4, 18.0, 23.8, 29.6, 35.4, 41.2, 47.0, 52.8, 58.6, 64.4],
+      [0.8, 6.4, 12.2, 18.0, 23.8, 29.6, 35.4, 41.2, 47.0, 52.8, 58.6, 64.4],
       cockpit: 5.0,
       aerial: 11.4,
       street: 16.8,
@@ -4862,6 +4878,11 @@ class ChachaGame extends FlameGame {
     SceneLine(
       SceneVoice.pilot,
       "Mesdames et messieurs, l'avion a pris un choc. Tour de Ndjili, ici pilo pilo : je descends !",
+    ),
+    SceneLine(
+      SceneVoice.tower,
+      "Négatif, pilo pilo ! La piste est occupée et vous êtes trop loin : vous n'y arriverez pas, ce serait le crash. "
+      'Descendez sur le boulevard Lumumba !',
     ),
     SceneLine(
       SceneVoice.pilot,
@@ -4907,7 +4928,8 @@ class ChachaGame extends FlameGame {
     SceneLine(SceneVoice.pilot, "Tour de contrôle, ici pilo pilo ! L'avion est en mauvais état, je descends."),
     SceneLine(
       SceneVoice.tower,
-      "Vous êtes tout près de l'aéroport de Ndjili, à Léopoldville. Cherchez un moyen de descendre, même vers le boulevard Lumumba !",
+      "Négatif, pilo pilo ! Vous êtes trop loin de Ndjili et la piste est occupée : vous n'y arriverez pas, ce serait le crash. "
+      'Descendez sur le boulevard Lumumba !',
     ),
     SceneLine(
       SceneVoice.pilot,
@@ -4997,8 +5019,9 @@ class ChachaGame extends FlameGame {
     _bHonks = 0;
     _bCleared = _bLifted = false;
     _bMusic = 0;
+    _bHonkAt = -1;
     // Une seule chanson pendant toute la descente.
-    _song('boulevard');
+    _song('boulevard', loop: true);
     if (_seen.add('boulevard $which') && !_offRecord) Checkpoint.saveSeen(_seen);
     // Rien d'autre à l'écran tant que la scène dure : elle tient la régie.
     _clearStage();
@@ -5054,9 +5077,12 @@ class ChachaGame extends FlameGame {
     _flightT += dt;
     _stageT += dt;
     _airT += dt;
-    // La chanson du boulevard joue seule ; quand l'avion remonte dans les nuages, elle s'éteint
+    // La chanson du boulevard joue seule, en boucle ; quand l'avion remonte dans les nuages, elle s'éteint
     // et la chanson du vol repart tout bas, puis grandit.
-    if (_bMusic == 1 && at >= sc.lift + 2.4) {
+    if (_bMusic == 0 && _bHonkAt >= 0 && at >= _bHonkAt + 1) {
+      _bHonkAt = -1;
+      onSwell?.call(momentSongs['boulevard']?.level ?? 0.3, 0.8);
+    } else if (_bMusic == 1 && at >= sc.lift + 2.4) {
       _bMusic = 2;
       final key = _francOn ? 'franc' : 'fond';
       _song(key, level: 0.08, loop: _francOn);
@@ -5106,6 +5132,10 @@ class ChachaGame extends FlameGame {
     if (_bHonks < 3 && st >= plan.honks[_bHonks]) {
       _bHonks++;
       onSound?.call('klaxon');
+      if (_bMusic == 0) {
+        _bHonkAt = at;
+        onSwell?.call(0.08, 0.15);
+      }
       // Le troisième coup de klaxon : le chauffeur a vu l'avion, il reste stupéfait.
       _float(
         _bHonks == 3 ? 'Kokamwa !' : 'Pip pip !',
@@ -5701,6 +5731,38 @@ class ChachaGame extends FlameGame {
   /// Le prochain repas ne vient pas avant cette année : un vrai repas au début, une collation des années plus tard.
   double _mealYear = 1961.5;
 
+  /// Le chariot change à chaque repas : d'autres plats, d'autres boissons, dans un autre ordre ;
+  /// parfois il y a de tout, parfois on n'a que quelques plats.
+  static final _menuRng = math.Random();
+  static String? _lastMenu;
+  @visibleForTesting
+  static (List<String>, List<String>) mealMenu() => _mealMenu();
+  static (List<String>, List<String>) _mealMenu() {
+    final r = _menuRng;
+    List<String> pick(List<String> from, int min, int max) =>
+        ([...from]..shuffle(r)).take(min + r.nextInt(max - min + 1)).toList();
+    for (var tries = 0; ; tries++) {
+      final full = r.nextDouble() < 0.4;
+      final food = [
+        ...pick(mealBases, full ? 2 : 1, 3),
+        ...pick(mealDishes, full ? 6 : 2, full ? mealDishes.length : 5),
+      ]..shuffle(r);
+      final drinks = [
+        'Eau',
+        ...[
+          ...pick(mealSodas.where((d) => d != 'Eau').toList(), full ? 3 : 1, 4),
+          ...pick(mealBeers, full ? 4 : 1, full ? mealBeers.length : 3),
+          ...pick(mealSpirits, full ? 2 : 0, full ? mealSpirits.length : 2),
+        ]..shuffle(r),
+      ];
+      final key = '${food.join()}|${drinks.join()}';
+      if (key != _lastMenu && (_lastMenu == null || !_lastMenu!.startsWith(food.take(3).join())) || tries > 8) {
+        _lastMenu = key;
+        return (food, drinks);
+      }
+    }
+  }
+
   void _offerMeal() {
     _nextMeal = t + 220 + _rng.nextDouble() * 80;
     _mealYear = year + 15;
@@ -5713,7 +5775,14 @@ class ChachaGame extends FlameGame {
     _cue(
       () {
         _mealWait = 0;
-        meal.value = MealOffer(passengers, canRefuse: ++_mealsOffered >= 2, number: _mealsOffered);
+        final (food, drinks) = _mealMenu();
+        meal.value = MealOffer(
+          passengers,
+          canRefuse: ++_mealsOffered >= 2,
+          number: _mealsOffered,
+          food: food,
+          drinks: drinks,
+        );
         _pushHud();
       },
       0,
@@ -5777,7 +5846,15 @@ class ChachaGame extends FlameGame {
   /// Change d'avion (nouvelle époque, ou choix du joueur pendant une escale).
   void changeAircraft(AircraftType t) {
     if (phase != FlightPhase.ground || !t.fliesIn(year) || t == type) return;
-    _changeAircraft(t);
+    _swapAircraft(t);
+    _queueBanner(
+      FlightBanner(
+        'Nouvel avion · ${t.maker} ${t.name}',
+        'En ${year.floor()}, ${type.operator ?? _airline.name} vole en ${t.maker} ${t.name} · ${t.seats} places',
+        color: ChachaColors.skyLight,
+      ),
+      seconds: 5,
+    );
   }
 
   /// L'avion de la compagnie s'il vole encore cette année-là, sinon celui de l'époque le plus proche en taille.
@@ -5790,24 +5867,32 @@ class ChachaGame extends FlameGame {
     return open.first;
   }
 
-  void _changeAircraft(AircraftType t, {bool story = false}) {
-    type = t;
-    passengers = math.min(passengers, t.seats);
-    flash = 0.5;
-    // Le ciel ralentit un instant : on voit le nouvel avion arriver.
-    if (phase == FlightPhase.cruising) slowMo = math.max(slowMo, 2.5);
-    // Un seul message, qu'on a le temps de lire : l'année, la compagnie, l'avion et ses places.
+  /// L'avion de l'époque arrive : le message et le nouvel avion paraissent ensemble.
+  bool _planeDue = false;
+  void _changeAircraft(AircraftType t) {
+    _planeDue = true;
     _cue(
-      () => banner.value = FlightBanner(
-        'Nouvel avion · ${t.maker} ${t.name}',
-        'En ${year.floor()}, ${type.operator ?? _airline.name} vole en ${t.maker} ${t.name} · ${t.seats} places',
-        color: ChachaColors.skyLight,
-      ),
+      () {
+        _planeDue = false;
+        _swapAircraft(t);
+        banner.value = FlightBanner(
+          'Nouvel avion · ${t.maker} ${t.name}',
+          'En ${year.floor()}, ${type.operator ?? _airline.name} vole en ${t.maker} ${t.name} · ${t.seats} places',
+          color: ChachaColors.skyLight,
+        );
+      },
       5,
       hide: () => banner.value = null,
-      // Juste derrière l'annonce de la compagnie.
-      first: story,
+      first: true,
     );
+  }
+
+  void _swapAircraft(AircraftType t) {
+    type = t;
+    passengers = math.min(passengers, t.seats);
+    flash = math.max(flash, 0.5);
+    // Le ciel ralentit un instant : on voit le nouvel avion arriver.
+    if (phase == FlightPhase.cruising) slowMo = math.max(slowMo, 2.5);
     if (phase == FlightPhase.ground) _pushStopover();
   }
 
@@ -6380,18 +6465,16 @@ class ChachaGame extends FlameGame {
     if (!identical(a, _airline) && identical(a.livery, _airline.livery) && _planeFor(a) == type) {
       _airline = a;
     } else if (!identical(a, _airline) && !(_zone != null && _waveActive)) {
-      final before = _airline.livery;
+      final before = type.livery ?? _airline.livery;
       _airline = a;
-      flash = 1;
-      _burst(planeX, planeY, 40, const [Colors.white, ChachaColors.yellow, ChachaColors.skyLight], speed: 320);
       // La compagnie et son avion sont de l'histoire : ils passent dans leur année, jamais oubliés dans la file.
       // Aucune nouvelle vague tant que la compagnie n'est pas annoncée ; puis le temps de la lire, avec son avion.
       _eraPending = true;
       final next = _planeFor(a);
-      final plane = next != type && phase == FlightPhase.cruising;
-      // Même avion, nouvelle compagnie : les anciennes couleurs restent jusqu'à l'annonce, puis la peinture
-      // neuve passe du nez à la queue sous les yeux du joueur.
-      if (!plane && type.livery == null && phase != FlightPhase.ready) {
+      final plane = next != type;
+      // L'avion garde ses couleurs jusqu'à l'annonce : le message et le nouvel avion arrivent ensemble.
+      // Même avion, nouvelle compagnie : la peinture neuve passe du nez à la queue sous les yeux du joueur.
+      if (type.livery == null && phase != FlightPhase.ready) {
         _oldLivery = before;
         _repaint = -1;
       }
@@ -6400,27 +6483,47 @@ class ChachaGame extends FlameGame {
           _eraPending = false;
           _eraCalm = t + (plane ? 20 : 14);
           flash = 1;
-          if (_oldLivery != null) _repaint = 0;
+          _burst(planeX, planeY, 40, const [Colors.white, ChachaColors.yellow, ChachaColors.skyLight], speed: 320);
+          if (plane) {
+            _oldLivery = null;
+            _repaint = 1;
+            _swapAircraft(next);
+          } else if (_oldLivery != null) {
+            _repaint = 0;
+          }
           banner.value = FlightBanner(
             a.headline ?? '${a.from.floor()} · ${a.name}',
-            plane || a.headline != null ? a.note : '${a.note} · ton avion prend ses couleurs',
+            plane ? '${a.note} · Ton avion : ${next.maker} ${next.name}, ${next.seats} places' : a.note,
           );
         },
-        5.5,
+        plane ? 8 : 7,
         hide: () => banner.value = null,
         first: true,
       );
-      if (plane) _changeAircraft(next, story: true);
     }
-    // L'avion n'est plus en service : on passe une seule fois à un avion de l'époque (jamais au même).
-    if (!type.fliesIn(year) && phase == FlightPhase.cruising) {
+    // L'avion n'est plus en service : on passe une seule fois à un avion de l'époque (jamais au même),
+    // au moment où le message paraît.
+    if (!type.fliesIn(year) && phase == FlightPhase.cruising && identical(a, _airline) && !_eraPending && !_planeDue) {
       final next = _planeFor(a);
       if (next != type) _changeAircraft(next);
     }
     final f = flagAt(year);
     if (!identical(f, _flag)) {
       _flag = f;
-      _queueBanner(FlightBanner('${f.from.floor()} · ${f.label}', 'Le drapeau change', color: ChachaColors.skyLight));
+      // Le Zaïre (1971) et le retour de la RD Congo (1997) changent la compagnie en même temps :
+      // son annonce dit aussi le drapeau. Un drapeau annoncé trop tard n'est plus montré.
+      if (!airlineEras.any((a) => (a.from - f.from).abs() < 0.3)) {
+        _cue(
+          () => banner.value = FlightBanner(
+            '${f.from.floor()} · ${f.label}',
+            'Le drapeau change',
+            color: ChachaColors.skyLight,
+          ),
+          4.5,
+          hide: () => banner.value = null,
+          still: () => year - f.from < 0.5,
+        );
+      }
     }
   }
 
@@ -7787,6 +7890,12 @@ class ChachaGame extends FlameGame {
   /// Les couleurs d'avant, le temps que la nouvelle compagnie repeigne l'avion ([_repaint] : -1 en attente, puis 0 → 1).
   Livery? _oldLivery;
   double _repaint = 1;
+
+  /// La compagnie de l'avion et la peinture qu'on voit (l'ancienne tant que la neuve n'a pas passé la moitié).
+  @visibleForTesting
+  AirlineEra get airlineNow => _airline;
+  @visibleForTesting
+  Livery get liveryShown => type.livery ?? (_oldLivery != null && _repaint < 0.5 ? _oldLivery! : _airline.livery);
 
   void _updateRepaint(double dt) {
     if (_oldLivery == null || _repaint < 0) return;
