@@ -42,6 +42,24 @@ void main() {
     expect(await Achievements.step(Achievement.traveller, 'Mbandaka'), isTrue);
   });
 
+  test('les médailles déjà gagnées allument leurs succès, sans rien inventer', () async {
+    await Achievements.catchUp(bestYear: 2000.4, flights: 12);
+    expect(Achievements.earned.value, {Achievement.takeoff, Achievement.bronze, Achievement.silver});
+    await Achievements.catchUp(wins: 1);
+    expect(Achievements.earned.value, containsAll([Achievement.gold, Achievement.platinum, Achievement.diamond]));
+    expect(Achievements.earned.value, isNot(contains(Achievement.boulevard)));
+    expect(await Achievements.catchUp(bestYear: 2027, wins: 1), isFalse, reason: 'rien de neuf');
+  });
+
+  test('ceux que le serveur connaît reviennent, par leur nom', () async {
+    await Achievements.grant([
+      for (final n in ['quiz', 'inconnu', 'duel']) ?Achievements.byName(n),
+    ]);
+    expect(Achievements.earned.value, {Achievement.quiz, Achievement.duel});
+    expect(Achievements.progress.value[Achievement.quiz], 10);
+    expect(Achievements.names, containsAll(['quiz', 'duel']));
+  });
+
   test('les succès restent sur le téléphone', () async {
     await Achievements.step(Achievement.takeoff);
     for (final c in ['gorilla', 'okapi']) {

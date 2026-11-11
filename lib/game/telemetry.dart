@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_state.dart';
 import '../data/history_events.dart';
+import 'achievements.dart';
 import 'checkpoint.dart';
 
 /// Tells the Chacha 243 board on waddiel.pro how a flight goes: takeoff, each new year, a failure, the arrival.
@@ -208,6 +209,33 @@ class Telemetry {
 
   /// The game was opened: the phone counts among the players, even before a first flight.
   static Future<void> hello() => _post({'kind': 'hello', 'year': 1960});
+
+  /// Everything this pilot earned, for the dashboard; the server adds it to what it already knew.
+  static Future<void> sendAchievements(List<String> names) =>
+      kIsWeb ? Future.value() : _post({'kind': 'achievements', 'year': 1960, 'achievements': names});
+
+  /// At launch: the achievements the server knows (earned on another phone, before a reinstall) and the
+  /// medals of the farthest year it saw come to this phone; what only this phone knew goes up.
+  static Future<void> syncAchievements() async {
+    try {
+      final id = await _playerId();
+      final r = await _http
+          .get(Uri.parse('$_url?id=${Uri.encodeQueryComponent(id)}'))
+          .timeout(const Duration(seconds: 6));
+      if (r.statusCode != 200) return;
+      final b = jsonDecode(r.body) as Map<String, dynamic>;
+      final known = {...?(b['achievements'] as List<dynamic>?)?.whereType<String>()};
+      await Achievements.grant([for (final n in known) ?Achievements.byName(n)]);
+      if (b['standing'] case final Map<String, dynamic> s) {
+        await Achievements.catchUp(
+          bestYear: (s['bestYear'] as num?)?.toDouble() ?? 1960,
+          wins: (s['wins'] as num?)?.toInt() ?? 0,
+          flights: (s['flights'] as num?)?.toInt() ?? 0,
+        );
+      }
+      if (!known.containsAll(Achievements.names)) await sendAchievements(Achievements.names);
+    } catch (_) {}
+  }
 
   /// The championship in progress (title, prize, end), read with the news; null when there is none.
   static final championship = ValueNotifier<Championship?>(null);
@@ -480,6 +508,7 @@ class Telemetry {
         final s = (jsonDecode(r.body) as Map<String, dynamic>)['standing'] as Map<String, dynamic>?;
         if (s != null) {
           final st = Standing.fromJson(s);
+          Achievements.catchUp(bestYear: st.bestYear, wins: st.wins, flights: st.flights);
           try {
             await (await SharedPreferences.getInstance()).setString(_standingBox, jsonEncode(st.toJson()));
           } catch (_) {}

@@ -1162,6 +1162,8 @@ class _SceneBubble extends StatelessWidget {
       SceneVoice.pilot => (const Color(0xF20E2A5E), Colors.white, ChachaColors.yellow, Icons.headset_mic_rounded),
       SceneVoice.tower => (const Color(0xF20B3B33), Colors.white, const Color(0xFF6FE08A), Icons.cell_tower_rounded),
       SceneVoice.street => (const Color(0xF2E8A317), const Color(0xFF1B1405), Colors.white, Icons.two_wheeler_rounded),
+      SceneVoice.bus => (const Color(0xF22E9BD6), Colors.white, const Color(0xFFF2C230), Icons.airport_shuttle_rounded),
+      SceneVoice.police => (const Color(0xF21F2A44), Colors.white, const Color(0xFFFF7A1A), Icons.local_police_rounded),
       SceneVoice.cabin => (
         const Color(0xF7FFFFFF),
         const Color(0xFF14233F),

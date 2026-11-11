@@ -271,8 +271,8 @@ class CabinCameraShot {
   final int seat;
 }
 
-/// Qui parle dans une scène : sa bulle change de couleur, sans jamais écrire son nom.
-enum SceneVoice { pilot, tower, cabin, street }
+/// Qui parle dans une scène : sa bulle change de couleur, sans jamais écrire son nom (le 207, le roulage…).
+enum SceneVoice { pilot, tower, cabin, street, bus, police }
 
 /// Une réplique d'une scène (la descente sur le boulevard) : la phrase, sa traduction si elle est en lingala.
 class SceneLine {
@@ -281,6 +281,31 @@ class SceneLine {
   final SceneVoice voice;
   final String text;
   final String? french;
+}
+
+/// Une descente sur le boulevard : ses répliques et leurs moments, puis quand on passe au pare-brise,
+/// à la ville vue de haut, à la rue, à l'élan, au décollage et à la fin. [layout] dit comment la rue est disposée.
+class _BScene {
+  const _BScene(
+    this.layout,
+    this.lines,
+    this.lineAt, {
+    required this.cockpit,
+    required this.aerial,
+    required this.street,
+    required this.elan,
+    required this.lift,
+    required this.end,
+    this.boost = 0.9,
+  });
+
+  final int layout;
+  final List<SceneLine> lines;
+  final List<double> lineAt;
+  final double cockpit, aerial, street, elan, lift, end;
+
+  /// Ce que l'élan ajoute à la vitesse de la rue.
+  final double boost;
 }
 
 /// L'escale au sol : le plein, l'entretien, les contrôles.
@@ -4680,8 +4705,9 @@ class ChachaGame extends FlameGame {
   // ------------------------------------------------------- boulevard Lumumba
 
   /// L'avion a pris un choc : il descend raser le boulevard Lumumba, à Kinshasa, pour reprendre de l'élan.
-  /// Deux fois dans le voyage, dans un moment de paix : après les sécessions, puis après la guerre de l'AFDL.
-  static const boulevardYears = [1963.5, 1997.7];
+  /// Trois fois dans le voyage, chaque fois autrement : après les sécessions, après « Comprenez mon émotion »
+  /// (le rond-point du robot roulage), puis après la guerre de l'AFDL.
+  static const boulevardYears = [1963.5, 1990.9, 1997.7];
 
   /// La réplique en cours : une bulle en haut de l'écran, une seule à la fois.
   final sceneLine = ValueNotifier<SceneLine?>(null);
@@ -4695,9 +4721,15 @@ class ChachaGame extends FlameGame {
 
   bool get _boulevardSoon => _bT >= 0 || _boulevardDue >= 0;
 
-  /// Quelle descente attend son moment (0 ou 1), sinon -1. Pas en duel ; le pilote automatique la saute.
+  /// Quelle descente attend son moment, sinon -1. Pas en duel ; le pilote automatique la saute.
   int get _boulevardDue {
-    if (_bForce) return year < 1990 ? 0 : 1;
+    if (_bForce) {
+      var near = 0;
+      for (var i = 1; i < boulevardYears.length; i++) {
+        if ((boulevardYears[i] - year).abs() < (boulevardYears[near] - year).abs()) near = i;
+      }
+      return near;
+    }
     if (duel || _finaleT >= 0 || autopilot) return -1;
     for (var i = 0; i < boulevardYears.length; i++) {
       if (year >= boulevardYears[i] && year < boulevardYears[i] + 0.3 && !_seen.contains('boulevard $i')) return i;
@@ -4708,70 +4740,131 @@ class ChachaGame extends FlameGame {
   // Les répliques se suivent sans se presser : chacune reste à l'écran le temps de la lire.
   static const _bLineAt = [0.8, 6.6, 12.4, 18.6, 24.6, 30.6, 36.4, 42.2, 48.0, 53.8, 59.6, 65.4, 71.2];
   static const _bLineFor = 5.3;
-  static const _bCockpit = 17.6, _bAerial = 24.0, _bStreet = 29.6, _bElan = 65.4, _bLift = 70.2, _bEnd = 77.0;
 
-  static const _bLines = [
-    [
-      SceneLine(
-        SceneVoice.pilot,
-        "Mesdames et messieurs, l'avion a pris un choc. Je dois le faire descendre immédiatement.",
-      ),
-      SceneLine(SceneVoice.pilot, "Tour de contrôle, ici pilo pilo ! L'avion est en mauvais état, je descends."),
-      SceneLine(
-        SceneVoice.tower,
-        "Vous êtes tout près de l'aéroport de Ndjili, à Léopoldville. Cherchez un moyen de descendre, même vers le boulevard Lumumba !",
-      ),
-      SceneLine(
-        SceneVoice.pilot,
-        "Je vais descendre. On n'a pas le choix : il faut prendre l'élan pour remonter, sinon c'est le crash.",
-      ),
-      SceneLine(
-        SceneVoice.cabin,
-        'Nous vous demandons de bien vouloir retourner à vos sièges. On va effectuer une descente.',
-      ),
-      SceneLine(SceneVoice.pilot, 'Attention, le trou !'),
-      SceneLine(SceneVoice.cabin, 'Keba 207, Esprit de mort !', "Attention au 207, l'Esprit de mort !"),
-      SceneLine(SceneVoice.cabin, 'Attention, tu vas cogner un Wewa !'),
-      SceneLine(
-        SceneVoice.pilot,
-        'Na tuta wewa oyo ! Ba yebaka ko kumba te',
-        'Je cogne ce Wewa ! Ils ne savent pas conduire.',
-      ),
-      SceneLine(SceneVoice.cabin, 'Tuta ye Papa ! Ba wewa pardon', 'Cogne-le, Papa ! Ah, les Wewa, pardon…'),
-      SceneLine(
-        SceneVoice.street,
-        'Oyo avion ! Makambo ya boye, kaka na Kinshasa !',
-        "Un avion ! Des choses pareilles, on ne les voit qu'à Kinshasa !",
-      ),
-      SceneLine(SceneVoice.pilot, "Soyez calmes, je prends l'élan."),
-      SceneLine(SceneVoice.pilot, 'Pouf ! On remonte. Merci, boulevard Lumumba !'),
-    ],
-    [
-      SceneLine(SceneVoice.pilot, 'Ici votre commandant. Un moteur vient de lâcher : je dois descendre tout de suite.'),
-      SceneLine(SceneVoice.pilot, "Tour de Ndjili, ici pilo pilo ! Un moteur en panne, je perds de l'altitude."),
-      SceneLine(
-        SceneVoice.tower,
-        'La piste est trop loin pour vous. Descendez vers le boulevard Lumumba, il est juste devant !',
-      ),
-      SceneLine(SceneVoice.pilot, "J'ai pas le choix. Je rase le boulevard pour reprendre de l'élan, sinon on tombe."),
-      SceneLine(SceneVoice.cabin, 'Tout le monde assis, ceintures attachées ! On descend sur la ville.'),
-      SceneLine(SceneVoice.cabin, 'Le trou ! Attention au trou !'),
-      SceneLine(SceneVoice.cabin, 'Keba 207, Esprit de mort !', "Attention au 207, l'Esprit de mort !"),
-      SceneLine(SceneVoice.cabin, 'Pilo pilo, le Wewa ! Tu vas le cogner !'),
-      SceneLine(
-        SceneVoice.pilot,
-        'Na tuta wewa oyo ! Ba yebaka ko kumba te',
-        'Je cogne ce Wewa ! Ils ne savent pas conduire.',
-      ),
-      SceneLine(SceneVoice.cabin, 'Tuta ye Papa ! Ba wewa pardon', 'Cogne-le, Papa ! Ah, les Wewa, pardon…'),
-      SceneLine(
-        SceneVoice.street,
-        'Oyo avion ! Makambo ya boye, kaka na Kinshasa !',
-        "Un avion ! Des choses pareilles, on ne les voit qu'à Kinshasa !",
-      ),
-      SceneLine(SceneVoice.pilot, "Restez calmes. Je prends l'élan… accrochez-vous !"),
-      SceneLine(SceneVoice.pilot, 'Pouf ! On vole. Kinshasa, on reviendra par la piste.'),
-    ],
+  _BScene get _scene => _bScenes[_bWhich];
+
+  static const _bScenes = [
+    _BScene(0, _bLines1963, _bLineAt, cockpit: 17.6, aerial: 24.0, street: 29.6, elan: 65.4, lift: 70.2, end: 77.0),
+    // 1990 : plus court. On descend tout de suite ; dans la rue, chacun dit son mot, puis le robot roulage.
+    _BScene(
+      1,
+      _bLines1990,
+      [0.8, 6.4, 18.0, 23.8, 29.6, 35.4, 41.2, 47.0, 52.8, 58.6, 64.4],
+      cockpit: 5.0,
+      aerial: 11.4,
+      street: 16.8,
+      elan: 57.0,
+      lift: 61.4,
+      end: 69.0,
+      // Malembe malembe : l'avion accélère moins, on voit venir le rond-point et son robot.
+      boost: 0.35,
+    ),
+    _BScene(2, _bLines1997, _bLineAt, cockpit: 17.6, aerial: 24.0, street: 29.6, elan: 65.4, lift: 70.2, end: 77.0),
+  ];
+
+  // Les répliques en lingala de 1990 sont celles du concepteur ; leurs traductions sont à faire valider.
+  static const _bLines1990 = [
+    SceneLine(
+      SceneVoice.pilot,
+      "Mesdames et messieurs, l'avion a pris un choc. Tour de Ndjili, ici pilo pilo : je descends !",
+    ),
+    SceneLine(
+      SceneVoice.pilot,
+      'Tozo kita na Boulevard Lumumba ! Malembe malembe…',
+      'On descend sur le boulevard Lumumba ! Doucement, doucement…',
+    ),
+    SceneLine(
+      SceneVoice.bus,
+      'Oyo nini, Nzambe na nga ! Type K ya mibale',
+      "C'est quoi ça, mon Dieu ! Un deuxième Type K !",
+    ),
+    SceneLine(
+      SceneVoice.street,
+      'Mboka oyo epumbuaka kaka ndeti avion oyo ! Eza normal te avion akita awa',
+      "Dans ce pays, même les avions sautent ! Ce n'est pas normal qu'un avion descende ici.",
+    ),
+    SceneLine(
+      SceneVoice.street,
+      'Eeeh muana nga ! Mboka oyo epesa santa kindoki',
+      "Eeeh mon enfant ! Ce pays, c'est de la sorcellerie !",
+    ),
+    SceneLine(SceneVoice.street, 'Eza te !', "Mais non, ce n'est pas ça !"),
+    SceneLine(SceneVoice.police, 'Eeeeh ! Jésus Marie Joseph !'),
+    SceneLine(
+      SceneVoice.cabin,
+      'Pilo pilo, kitisa nga awa na 12ème, na tala noko ba biso 🤪😂',
+      'Pilo pilo, dépose-moi ici, à la 12e rue, que je rende visite à nos oncles ! 🤣',
+    ),
+    SceneLine(
+      SceneVoice.pilot,
+      'Soki oza na problème ya mutu, kende CNPP ! 😂',
+      'Si tu as un problème dans la tête, va au CNPP !',
+    ),
+    SceneLine(SceneVoice.cabin, 'Ba ninga bazo sambela… 🙏', 'Les autres passagers prient…'),
+    SceneLine(SceneVoice.pilot, 'Pouf ! Le robot roulage reste en bas. Merci, boulevard Lumumba !'),
+  ];
+
+  static const _bLines1963 = [
+    SceneLine(
+      SceneVoice.pilot,
+      "Mesdames et messieurs, l'avion a pris un choc. Je dois le faire descendre immédiatement.",
+    ),
+    SceneLine(SceneVoice.pilot, "Tour de contrôle, ici pilo pilo ! L'avion est en mauvais état, je descends."),
+    SceneLine(
+      SceneVoice.tower,
+      "Vous êtes tout près de l'aéroport de Ndjili, à Léopoldville. Cherchez un moyen de descendre, même vers le boulevard Lumumba !",
+    ),
+    SceneLine(
+      SceneVoice.pilot,
+      "Je vais descendre. On n'a pas le choix : il faut prendre l'élan pour remonter, sinon c'est le crash.",
+    ),
+    SceneLine(
+      SceneVoice.cabin,
+      'Nous vous demandons de bien vouloir retourner à vos sièges. On va effectuer une descente.',
+    ),
+    SceneLine(SceneVoice.pilot, 'Attention, le trou !'),
+    SceneLine(SceneVoice.cabin, 'Keba 207, Esprit de mort !', "Attention au 207, l'Esprit de mort !"),
+    SceneLine(SceneVoice.cabin, 'Attention, tu vas cogner un Wewa !'),
+    SceneLine(
+      SceneVoice.pilot,
+      'Na tuta wewa oyo ! Ba yebaka ko kumba te',
+      'Je cogne ce Wewa ! Ils ne savent pas conduire.',
+    ),
+    SceneLine(SceneVoice.cabin, 'Tuta ye Papa ! Ba wewa pardon', 'Cogne-le, Papa ! Ah, les Wewa, pardon…'),
+    SceneLine(
+      SceneVoice.street,
+      'Oyo avion ! Makambo ya boye, kaka na Kinshasa !',
+      "Un avion ! Des choses pareilles, on ne les voit qu'à Kinshasa !",
+    ),
+    SceneLine(SceneVoice.pilot, "Soyez calmes, je prends l'élan."),
+    SceneLine(SceneVoice.pilot, 'Pouf ! On remonte. Merci, boulevard Lumumba !'),
+  ];
+
+  static const _bLines1997 = [
+    SceneLine(SceneVoice.pilot, 'Ici votre commandant. Un moteur vient de lâcher : je dois descendre tout de suite.'),
+    SceneLine(SceneVoice.pilot, "Tour de Ndjili, ici pilo pilo ! Un moteur en panne, je perds de l'altitude."),
+    SceneLine(
+      SceneVoice.tower,
+      'La piste est trop loin pour vous. Descendez vers le boulevard Lumumba, il est juste devant !',
+    ),
+    SceneLine(SceneVoice.pilot, "J'ai pas le choix. Je rase le boulevard pour reprendre de l'élan, sinon on tombe."),
+    SceneLine(SceneVoice.cabin, 'Tout le monde assis, ceintures attachées ! On descend sur la ville.'),
+    SceneLine(SceneVoice.cabin, 'Le trou ! Attention au trou !'),
+    SceneLine(SceneVoice.cabin, 'Keba 207, Esprit de mort !', "Attention au 207, l'Esprit de mort !"),
+    SceneLine(SceneVoice.cabin, 'Pilo pilo, le Wewa ! Tu vas le cogner !'),
+    SceneLine(
+      SceneVoice.pilot,
+      'Na tuta wewa oyo ! Ba yebaka ko kumba te',
+      'Je cogne ce Wewa ! Ils ne savent pas conduire.',
+    ),
+    SceneLine(SceneVoice.cabin, 'Tuta ye Papa ! Ba wewa pardon', 'Cogne-le, Papa ! Ah, les Wewa, pardon…'),
+    SceneLine(
+      SceneVoice.street,
+      'Oyo avion ! Makambo ya boye, kaka na Kinshasa !',
+      "Un avion ! Des choses pareilles, on ne les voit qu'à Kinshasa !",
+    ),
+    SceneLine(SceneVoice.pilot, "Restez calmes. Je prends l'élan… accrochez-vous !"),
+    SceneLine(SceneVoice.pilot, 'Pouf ! On vole. Kinshasa, on reviendra par la piste.'),
   ];
 
   /// La scène attend que rien d'autre ne se passe ; si le ciel ne se calme jamais, elle est abandonnée.
@@ -4840,31 +4933,33 @@ class ChachaGame extends FlameGame {
   }
 
   /// On avance jusqu'au pare-brise pendant que le commandant annonce la descente.
-  double get _cockpitZoom => _bT < 0 ? 0 : _smooth(math.min((_bT - _bCockpit) / 1.2, (_bAerial + 0.4 - _bT) / 1.0));
+  double get _cockpitZoom =>
+      _bT < 0 ? 0 : _smooth(math.min((_bT - _scene.cockpit) / 1.2, (_scene.aerial + 0.4 - _bT) / 1.0));
 
   /// La hauteur de l'avion pendant la scène : il tient son cap, descend sur la ville, rase la chaussée,
   /// saute le trou, puis remonte.
   double _boulevardY(double at) {
-    final st = at - _bStreet;
-    if (at >= _bLift) return _h * (0.69 - 0.29 * _smooth((at - _bLift) / 3.8));
+    final sc = _scene, st = at - sc.street;
+    if (at >= sc.lift) return _h * (0.69 - 0.29 * _smooth((at - sc.lift) / 3.8));
     if (st > -1.2) {
       final hop = math.exp(-math.pow((st - Boulevard.holeAt / Boulevard.speed) / 0.75, 2)) * 0.1;
       return _h * (0.5 + 0.19 * _smooth((st + 1.2) / 2.8) - hop + 0.005 * math.sin(at * 5));
     }
-    if (at >= _bAerial) return _h * (0.4 + 0.1 * _smooth((at - _bAerial) / 4.4));
+    if (at >= sc.aerial) return _h * (0.4 + 0.1 * _smooth((at - sc.aerial) / 4.4));
     return _h * (0.4 + 0.014 * math.sin(at * 2.6) + 0.007 * math.sin(at * 7.1));
   }
 
   void _cruiseBoulevard(double dt) {
     _bT += dt;
-    final at = _bT, st = at - _bStreet;
+    final sc = _scene, plan = Boulevard.plans[sc.layout];
+    final at = _bT, st = at - sc.street;
     _flightT += dt;
     _stageT += dt;
     _airT += dt;
     _fillSilence(dt);
     // La rue défile sous l'avion ; avec l'élan, elle file de plus en plus vite.
-    final elan = _smooth((at - _bElan) / (_bLift - _bElan));
-    if (st > 0) _bDist += Boulevard.speed * _unit * (1 + 0.9 * elan) * dt;
+    final elan = _smooth((at - sc.elan) / (sc.lift - sc.elan));
+    if (st > 0) _bDist += Boulevard.speed * _unit * (1 + sc.boost * elan) * dt;
     groundSpeed = _unit * 490 * (0.8 + type.speed * 0.4) * (1 + 0.6 * elan);
     worldX += groundSpeed * dt;
 
@@ -4874,12 +4969,12 @@ class ChachaGame extends FlameGame {
     planeY += step;
     planeX += (_w * 0.3 - planeX) * math.min(1, dt * 1.6);
     vy = vx = 0;
-    final shaken = at < _bAerial ? 0.03 * math.sin(at * 9) : 0.0;
+    final shaken = at < sc.aerial ? 0.03 * math.sin(at * 9) : 0.0;
     pitch += ((step / dt / _h * 0.9).clamp(-0.3, 0.3) + shaken - pitch) * math.min(1, dt * 5);
-    final wheels = at > _bAerial + 2.5 && at < _bLift + 1 ? 1.0 : 0.0;
+    final wheels = at > sc.aerial + 2.5 && at < sc.lift + 1 ? 1.0 : 0.0;
     gear = (gear + (wheels - gear).sign * dt * 0.8).clamp(0.0, 1.0);
     // Le moteur abîmé fume jusqu'à ce que l'avion reprenne sa vitesse.
-    if (at < _bLift && _rng.nextDouble() < dt * 14) {
+    if (at < sc.lift && _rng.nextDouble() < dt * 14) {
       _particles.add(
         _Particle(
           planeX - planeLength * 0.08,
@@ -4893,25 +4988,25 @@ class ChachaGame extends FlameGame {
         ),
       );
     }
-    if (!_bCleared && at >= _bAerial) {
+    if (!_bCleared && at >= sc.aerial) {
       // Au-dessus de la ville, plus rien à attraper : on regarde.
       _bCleared = true;
       _pickups.removeWhere((p) => p.event == null);
       _yearGates.clear();
     }
     // Le Wewa klaxonne quand l'avion arrive derrière lui, puis en se rabattant.
-    if (_bHonks < 3 && st >= const [13.0, 18.5, Boulevard.amazedAt][_bHonks]) {
+    if (_bHonks < 3 && st >= plan.honks[_bHonks]) {
       _bHonks++;
       onSound?.call('klaxon');
       // Le troisième coup de klaxon : le chauffeur a vu l'avion, il reste stupéfait.
       _float(
         _bHonks == 3 ? 'Kokamwa !' : 'Pip pip !',
-        Boulevard.wewaX(_w, _unit, st, _bDist - Boulevard.speed * _unit * st),
+        Boulevard.wewaX(_w, _unit, st, _bDist - Boulevard.speed * _unit * st, sc.layout),
         _h * 0.72,
         ChachaColors.yellow,
       );
     }
-    if (!_bLifted && at >= _bLift) {
+    if (!_bLifted && at >= sc.lift) {
       // Pouf : les gaz à fond, l'avion s'arrache du boulevard.
       _bLifted = true;
       shake = 0.5;
@@ -4926,13 +5021,13 @@ class ChachaGame extends FlameGame {
       );
     }
     // Les répliques, l'une après l'autre.
-    final lines = _bLines[_bWhich];
-    if (_bLine + 1 < lines.length && at >= _bLineAt[_bLine + 1]) {
+    final lines = sc.lines;
+    if (_bLine + 1 < lines.length && at >= sc.lineAt[_bLine + 1]) {
       sceneLine.value = lines[++_bLine];
-    } else if (_bLine >= 0 && sceneLine.value != null && at >= _bLineAt[_bLine] + _bLineFor) {
+    } else if (_bLine >= 0 && sceneLine.value != null && at >= sc.lineAt[_bLine] + _bLineFor) {
       sceneLine.value = null;
     }
-    if (at < _bEnd) return;
+    if (at < sc.end) return;
     // Le vol reprend : un ciel calme, et des points pour le sang-froid.
     _bT = -1;
     sceneLine.value = null;
@@ -4951,7 +5046,7 @@ class ChachaGame extends FlameGame {
   }
 
   void _drawBoulevard(Canvas canvas, Size s, {required bool front}) {
-    final at = _bT, st = at - _bStreet;
+    final sc = _scene, at = _bT, st = at - sc.street;
     if (st >= 0) {
       Boulevard.street(
         canvas,
@@ -4965,13 +5060,22 @@ class ChachaGame extends FlameGame {
         planeLength: planeLength,
         // Devant l'avion, les voitures sortent du nuage en douceur.
         fade: front ? (st / 0.9).clamp(0.0, 1.0) : 1,
-        drop: (at - _bLift - 0.3) / 4.4,
+        drop: (at - sc.lift - 0.3) / 4.4,
+        layout: sc.layout,
       );
     }
     if (front) return;
-    final above = st >= 0 ? 0.0 : ((at - _bAerial) / 1.0).clamp(0.0, 1.0);
+    final above = st >= 0 ? 0.0 : ((at - sc.aerial) / 1.0).clamp(0.0, 1.0);
     if (above > 0) {
-      Boulevard.aerial(canvas, s, _unit, _smooth((at - _bAerial - 0.2) / (_bStreet - _bAerial)), t, above);
+      Boulevard.aerial(
+        canvas,
+        s,
+        _unit,
+        _smooth((at - sc.aerial - 0.2) / (sc.street - sc.aerial)),
+        t,
+        above,
+        layout: sc.layout,
+      );
     }
     // Un nuage bas, le temps de passer de la ville vue de haut à la rue.
     final veil = 1 - (st.abs() / 0.9).clamp(0.0, 1.0);
@@ -6841,7 +6945,7 @@ class ChachaGame extends FlameGame {
       if (partner != null) _showSponsor(partner, 'Partenaire de l\'arrivée', 0.2);
     }
     if (_sponsor != null) Ads.thanks(canvas, s, _unit, _sponsor!, t - _sponsorAt, _sponsorLabel, _sponsorTop);
-    if (_bT < _bAerial) _drawTrail(canvas);
+    if (_bT < 0 || _bT < _scene.aerial) _drawTrail(canvas);
     if (phase == FlightPhase.approach) _drawGlidePath(canvas);
     if (phase == FlightPhase.ground) _drawCrew(canvas, behind: true);
     _drawPlane(canvas);

@@ -5,6 +5,7 @@ import 'package:chacha243/data/aircraft_types.dart';
 import 'package:chacha243/data/history_events.dart';
 import 'package:chacha243/data/war_zones.dart';
 import 'package:chacha243/data/window_animals.dart';
+import 'package:chacha243/game/boulevard.dart';
 import 'package:chacha243/game/chacha_game.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/services.dart';
@@ -785,6 +786,65 @@ void main() {
     expect(g.phase, FlightPhase.cruising);
     expect(g.lives, greaterThan(0));
     expect(g.sceneLine.value, isNull);
+  });
+
+  test(
+    'en 1990, la descente du robot roulage : plus courte, le 207, le Wewa, la maman, le roulage, puis on remonte',
+    () async {
+      final g = await start(year: 1990.85, autopilot: true)
+        ..showcase = 'boulevard';
+      final lines = <SceneLine>[];
+      final at = <double>[];
+      var clock = 0.0, lowest = 0.0, endY = 1.0, began = -1.0, ended = -1.0;
+      g.sceneLine.addListener(() {
+        if (g.sceneLine.value case final l?) {
+          lines.add(l);
+          at.add(clock);
+        }
+      });
+      for (var i = 0; i < 60 * 90; i++) {
+        g.update(1 / 60);
+        clock += 1 / 60;
+        if (g.onBoulevard) {
+          if (began < 0) began = clock;
+          endY = g.planeY / g.size.y;
+          lowest = math.max(lowest, g.planeY / g.size.y);
+          expect(g.year, closeTo(1990.85, 0.02), reason: 'le calendrier attend la fin de la scène');
+        } else if (began >= 0 && ended < 0) {
+          ended = clock;
+        }
+      }
+      expect(ended - began, lessThan(72), reason: 'plus courte que les deux autres');
+      expect(lines, hasLength(11));
+      expect(lines.map((l) => l.voice), containsAll([SceneVoice.bus, SceneVoice.street, SceneVoice.police]));
+      for (var i = 1; i < at.length; i++) {
+        expect(at[i] - at[i - 1], greaterThanOrEqualTo(5), reason: 'le temps de lire chaque réplique');
+      }
+      final said = lines.map((l) => l.text).join('\n');
+      for (final words in [
+        'Tozo kita na Boulevard Lumumba',
+        'Eza normal te avion akita awa',
+        'epesa santa kindoki',
+        'Eza te',
+        'Type K ya mibale',
+        'Jésus Marie Joseph',
+        'kitisa nga awa na 12ème',
+        'kende CNPP',
+        'bazo sambela',
+      ]) {
+        expect(said, contains(words));
+      }
+      expect(lowest, greaterThan(0.66), reason: 'l\'avion rase le boulevard');
+      expect(endY, lessThan(0.5), reason: 'puis il remonte');
+      expect(g.lives, greaterThan(0));
+    },
+  );
+
+  test('trois descentes dans le voyage, chacune disposée autrement', () {
+    expect(ChachaGame.boulevardYears, [1963.5, 1990.9, 1997.7]);
+    expect(Boulevard.plans, hasLength(3));
+    expect(Boulevard.plans[1].robotAt, isNotNull, reason: 'le robot roulage est au rond-point de 1990');
+    expect(Boulevard.plans.map((p) => p.wewaStop).toSet(), hasLength(3), reason: 'le Wewa n\'est pas au même endroit');
   });
 
   test('en 1963, après les sécessions, la descente arrive une seule fois ; le pilote automatique la saute', () async {

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'play_games.dart';
+import 'telemetry.dart';
 
 /// The pilot's achievements. They are kept on the phone (so they work offline, on iPhone and without
-/// a Play Games account), and sent to Google Play Games when the player is signed in there.
+/// a Play Games account), on the server (the dashboard shows them, a reinstalled game finds them again),
+/// and sent to Google Play Games when the player is signed in there.
 /// The 14 together are worth 1000 points, the most Play Games allows for a game.
 enum Achievement {
   takeoff(
@@ -150,11 +152,45 @@ class Achievements {
       earned.value = {...earned.value, a};
       await p.setStringList(_box, [for (final x in earned.value) x.name]);
       _send(a);
+      Telemetry.sendAchievements(names);
       return true;
     } catch (_) {
       return false;
     }
   }
+
+  /// The names of what was earned, as the server keeps them.
+  static List<String> get names => [for (final a in earned.value) a.name];
+
+  static Achievement? byName(String name) => Achievement.values.where((a) => a.name == name).firstOrNull;
+
+  /// Earned elsewhere (on another phone, kept by the server) or before the achievements existed: added at once,
+  /// without the steps. Answers true when something new came.
+  static Future<bool> grant(Iterable<Achievement> list) async {
+    final fresh = {...list}..removeAll(earned.value);
+    if (fresh.isEmpty) return false;
+    earned.value = {...earned.value, ...fresh};
+    progress.value = {...progress.value, for (final a in fresh) a: a.goal};
+    try {
+      await (await SharedPreferences.getInstance()).setStringList(_box, names);
+    } catch (_) {}
+    fresh.forEach(_send);
+    Telemetry.sendAchievements(names);
+    return true;
+  }
+
+  /// What the pilot already did: a first flight, the medals of the farthest year reached, an arrival in 2027.
+  static Future<bool> catchUp({double bestYear = 1960, int wins = 0, int flights = 0}) => grant([
+    if (flights > 0 || wins > 0 || bestYear >= 1961) Achievement.takeoff,
+    for (final (a, from) in const [
+      (Achievement.bronze, 1970),
+      (Achievement.silver, 1990),
+      (Achievement.gold, 2005),
+      (Achievement.platinum, 2020),
+    ])
+      if (wins > 0 || bestYear >= from) a,
+    if (wins > 0) Achievement.diamond,
+  ]);
 
   /// Everything earned so far goes to Play Games: earned offline, or before the ids were filled in.
   static void sync() {

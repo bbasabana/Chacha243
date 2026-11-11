@@ -9,6 +9,7 @@ import 'data/aircraft_types.dart';
 import 'game/achievements.dart';
 import 'game/ads.dart';
 import 'game/chacha_game.dart';
+import 'game/checkpoint.dart';
 import 'game/play_games.dart';
 import 'game/reminders.dart';
 import 'game/telemetry.dart';
@@ -26,17 +27,21 @@ Future<void> main() async {
   if (!kIsWeb) await Telemetry.restore();
   // Le concepteur : un saut demandé depuis le tableau de bord le ramène à 2023 (ou à l'année choisie).
   if (!kIsWeb) await Telemetry.jump();
+  // Les succès : ceux du téléphone, puis ceux que le serveur connaît, et les médailles déjà gagnées.
+  await Achievements.load();
+  final cp = await Checkpoint.load();
+  if (cp != null) await Achievements.catchUp(bestYear: cp.year);
   if (!kIsWeb) {
     Telemetry.hello().then((_) {
       Telemetry.syncPhoto();
       Telemetry.flushDuels();
+      Telemetry.syncAchievements();
     });
   }
   // Au retour dans l'app, ce qui a été joué hors connexion part vers le tableau de bord.
   if (!kIsWeb) _resume = AppLifecycleListener(onResume: Telemetry.flush);
   Ads.load();
   // Les succès gagnés hors connexion (ou avant Play Jeux) partent dès que le joueur y est connecté.
-  await Achievements.load();
   PlayGames.check().then((_) => Achievements.sync());
   lockLandscape();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);

@@ -2,9 +2,47 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+/// Comment la rue est disposée pour une descente : où le Wewa roule et quand son chauffeur voit l'avion,
+/// et ce qui n'apparaît qu'une fois (le roulage au bord du trottoir, le robot roulage au rond-point).
+/// Les moments sont des secondes passées dans la rue.
+class StreetPlan {
+  const StreetPlan({
+    required this.wewaIn,
+    required this.wewaStop,
+    required this.amazedAt,
+    required this.honks,
+    this.amazedFor = 6,
+    this.drift = true,
+    this.roulages = const [],
+    this.shout,
+    this.robotAt,
+  });
+
+  /// Le Wewa arrive par la droite à partir de [wewaIn], puis se tient à [wewaStop] de la largeur de l'écran.
+  final double wewaIn, wewaStop;
+
+  /// Son chauffeur voit l'avion à [amazedAt] et reste bouche bée pendant [amazedFor] secondes.
+  final double amazedAt, amazedFor;
+
+  /// Ses coups de klaxon ; le dernier, c'est la surprise.
+  final List<double> honks;
+
+  /// Il se rabat vers la voie de l'avion (« tu vas cogner un Wewa ! »).
+  final bool drift;
+
+  /// Les roulages debout au bord du trottoir : le moment où chacun passe au milieu de l'écran.
+  final List<double> roulages;
+
+  /// Le premier roulage met les mains sur la tête entre ces deux moments (« Jésus Marie Joseph ! »).
+  final (double, double)? shout;
+
+  /// Le rond-point et son robot passent sous l'avion vers ce moment-là, juste après le décollage.
+  final double? robotAt;
+}
+
 /// Le boulevard Lumumba à Kinshasa, redessiné d'après des photos : la tour de l'échangeur de Limete,
 /// la chaussée et sa séparation rouge et blanche, les taxis jaunes, les « 207 » bleu et jaune
-/// (« Esprit de mort ») et les motos-taxis, les Wewa.
+/// (« Esprit de mort »), les motos-taxis (les Wewa), les policiers de roulage et le robot roulage.
 ///
 /// Trois vues : la ville de haut pendant la descente, la rue de côté quand l'avion rase la chaussée,
 /// et le pare-brise de près, avec le pilote et son casque.
@@ -21,8 +59,22 @@ abstract final class Boulevard {
   /// Le trou dans la chaussée : sa distance depuis l'entrée dans la rue.
   static const holeAt = speed * 4.6;
 
-  /// À cette seconde de rue, le chauffeur du Wewa voit l'avion à côté de lui : il reste bouche bée.
-  static const amazedAt = 29.4;
+  /// Les trois descentes ne se ressemblent pas : 1963, 1990 (le rond-point du robot) et 1997.
+  static const plans = [
+    StreetPlan(wewaIn: 10, wewaStop: 0.58, amazedAt: 29.4, honks: [13, 18.5, 29.4]),
+    StreetPlan(
+      wewaIn: -1,
+      wewaStop: 0.6,
+      amazedAt: 6.6,
+      amazedFor: 17,
+      honks: [3.4, 5.4, 6.6],
+      drift: false,
+      roulages: [26.5, 45.2],
+      shout: (24.4, 30.2),
+      robotAt: 48.8,
+    ),
+    StreetPlan(wewaIn: 8, wewaStop: 0.66, amazedAt: 29.4, honks: [13, 18.5, 29.4], roulages: [34]),
+  ];
 
   static double _rnd(int i, int salt) {
     final x = math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
@@ -173,7 +225,7 @@ abstract final class Boulevard {
 
   /// Kinshasa vue de l'avion qui descend : les toits, les arbres, la tour au milieu, le boulevard qui file
   /// vers l'horizon avec ses voitures. [approach] va de 0 (de haut) à 1 (tout près de la chaussée).
-  static void aerial(Canvas c, Size s, double u, double approach, double t, double fade) {
+  static void aerial(Canvas c, Size s, double u, double approach, double t, double fade, {int layout = 0}) {
     if (fade <= 0) return;
     final w = s.width, h = s.height;
     c.saveLayer(Offset.zero & s, Paint()..color = Color.fromRGBO(255, 255, 255, fade.clamp(0.0, 1.0)));
@@ -328,6 +380,9 @@ abstract final class Boulevard {
     road(sideX, sideHalf, 0.45, 1.05);
     road(roadX, roadHalf, 0.0, 1.05);
 
+    // En 1990, un rond-point coupe le boulevard : le robot roulage y est debout, les voitures le contournent.
+    final island = layout == 1 ? 0.62 : -1.0;
+
     // Les voitures du boulevard : elles montent à droite de la séparation, descendent à gauche.
     const colors = [
       Color(0xFFF4C20D),
@@ -342,7 +397,8 @@ abstract final class Boulevard {
       var p = (_rnd(i, 3) + t * (0.035 + 0.03 * _rnd(i, 4)) * (up ? -1 : 1)) % 1.0;
       if (p < 0) p += 1;
       final d = 0.12 + 0.93 * p, half = roadHalf(d);
-      final lane = (up ? 1 : -1) * (0.22 + 0.5 * _rnd(i, 5));
+      final around = island > 0 ? math.max(0.0, 1 - (d - island).abs() / 0.06) : 0.0;
+      final lane = (up ? 1 : -1) * (0.22 + 0.5 * _rnd(i, 5)) * (1 + 1.1 * around);
       final at = Offset(roadX(d) + half * lane, depthY(d));
       final len = half * 0.2, wide = half * 0.13;
       if (len < 0.8) continue;
@@ -354,6 +410,26 @@ abstract final class Boulevard {
         Rect.fromCenter(center: at.translate(0, up ? -len * 0.12 : len * 0.12), width: wide * 0.8, height: len * 0.25),
         Paint()..color = const Color(0xAA1B2530),
       );
+    }
+
+    if (island > 0) {
+      final at = Offset(roadX(island), depthY(island)), half = roadHalf(island);
+      final ring = Rect.fromCenter(center: at, width: half * 1.15, height: half * 0.46);
+      c.drawOval(ring, Paint()..color = const Color(0xFFF2EFE8));
+      for (var i = 0; i < 10; i += 2) {
+        c.drawArc(
+          ring,
+          i * math.pi / 5,
+          math.pi / 5,
+          false,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = half * 0.05
+            ..color = const Color(0xFFD23B2E),
+        );
+      }
+      c.drawOval(ring.deflate(half * 0.05), Paint()..color = const Color(0xFF5E9A45));
+      robot(c, at.translate(0, half * 0.04), half * 0.0042, t, mist: 0.12);
     }
 
     tower(c, towerBase, h * 0.5, mist: 0.12, plaza: true);
@@ -407,6 +483,7 @@ abstract final class Boulevard {
     required double planeLength,
     double fade = 1,
     double drop = 0,
+    int layout = 0,
   }) {
     if (fade <= 0) return;
     final w = s.width, h = s.height;
@@ -417,8 +494,8 @@ abstract final class Boulevard {
     // Ce que l'élan ajoute au chemin : les voitures qui roulent dans le même sens reculent d'autant.
     final lead = dist - speed * u * st;
     front
-        ? _streetFront(c, w, h, u, dist, st, t, lead)
-        : _streetBack(c, w, h, u, dist, st, t, lead, plane, planeLength);
+        ? _streetFront(c, w, h, u, dist, st, t, lead, plane, layout)
+        : _streetBack(c, w, h, u, dist, st, t, lead, plane, planeLength, layout);
     c.restore();
     if (layered) c.restore();
   }
@@ -434,6 +511,7 @@ abstract final class Boulevard {
     double lead,
     Offset plane,
     double planeLength,
+    int layout,
   ) {
     final base = h * skyline;
     // La brume chaude de la ville, derrière les toits.
@@ -503,8 +581,12 @@ abstract final class Boulevard {
       );
     }
 
-    // En face, la circulation vient vers nous.
-    const kinds = [0, 1, 2, 3, 0, 2, 1, 3];
+    // En face, la circulation vient vers nous ; elle n'est pas la même à chaque descente.
+    final kinds = const [
+      [0, 1, 2, 3, 0, 2, 1, 3],
+      [2, 0, 3, 2, 1, 0, 2, 3],
+      [3, 2, 0, 1, 2, 3, 0, 2],
+    ][layout];
     final lane = h * (farRoad + (median - farRoad) * 0.72);
     for (var i = 0; i < kinds.length; i++) {
       final span = w * 2.8, v = (speed * 1.35 + 60 * _rnd(i, 51)) * u;
@@ -545,13 +627,35 @@ abstract final class Boulevard {
       _lamp(c, Offset(i * 300 * u - dist + 60 * u, top - 4 * u), u, 150 * u);
     }
 
+    // Le rond-point de 1990 : le robot roulage au milieu, des voitures qui attendent, d'autres qui le contournent.
+    final back = h * (nearRoad + 0.075);
+    if (plans[layout].robotAt case final at?) {
+      final rx = robotX(plane.dx, u, dist, at);
+      if (rx > -400 * u && rx < w + 400 * u) {
+        car(c, Offset(rx + 190 * u, lane), u * 0.58, t, flip: true, color: const Color(0xFFE9E6DF), taxi: false);
+        roundabout(c, Offset(rx, h * (median + nearRoad) / 2), u, t);
+        car(c, Offset(rx - 175 * u, back), u * 0.86, t);
+        car(c, Offset(rx - 270 * u, back), u * 0.86, t, color: const Color(0xFF3B3F46), taxi: false);
+        // Celle-ci a eu le passage : elle fait le tour devant le robot.
+        car(c, Offset(rx - 110 * u + (t * 30 * u) % (240 * u), back), u * 0.86, t, color: const Color(0xFF2E9BD6));
+      }
+    }
+
     // Le trou dans la voie de l'avion, signalé par une branche et un vieux pneu.
     final holeX = plane.dx + holeAt * u - dist;
     if (holeX > -160 * u && holeX < w + 160 * u) pothole(c, Offset(holeX, h * (planeLane - 0.012)), u * 1.25);
 
-    // Une jeep roule sur la voie du fond, à côté de la séparation.
-    final jeep = w * 1.02 - 36 * u * st - lead;
-    car(c, Offset(jeep, h * (nearRoad + 0.075)), u * 0.86, t, color: const Color(0xFF2F3E46), taxi: false);
+    switch (layout) {
+      case 1:
+        // Le 207 roule sur la voie du fond, et son receveur voit l'avion arriver derrière lui.
+        bus207(c, Offset(w * 0.92 - 50 * u * st - lead, back), u * 0.95, t);
+      case 2:
+        // Un pick-up rouge sur la voie du fond.
+        car(c, Offset(w * 1.1 - 44 * u * st - lead, back), u * 0.86, t, color: const Color(0xFFB03A2E), taxi: false);
+      default:
+        // Une jeep roule sur la voie du fond, à côté de la séparation.
+        car(c, Offset(w * 1.02 - 36 * u * st - lead, back), u * 0.86, t, color: const Color(0xFF2F3E46), taxi: false);
+    }
 
     // L'ombre de l'avion sur sa voie.
     final alt = ((h * planeLane - plane.dy) / (h * 0.4)).clamp(0.0, 1.0);
@@ -567,28 +671,53 @@ abstract final class Boulevard {
     );
   }
 
-  static void _streetFront(Canvas c, double w, double h, double u, double dist, double st, double t, double lead) {
+  static void _streetFront(
+    Canvas c,
+    double w,
+    double h,
+    double u,
+    double dist,
+    double st,
+    double t,
+    double lead,
+    Offset plane,
+    int layout,
+  ) {
     // Le Wewa roule sur la voie de devant, à côté de l'avion : la voie de l'avion reste libre devant lui.
     // Il s'en approche un moment (« tu vas cogner un Wewa ! »), puis le chauffeur voit l'avion et reste bouche bée.
-    final wx = wewaX(w, u, st, lead), drift = math.sin(((st - 12) / 12).clamp(0.0, 1.0) * math.pi);
-    final amazed = _ease((st - amazedAt) / 0.6) * (1 - _ease((st - amazedAt - 6) / 0.8));
-    wewa(
-      c,
-      Offset(wx, h * (frontLane - 0.035 * drift)),
-      u * 1.22,
-      t,
-      lean: -0.06 * drift + 0.05 * math.sin(st * 3) * amazed,
-      amazed: amazed,
-    );
-
-    // Le taxi jaune, puis le 207, sur la voie de devant.
-    car(c, Offset(w * 0.84 - 45 * u * st - lead, h * frontLane), u * 1.2, t);
-    final bx = w * 1.14 - 84 * u * (st - 5) - lead;
+    final plan = plans[layout], lane = h * frontLane;
+    final wx = wewaX(w, u, st, lead, layout);
+    final drift = plan.drift ? math.sin(((st - 12) / 12).clamp(0.0, 1.0) * math.pi) : 0.0;
+    final amazed = _ease((st - plan.amazedAt) / 0.6) * (1 - _ease((st - plan.amazedAt - plan.amazedFor) / 0.8));
+    final wewaAt = Offset(wx, h * (frontLane - 0.035 * drift)), lean = -0.06 * drift + 0.05 * math.sin(st * 3) * amazed;
     // Le 207 serre l'avion, puis s'écarte : « Esprit de mort ».
-    final by = h * (frontLane - 0.03 * math.sin(((st - 7) / 6).clamp(0.0, 1.0) * math.pi));
-    bus207(c, Offset(bx, by), u * 1.24, t);
-    // Un autre taxi, plus tard.
-    car(c, Offset(w * 1.5 - 62 * u * (st - 38) - lead, h * frontLane), u * 1.2, t);
+    final swerve = h * 0.03 * math.sin(((st - 7) / 6).clamp(0.0, 1.0) * math.pi);
+
+    switch (layout) {
+      case 1:
+        // 1990 : derrière le chauffeur, une maman enceinte ; quand elle crie, elle met la main sur la tête.
+        final alarm = _ease((st - 12.8) / 0.5) * (1 - _ease((st - 18.3) / 0.6));
+        wewa(c, wewaAt, u * 1.22, t, lean: lean, amazed: amazed, mama: true, alarm: alarm);
+        car(c, Offset(w * 1.3 - 52 * u * (st - 20) - lead, lane), u * 1.2, t);
+        // Au rond-point, un Wewa attend son tour.
+        if (plan.robotAt case final at?) {
+          wewa(c, Offset(robotX(plane.dx, u, dist, at) - 320 * u, lane), u * 1.22, t, riders: 2);
+        }
+      case 2:
+        // 1997 : le 207 double l'avion par derrière, deux Wewa roulent ensemble.
+        car(c, Offset(w * 0.9 - 40 * u * st - lead, lane), u * 1.2, t, color: const Color(0xFFE9E6DF), taxi: false);
+        wewa(c, wewaAt.translate(130 * u, 0), u * 1.18, t, riders: 3);
+        wewa(c, wewaAt, u * 1.22, t, lean: lean, amazed: amazed, riders: 2);
+        bus207(c, Offset(-w * 0.2 + 100 * u * (st - 3) - lead, lane - swerve), u * 1.24, t);
+        car(c, Offset(w * 1.5 - 62 * u * (st - 38) - lead, lane), u * 1.2, t);
+      default:
+        wewa(c, wewaAt, u * 1.22, t, lean: lean, amazed: amazed);
+        // Le taxi jaune, puis le 207, sur la voie de devant.
+        car(c, Offset(w * 0.84 - 45 * u * st - lead, lane), u * 1.2, t);
+        bus207(c, Offset(w * 1.14 - 84 * u * (st - 5) - lead, lane - swerve), u * 1.24, t);
+        // Un autre taxi, plus tard.
+        car(c, Offset(w * 1.5 - 62 * u * (st - 38) - lead, lane), u * 1.2, t);
+    }
 
     // Le bord du trottoir : rouge et blanc, comme sur le boulevard.
     final top = h * kerb, block = 34 * u;
@@ -601,6 +730,19 @@ abstract final class Boulevard {
     }
     c.drawRect(Rect.fromLTRB(0, top + 7 * u, w, h * 1.3), Paint()..color = const Color(0xFFBEB29A));
     c.drawRect(Rect.fromLTRB(0, top + 7 * u, w, top + 9 * u), Paint()..color = const Color(0x33000000));
+    // Les roulages, debout au bord du trottoir comme des piétons : ils filent avec lui.
+    for (final (i, at) in plan.roulages.indexed) {
+      final x = w * 0.5 + (speed * u * at - dist) * 1.06;
+      if (x < -60 * u || x > w + 60 * u) continue;
+      final shout = i > 0 ? null : plan.shout;
+      roulage(
+        c,
+        Offset(x, top + 15 * u),
+        u * 1.25,
+        t + i * 1.7,
+        amazed: shout == null ? 0 : _ease((st - shout.$1) / 0.5) * (1 - _ease((st - shout.$2) / 0.6)),
+      );
+    }
     // Les lampadaires du premier plan filent plus vite que la rue.
     final near = dist * 1.3;
     for (var i = (near / (980 * u)).floor() - 1; i * 980 * u - near < w + 60 * u; i++) {
@@ -609,11 +751,15 @@ abstract final class Boulevard {
   }
 
   /// La place du Wewa devant l'avion, à l'écran.
-  static double wewaX(double w, double u, double st, double lead) {
-    final arrive = w * 1.12 - 70 * u * (st - 10);
-    final gone = math.max(0.0, st - amazedAt - 6.5) * 110 * u;
-    return math.max(arrive, w * 0.58) - gone - lead;
+  static double wewaX(double w, double u, double st, double lead, [int layout = 0]) {
+    final p = plans[layout];
+    final arrive = w * 1.12 - 70 * u * (st - p.wewaIn);
+    final gone = math.max(0.0, st - p.amazedAt - p.amazedFor - 0.5) * 110 * u;
+    return math.max(arrive, w * p.wewaStop) - gone - lead;
   }
+
+  /// La place du robot roulage à l'écran : il est posé sur la chaussée et passe sous l'avion vers [at].
+  static double robotX(double planeX, double u, double dist, double at) => planeX + speed * u * at - dist;
 
   static void _buildings(Canvas c, double w, double u, double base, double scroll) {
     final period = 138 * u;
@@ -1061,6 +1207,7 @@ abstract final class Boulevard {
   /// Le Wewa : la moto-taxi (un modèle chinois de 125 cm³, comme sur le boulevard), son chauffeur penché sur
   /// le guidon et ses clients serrés derrière lui. Elle roule : les rayons tournent, le pot fume, l'air file.
   /// [amazed] : le chauffeur voit l'avion, tourne la tête et lève le bras, bouche ouverte.
+  /// [mama] : une maman enceinte est assise derrière lui ; [alarm] : elle crie, la main sur la tête.
   static void wewa(
     Canvas c,
     Offset base,
@@ -1070,6 +1217,8 @@ abstract final class Boulevard {
     int riders = 3,
     double lean = 0,
     double amazed = 0,
+    bool mama = false,
+    double alarm = 0,
   }) {
     _begin(c, base, k, flip, lean);
     _shadow(c, 36, 1);
@@ -1341,6 +1490,17 @@ abstract final class Boulevard {
               ..color = const Color(0xFF2456A6)
               ..strokeWidth = 1.3,
           );
+        case 4:
+          // Le foulard en pagne, noué sur le haut de la tête.
+          c.drawArc(
+            Rect.fromCircle(center: at + const Offset(0, -0.6), radius: 5.2),
+            math.pi * 0.92,
+            math.pi * 1.16,
+            true,
+            Paint()..color = const Color(0xFFF2C230),
+          );
+          c.drawCircle(at + const Offset(-0.6, -6.1), 2.3, Paint()..color = const Color(0xFFE0532B));
+          c.drawCircle(at + const Offset(2, -6.7), 1.7, Paint()..color = const Color(0xFFE0532B));
       }
     }
 
@@ -1374,8 +1534,51 @@ abstract final class Boulevard {
       head(shoulder + const Offset(1.4, -6.6), skin, hat);
     }
 
-    if (riders >= 3) passenger(-19, const Color(0xFF2456A6), const Color(0xFF2456A6), _skins[2], 3);
-    if (riders >= 2) passenger(-11, const Color(0xFF8A5A3B), const Color(0xFF1B1B1D), _skins[3], 2);
+    // La maman : le pagne jusqu'aux chevilles, le ventre rond, une main sur le ventre (ou sur la tête).
+    void mother(double x) {
+      const pagne = Color(0xFFE0532B), motif = Color(0xFFF2C230);
+      final hip = Offset(x, -30), shoulder = Offset(x + 0.5, -45), skin = _skins[3];
+      c.drawPath(
+        Path()..addPolygon([
+          Offset(x - 3, -33),
+          Offset(x + 10, -29),
+          Offset(x + 8, -13),
+          Offset(x + 2, -13),
+          Offset(x - 2, -25),
+        ], true),
+        Paint()..color = pagne,
+      );
+      for (final p in const [Offset(1, -27), Offset(6, -23), Offset(3.5, -18), Offset(7.5, -28), Offset(5.5, -15)]) {
+        c.drawCircle(Offset(x + p.dx, p.dy), 0.9, Paint()..color = motif);
+      }
+      c.drawLine(
+        Offset(x + 4, -13.2),
+        Offset(x + 8.5, -12.8),
+        limb
+          ..strokeWidth = 2.2
+          ..color = const Color(0xFF8A5A3B),
+      );
+      c.drawLine(
+        hip,
+        shoulder,
+        limb
+          ..strokeWidth = 7
+          ..color = pagne,
+      );
+      c.drawCircle(Offset(x + 5, -35), 6, Paint()..color = pagne);
+      c.drawCircle(Offset(x + 7, -36.5), 1.2, Paint()..color = motif);
+      final hand = Offset.lerp(Offset(x + 8, -34), Offset(x + 5, -56), alarm)!;
+      c.drawLine(shoulder + const Offset(0.5, 2), hand, limb..strokeWidth = 2.6);
+      c.drawCircle(hand, 1.6, Paint()..color = skin);
+      head(shoulder + const Offset(1.2, -6.4), skin, 4, turned: alarm > 0.5);
+    }
+
+    if (mama) {
+      mother(-15);
+    } else {
+      if (riders >= 3) passenger(-19, const Color(0xFF2456A6), const Color(0xFF2456A6), _skins[2], 3);
+      if (riders >= 2) passenger(-11, const Color(0xFF8A5A3B), const Color(0xFF1B1B1D), _skins[3], 2);
+    }
     // Le chauffeur : penché sur le guidon, les mains sur les poignées, les pieds sur les repose-pieds.
     final skin = _skins[0];
     const hip = Offset(-2, -30), knee = Offset(9, -28), shoulder = Offset(5, -45);
@@ -1430,6 +1633,273 @@ abstract final class Boulevard {
     c.drawCircle(const Offset(11, -38.4), 1.6, Paint()..color = skin);
     head(shoulder + const Offset(2.6, -6.2), skin, 1, turned: amazed > 0.5);
     c.restore();
+  }
+
+  // ------------------------------------------------------- roulage et robot
+
+  /// Un policier de roulage, d'après la photo de leur tenue : pantalon et chemise bleu nuit, gilet orange
+  /// à deux bandes grises, brassard rouge, casque bleu ciel, rangers noires. Debout au bord du trottoir,
+  /// un bras tendu, l'autre fait passer les voitures. [amazed] : il voit l'avion et met les mains sur la tête.
+  static void roulage(Canvas c, Offset feet, double k, double t, {double amazed = 0}) {
+    c.save();
+    c.translate(feet.dx, feet.dy);
+    c.scale(k);
+    // Surpris, il recule un peu.
+    c.rotate(-0.08 * amazed);
+    const navy = Color(0xFF1F2A44), orange = Color(0xFFFF7A1A), band = Color(0xFFD5D9DE), skin = Color(0xFF5A3A26);
+    c.drawOval(const Rect.fromLTRB(-12, -2, 12, 2.5), Paint()..color = const Color(0x44000000));
+    final limb = Paint()
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    // Les jambes et les rangers.
+    for (final x in const [-4.0, 4.0]) {
+      c.drawLine(
+        Offset(x, -36),
+        Offset(x * 1.2, -4),
+        limb
+          ..strokeWidth = 6.4
+          ..color = navy,
+      );
+      c.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(x * 1.2 - 4, -5, 8.5, 5), const Radius.circular(1.6)),
+        Paint()..color = const Color(0xFF0E0F12),
+      );
+    }
+    // Les bras : derrière le gilet quand ils montent sur la tête.
+    final head = const Offset(0, -71);
+    void arms() {
+      for (final side in const [-1.0, 1.0]) {
+        final shoulder = Offset(side * 10, -61);
+        // Au repos : le bras droit tendu vers la route, le gauche fait signe de passer.
+        final wave = math.sin(t * 4.2) * 0.5;
+        final rest = side > 0 ? Offset(side * 27, -61) : Offset(-20 - 4 * wave, -50 - 12 * wave);
+        final elbow = Offset.lerp(Offset.lerp(shoulder, rest, 0.5)!, Offset(side * 15, -76), amazed)!;
+        final hand = Offset.lerp(rest, head + Offset(side * 5, -5), amazed)!;
+        c.drawLine(
+          shoulder,
+          elbow,
+          limb
+            ..strokeWidth = 5
+            ..color = navy,
+        );
+        c.drawLine(elbow, hand, limb);
+        // Le brassard rouge, sur le bras gauche.
+        if (side < 0) {
+          final mid = Offset.lerp(shoulder, elbow, 0.55)!;
+          c.drawLine(
+            mid,
+            Offset.lerp(shoulder, elbow, 0.85)!,
+            limb
+              ..strokeWidth = 5.6
+              ..color = const Color(0xFFD6302A),
+          );
+          c.drawCircle(mid, 0.9, Paint()..color = Colors.white);
+        }
+        c.drawCircle(hand, 2.4, Paint()..color = skin);
+      }
+    }
+
+    if (amazed > 0.5) arms();
+    // Le buste : la chemise, puis le gilet orange et ses bandes grises.
+    c.drawRRect(
+      RRect.fromRectAndRadius(const Rect.fromLTRB(-11, -64, 11, -34), const Radius.circular(4)),
+      Paint()..color = navy,
+    );
+    c.drawRRect(
+      RRect.fromRectAndRadius(const Rect.fromLTRB(-10, -63, 10, -35), const Radius.circular(3)),
+      Paint()..color = orange,
+    );
+    c.drawPath(
+      Path()..addPolygon(const [Offset(-3, -63), Offset(3, -63), Offset(0, -56)], true),
+      Paint()..color = navy,
+    );
+    for (final y in const [-52.0, -43.0]) {
+      c.drawRect(Rect.fromLTRB(-10, y, 10, y + 3), Paint()..color = band);
+    }
+    c.drawLine(
+      const Offset(-6, -63),
+      const Offset(-6, -52),
+      Paint()
+        ..color = band
+        ..strokeWidth = 2,
+    );
+    c.drawLine(
+      const Offset(6, -63),
+      const Offset(6, -52),
+      Paint()
+        ..color = band
+        ..strokeWidth = 2,
+    );
+    if (amazed <= 0.5) arms();
+    // La tête et le casque bleu ciel.
+    c.drawRect(const Rect.fromLTRB(-2.5, -67, 2.5, -62), Paint()..color = skin);
+    c.drawCircle(head, 6.4, Paint()..color = skin);
+    for (final x in const [-2.3, 2.3]) {
+      c.drawCircle(head + Offset(x, -0.5), 1.1, Paint()..color = Colors.white);
+      c.drawCircle(head + Offset(x, -0.3), 0.55, Paint()..color = Colors.black);
+    }
+    c.drawOval(
+      Rect.fromCenter(center: head + const Offset(0, 3.4), width: 3 + 1.4 * amazed, height: 1.2 + 2.8 * amazed),
+      Paint()..color = const Color(0xFF2A0E0A),
+    );
+    c.drawArc(
+      Rect.fromCircle(center: head + const Offset(0, -1.4), radius: 7.4),
+      math.pi,
+      math.pi,
+      true,
+      Paint()..color = const Color(0xFF8EC3E8),
+    );
+    c.drawRect(const Rect.fromLTRB(-7.4, -73.4, 7.4, -71.6), Paint()..color = const Color(0xFF5C8FBF));
+    c.drawLine(
+      const Offset(0, -79.6),
+      const Offset(0, -73.4),
+      Paint()
+        ..color = Colors.white
+        ..strokeWidth = 1.8,
+    );
+    c.restore();
+  }
+
+  /// Le robot roulage de Kinshasa, d'après la photo : un grand robot de métal debout au milieu du carrefour,
+  /// le panneau solaire au-dessus de la tête, un feu sur la poitrine et au bout des bras. Il ne parle pas :
+  /// il lève un bras, puis l'autre, pour laisser passer une file après l'autre, et sa tête balaie la route.
+  static void robot(Canvas c, Offset base, double k, double t, {double mist = 0}) {
+    Color tone(Color col) => Color.lerp(col, _haze, mist)!;
+    final steel = tone(const Color(0xFFB7BEC6)),
+        dark = tone(const Color(0xFF6F7780)),
+        light = tone(const Color(0xFFE6EAEE)),
+        black = tone(const Color(0xFF1E2328));
+    const red = Color(0xFFFF3B30), green = Color(0xFF34E07A);
+    c.save();
+    c.translate(base.dx, base.dy);
+    c.scale(k);
+    Paint metal(Rect r) =>
+        Paint()
+          ..shader = LinearGradient(colors: [dark, light, steel, dark], stops: const [0, 0.3, 0.6, 1]).createShader(r);
+
+    // Un bras levé, l'autre tendu : ils changent toutes les quatre secondes, en douceur.
+    final left = _ease(0.5 + 1.6 * math.sin(t * math.pi / 4)), right = 1 - left;
+
+    // Le mât et le panneau solaire, derrière lui.
+    c.drawLine(
+      const Offset(3, -150),
+      const Offset(3, -214),
+      Paint()
+        ..color = dark
+        ..strokeWidth = 3,
+    );
+    final panel = Path()
+      ..addPolygon(const [Offset(-32, -222), Offset(34, -227), Offset(38, -215), Offset(-28, -210)], true);
+    c.drawPath(panel, Paint()..color = tone(const Color(0xFF26456E)));
+    for (var i = 1; i < 4; i++) {
+      c.drawLine(
+        Offset(-32 + i * 16.5 + i * 1.0, -222 - i * 1.3),
+        Offset(-28 + i * 16.5 + i * 1.0, -210 - i * 1.3),
+        Paint()
+          ..color = tone(const Color(0xFF8FB4D8))
+          ..strokeWidth = 0.8,
+      );
+    }
+    c.drawPath(
+      panel,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4
+        ..color = steel,
+    );
+    // Le socle et la longue jambe-colonne.
+    c.drawRect(const Rect.fromLTRB(-22, -10, 22, 0), Paint()..color = dark);
+    const leg = Rect.fromLTRB(-15, -102, 15, -10);
+    c.drawRect(leg, metal(leg));
+    c.drawLine(
+      const Offset(0, -100),
+      const Offset(0, -12),
+      Paint()
+        ..color = dark
+        ..strokeWidth = 1,
+    );
+    for (final y in const [-80.0, -46.0]) {
+      c.drawRect(
+        Rect.fromLTRB(-11, y, 11, y + 22),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = dark,
+      );
+    }
+    // Les bras, avec un feu au bout : rouge levé (on attend), vert tendu (on passe).
+    for (final (side, up) in [(-1.0, left), (1.0, right)]) {
+      final shoulder = Offset(side * 25, -144);
+      final a = up * math.pi * 0.45;
+      final hand = shoulder + Offset(side * math.cos(a), -math.sin(a)) * 50;
+      c.drawLine(
+        shoulder,
+        hand,
+        Paint()
+          ..color = steel
+          ..strokeWidth = 10
+          ..strokeCap = StrokeCap.round,
+      );
+      c.drawLine(
+        shoulder + const Offset(0, -2.5),
+        hand + const Offset(0, -2.5),
+        Paint()
+          ..color = light
+          ..strokeWidth = 2.4
+          ..strokeCap = StrokeCap.round,
+      );
+      c.drawCircle(hand, 7, Paint()..color = black);
+      c.drawCircle(hand, 4.6, Paint()..color = up > 0.5 ? red : green);
+      c.drawCircle(shoulder, 8, Paint()..color = steel);
+    }
+    // Le torse et ses feux.
+    const chest = Rect.fromLTRB(-24, -152, 24, -100);
+    c.drawRRect(RRect.fromRectAndRadius(chest, const Radius.circular(5)), metal(chest));
+    c.drawRRect(
+      RRect.fromRectAndRadius(const Rect.fromLTRB(-13, -144, 13, -110), const Radius.circular(3)),
+      Paint()..color = black,
+    );
+    final stop = left > 0.5;
+    c.drawCircle(const Offset(0, -135), 6, Paint()..color = stop ? red : red.withValues(alpha: 0.18));
+    c.drawCircle(const Offset(0, -119), 6, Paint()..color = stop ? green.withValues(alpha: 0.18) : green);
+    // Le cou, la tête et sa visière où un œil rouge balaie la route.
+    c.drawRect(const Rect.fromLTRB(-5, -160, 5, -151), Paint()..color = dark);
+    const skull = Rect.fromLTRB(-16, -184, 16, -158);
+    c.drawRRect(RRect.fromRectAndRadius(skull, const Radius.circular(5)), metal(skull));
+    c.drawRRect(
+      RRect.fromRectAndRadius(const Rect.fromLTRB(-12, -177, 12, -167), const Radius.circular(2)),
+      Paint()..color = black,
+    );
+    c.drawCircle(Offset(math.sin(t * 1.3) * 8, -172), 2.8, Paint()..color = red);
+    c.restore();
+  }
+
+  /// Le rond-point vu de côté : un îlot rond bordé de rouge et blanc, son gazon, et le robot debout dessus.
+  static void roundabout(Canvas c, Offset center, double u, double t) {
+    final island = Rect.fromCenter(center: center, width: 300 * u, height: 26 * u);
+    c.drawOval(island.translate(0, 4 * u), Paint()..color = const Color(0x55000000));
+    c.drawOval(island, Paint()..color = const Color(0xFFF2EFE8));
+    for (var i = 0; i < 16; i += 2) {
+      c.drawArc(
+        island,
+        i * math.pi / 8,
+        math.pi / 8,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 5 * u
+          ..color = const Color(0xFFD23B2E),
+      );
+    }
+    c.drawOval(island.deflate(4 * u).translate(0, -3 * u), Paint()..color = const Color(0xFF5E9A45));
+    for (var i = 0; i < 9; i++) {
+      c.drawCircle(
+        center + Offset((i - 4) * 28 * u, -4 * u + (i.isEven ? 2 : -1) * u),
+        2.2 * u,
+        Paint()..color = i % 3 == 0 ? const Color(0xFFF2C230) : const Color(0xFFE85A8A),
+      );
+    }
+    robot(c, center, u * 0.74, t);
   }
 
   // ------------------------------------------------------------ le pare-brise
