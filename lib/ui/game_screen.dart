@@ -1350,8 +1350,8 @@ class _StoryCardView extends StatelessWidget {
     final e = card.event;
     final (label, color) = switch (e.kind) {
       EventKind.glory => ('MOMENT DE GLOIRE', ChachaColors.yellow),
-      // « Oyebi ke… » : tu sais que… Plus parlant que « moment marquant ».
-      EventKind.life => (Lingala.oyebiKe, ChachaColors.yellow),
+      // « Boyebi ke… » : savez-vous que… Plus parlant que « moment marquant ».
+      EventKind.life => (Lingala.boyebiKe, ChachaColors.yellow),
       EventKind.obstacle => ('MOMENT DIFFICILE', Color(0xFFFF7A7A)),
       EventKind.memory => ('RECUEILLEMENT', Colors.white),
     };
@@ -1377,7 +1377,7 @@ class _StoryCardView extends StatelessWidget {
                     tag,
                     style: TextStyle(
                       color: color,
-                      fontSize: tag == Lingala.oyebiKe ? 13 : 9.5,
+                      fontSize: tag == Lingala.boyebiKe ? 13 : 9.5,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.1,
                     ),

@@ -5385,23 +5385,27 @@ class ChachaGame extends FlameGame {
     final cur = currencyAt(year);
     if (cur != _lastCurrency) {
       _lastCurrency = cur;
-      // Le changement de billets : la fiche montre le nouveau billet.
-      _showCard(
-        HistoryEvent(
-          year,
-          EventKind.life,
-          '${year.floor()}',
-          'Banque centrale',
-          'Place aux ${currencyName(cur)} ($cur)',
-          'Ton portefeuille passe en ${currencyName(cur)} : les anciens billets sont échangés contre les nouveaux.',
-          photo: switch (cur) {
-            'NZ' => 'billetnz',
-            'FC' => 'billet1f',
-            _ => null,
-          },
-        ),
-        label: 'NOUVELLE MONNAIE',
-      );
+      // Le changement de billets : la fiche montre le nouveau billet. Quand l'histoire a déjà sa fiche avec le billet
+      // (le zaïre en 1967, le nouveau zaïre, le franc congolais), une seule fiche pour ce moment : la sienne.
+      final told = historyEvents.any((e) => (e.year - year).abs() < 0.2 && (e.photo?.startsWith('billet') ?? false));
+      if (!told) {
+        _showCard(
+          HistoryEvent(
+            year,
+            EventKind.life,
+            '${year.floor()}',
+            'Banque centrale',
+            'Place aux ${currencyName(cur)} ($cur)',
+            'Ton portefeuille passe en ${currencyName(cur)} : les anciens billets sont échangés contre les nouveaux.',
+            photo: switch (cur) {
+              'NZ' => 'billetnz',
+              'FC' => 'billet1f',
+              _ => null,
+            },
+          ),
+          label: 'NOUVELLE MONNAIE',
+        );
+      }
     }
 
     final c = cabin.value;
@@ -6281,7 +6285,7 @@ class ChachaGame extends FlameGame {
         _chaptersTold = chapter.after;
         _pause(
           StagePause(
-            '${Lingala.oyebiKe} · ${chapter.date}',
+            '${Lingala.boyebiKe} · ${chapter.date}',
             chapter.title,
             chapter.text,
             people: [
@@ -6488,13 +6492,48 @@ class ChachaGame extends FlameGame {
 
   double get _jetLength => planeLength * 0.52;
 
+  /// Une fiche d'histoire de cette date, ou d'avant, attend encore ou se lit.
+  bool _storyUpTo(double y) =>
+      (_onStage?.story ?? double.infinity) <= y || _cues.any((c) => (c.story ?? double.infinity) <= y);
+
+  /// Le drapeau qui attend son message : la compagnie passe après lui (un message trop tard ne bloque plus rien).
+  FlagEra? _flagToTell;
+  double _flagAskedAt = 0;
+
   void _checkEras() {
+    // Le pays change d'abord (la fiche et son hymne), puis le drapeau, puis la compagnie et son avion.
+    final f = flagAt(year);
+    if (!identical(f, _flag) && !_storyUpTo(f.from)) {
+      _flag = f;
+      // Le retour de la RD Congo (1997) change la compagnie en même temps : son annonce dit aussi le drapeau.
+      // Un drapeau annoncé trop tard n'est plus montré.
+      if (f.note != null || !airlineEras.any((a) => (a.from - f.from).abs() < 0.3)) {
+        _flagToTell = f;
+        _flagAskedAt = year;
+        // Il suit la fiche de son moment, devant les fiches suivantes (la compagnie, elle, attend le drapeau).
+        _cue(
+          () {
+            _flagToTell = null;
+            banner.value = FlightBanner(
+              '${f.from.floor()} · ${f.label}',
+              f.note ?? 'Le drapeau change',
+              color: ChachaColors.skyLight,
+            );
+          },
+          f.note != null ? 5.5 : 4.5,
+          hide: () => banner.value = null,
+          first: true,
+          still: () => year - _flagAskedAt < 0.5,
+        );
+      }
+    }
+    final flagWaits = _flagToTell != null && year - _flagAskedAt < 0.5;
     final a = airlineAt(year);
     // Pendant une vague d'avions de chasse, la nouvelle compagnie attend la fin de la vague : on ne mélange pas.
     // Mêmes couleurs, autre nom (Air Zaïre puis les compagnies zaïroises) : l'avion ne change pas, rien à annoncer.
     if (!identical(a, _airline) && identical(a.livery, _airline.livery) && _planeFor(a) == type) {
       _airline = a;
-    } else if (!identical(a, _airline) && !(_zone != null && _waveActive)) {
+    } else if (!identical(a, _airline) && !(_zone != null && _waveActive) && !_storyUpTo(a.from) && !flagWaits) {
       final before = type.livery ?? _airline.livery;
       _airline = a;
       // La compagnie et son avion sont de l'histoire : ils passent dans leur année, jamais oubliés dans la file.
@@ -6536,24 +6575,6 @@ class ChachaGame extends FlameGame {
     if (!type.fliesIn(year) && phase == FlightPhase.cruising && identical(a, _airline) && !_eraPending && !_planeDue) {
       final next = _planeFor(a);
       if (next != type) _changeAircraft(next);
-    }
-    final f = flagAt(year);
-    if (!identical(f, _flag)) {
-      _flag = f;
-      // Le Zaïre (1971) et le retour de la RD Congo (1997) changent la compagnie en même temps :
-      // son annonce dit aussi le drapeau. Un drapeau annoncé trop tard n'est plus montré.
-      if (!airlineEras.any((a) => (a.from - f.from).abs() < 0.3)) {
-        _cue(
-          () => banner.value = FlightBanner(
-            '${f.from.floor()} · ${f.label}',
-            'Le drapeau change',
-            color: ChachaColors.skyLight,
-          ),
-          4.5,
-          hide: () => banner.value = null,
-          still: () => year - f.from < 0.5,
-        );
-      }
     }
   }
 

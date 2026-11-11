@@ -49,7 +49,7 @@ class WarZone {
 }
 
 /// Une étape racontée au milieu d'une guerre, quand [after] vagues sont passées : le jeu s'arrête,
-/// on lit (« Oyebi ke… », tu sais que…), puis les avions reviennent.
+/// on lit (« Boyebi ke… », savez-vous que…), puis les avions reviennent.
 class WarChapter {
   const WarChapter({
     required this.after,
@@ -226,8 +226,8 @@ abstract final class Lingala {
   /// Touché une fois, deux fois, trois fois… : le pilote ne dit pas la même chose.
   static const hits = [kebaMissile, ekenge, mamaNaNga, nzambePesa];
 
-  /// « Tu sais que… », avant un moment d'histoire.
-  static const oyebiKe = 'OYEBI KE';
+  /// « Savez-vous que… », avant un moment d'histoire (les mots du concepteur).
+  static const boyebiKe = 'BOYEBI KE';
 
   /// « Tu as fait tomber un passager. Quel genre de pilote es-tu ? »
   static const okweyisi = 'Okweyisi passager. Yango ozali pilo pilo ya ndenge nini ?';

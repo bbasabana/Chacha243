@@ -796,6 +796,48 @@ void main() {
     expect(useful, 0);
   });
 
+  test('de 1965 à 1972, tout passe dans l\'ordre : le pays et son hymne, puis le drapeau, puis Air Zaïre', () async {
+    final g = await start(year: 1965.5, autopilot: true);
+    final seen = <String>[];
+    void add(String s) {
+      if (seen.isEmpty || seen.last != s) seen.add(s);
+    }
+
+    g.card.addListener(() {
+      final e = g.card.value?.event;
+      if (e == null) return;
+      add(e.title);
+      expect(e.brief ?? e.song, isNotNull, reason: '${e.title} : une petite description sous le titre');
+    });
+    g.banner.addListener(() {
+      final b = g.banner.value;
+      if (b != null && (b.title.contains('Drapeau') || b.title.contains('Air Zaïre'))) add(b.title);
+    });
+    for (var i = 0; i < 60 * 60 * 30 && g.year < 1972.6; i++) {
+      g.condition = 100;
+      g.lives = 5;
+      g.fuel = 80;
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+    }
+    final story = seen.where((s) => !s.startsWith('Carte postale')).toList();
+    expect(story, [
+      'Mobutu prend le pouvoir',
+      'Les martyrs de la Pentecôte',
+      'Les villes changent de nom',
+      'La Gécamines',
+      'Naissance du MPR',
+      'Nouvelle monnaie : le zaïre',
+      'Champions d\'Afrique',
+      'Mort de Pierre Mulele',
+      'Le pays devient le Zaïre',
+      '1971 · Drapeau du Zaïre',
+      '1971 · Air Zaïre',
+      'Mobutu Sese Seko',
+      'Mama Yemo, l\'hôpital de la capitale',
+    ]);
+  });
+
   test('de 1965 à 1985, les fiches restent dans leur année, et le MPR et Ali ont leur chanson', () async {
     final g = await start(year: 1965.5, autopilot: true);
     final wrong = <String>[];

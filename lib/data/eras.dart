@@ -181,11 +181,11 @@ const airlineEras = <AirlineEra>[
     ),
     flagship: 'dc6',
   ),
+  // Juste après la fiche « Le pays devient le Zaïre » et son hymne, puis le drapeau : l'avion change en dernier.
   AirlineEra(
-    1971.82,
+    1971.9,
     'Air Zaïre',
-    'Le pays devient le Zaïre, avec un nouveau drapeau : Air Congo devient Air Zaïre, en vert et jaune, '
-        'avec la torche sur la dérive.',
+    'Air Congo devient Air Zaïre, en vert et jaune, avec la torche sur la dérive.',
     _zaire,
     flagship: 'b707',
   ),
@@ -273,17 +273,20 @@ const airlineEras = <AirlineEra>[
 ];
 
 class FlagEra {
-  const FlagEra(this.from, this.style, this.label);
+  const FlagEra(this.from, this.style, this.label, {this.note});
 
   final double from;
   final FlagStyle style;
   final String label;
+
+  /// Ce que montre le nouveau drapeau : il a alors son propre message, même quand la compagnie change juste après.
+  final String? note;
 }
 
 const flagEras = <FlagEra>[
   FlagEra(1960.0, FlagStyle.star1960, "Drapeau de l'Indépendance"),
   FlagEra(1963.0, FlagStyle.diagonal1963, 'Drapeau à la diagonale'),
-  FlagEra(1971.89, FlagStyle.zaire1971, 'Drapeau du Zaïre'),
+  FlagEra(1971.885, FlagStyle.zaire1971, 'Drapeau du Zaïre', note: 'Vert, avec la main qui tient la torche'),
   FlagEra(1997.38, FlagStyle.star1997, "Retour du drapeau à l'étoile"),
   FlagEra(2006.13, FlagStyle.current2006, "Drapeau d'aujourd'hui"),
 ];

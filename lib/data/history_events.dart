@@ -235,16 +235,10 @@ const historyEvents = <HistoryEvent>[
     'Le général Joseph-Désiré Mobutu prend le pouvoir. Il le gardera plus de 30 ans. Sa toque de léopard devient son image. '
         'Le pays garde encore son nom et son drapeau : tout changera pas à pas, la monnaie en 1967, puis le pays, '
         'le drapeau et Air Zaïre en 1971.',
+    brief:
+        'Par un coup d\'État, le général Mobutu écarte le président Kasa-Vubu. Il gardera le pouvoir plus de 30 ans.',
     photo: 'mobututoque',
     big: true,
-  ),
-  HistoryEvent(
-    1966.4,
-    EventKind.life,
-    '1966',
-    'Tout le pays',
-    'Les villes changent de nom',
-    'Léopoldville devient Kinshasa, Élisabethville Lubumbashi, Stanleyville Kisangani.',
   ),
   HistoryEvent(
     1966.42,
@@ -253,6 +247,16 @@ const historyEvents = <HistoryEvent>[
     'Kinshasa',
     'Les martyrs de la Pentecôte',
     'Évariste Kimba, Jérôme Anany, Emmanuel Bamba et Alexandre Mahamba sont pendus en public. Le stade des Martyrs porte leur nom.',
+    brief:
+        'Quatre anciens ministres, accusés de complot, sont pendus devant la foule. Le stade des Martyrs porte leur nom.',
+  ),
+  HistoryEvent(
+    1966.5,
+    EventKind.life,
+    '1er juillet 1966',
+    'Tout le pays',
+    'Les villes changent de nom',
+    'Léopoldville devient Kinshasa, Élisabethville Lubumbashi, Stanleyville Kisangani.',
   ),
   HistoryEvent(
     1967.0,
@@ -261,6 +265,7 @@ const historyEvents = <HistoryEvent>[
     'Lubumbashi',
     'La Gécamines',
     'Les mines de cuivre du Katanga, jusque-là à l\'Union minière, deviennent congolaises (Gécomin, puis Gécamines en 1972). Le terril de Lubumbashi en est le symbole.',
+    brief: 'Les mines de cuivre du Katanga, belges jusque-là, deviennent congolaises.',
     photo: 'gecamines',
   ),
   HistoryEvent(
@@ -279,18 +284,21 @@ const historyEvents = <HistoryEvent>[
     EventKind.life,
     '24 juin 1967',
     'Kinshasa',
-    'Naissance du zaïre',
+    'Nouvelle monnaie : le zaïre',
     'Une nouvelle monnaie, le zaïre, remplace le franc congolais : 1 zaïre vaut 1 000 francs. Ton portefeuille passe en zaïres. '
         'La monnaie prend le nom du fleuve avant le pays : le Congo deviendra le Zaïre en 1971.',
+    brief:
+        'Le franc congolais laisse place au zaïre : 1 zaïre vaut 1 000 francs. Le pays, lui, s\'appelle encore le Congo.',
     photo: 'billet1z',
   ),
   HistoryEvent(
-    1968.3,
+    1968.06,
     EventKind.glory,
     '21 janvier 1968',
     'Addis-Abeba',
     'Champions d\'Afrique',
     'Les Léopards remportent leur première Coupe d\'Afrique des nations en battant le Ghana 1 à 0 en finale.',
+    brief: 'Les Léopards battent le Ghana 1 à 0 à Addis-Abeba : première Coupe d\'Afrique du Congo.',
     medal: 'CAN 1968',
     intro: 'Première Coupe d\'Afrique pour le Congo · attrape les ballons',
     balls: true,
@@ -302,6 +310,7 @@ const historyEvents = <HistoryEvent>[
     'Kinshasa',
     'Mort de Pierre Mulele',
     'Rentré au pays sur une promesse d\'amnistie, Pierre Mulele est exécuté.',
+    brief: 'Rentré d\'exil sur une promesse d\'amnistie, l\'ancien chef de la rébellion du Kwilu est exécuté.',
     photo: 'mulele',
   ),
   HistoryEvent(
@@ -312,9 +321,22 @@ const historyEvents = <HistoryEvent>[
     'Le pays devient le Zaïre',
     'Le Congo prend le nom de sa monnaie et de son fleuve : il devient la République du Zaïre. Nouveau drapeau, '
         'la main tenant la torche, nouvel hymne, « La Zaïroise », et Air Congo devient Air Zaïre.',
+    brief: 'Le Congo prend le nom du fleuve : République du Zaïre. « La Zaïroise » devient l\'hymne national.',
     photo: 'zaire',
     song: 'hymne',
     big: true,
+  ),
+  HistoryEvent(
+    1972.03,
+    EventKind.life,
+    'janvier 1972',
+    'Kinshasa',
+    'Mobutu Sese Seko',
+    'Avec l\'« authenticité », Joseph-Désiré Mobutu abandonne son prénom chrétien et devient Mobutu Sese Seko Kuku Ngbendu '
+        'wa Za Banga. En février, le MPR demande à chaque Zaïrois de prendre un nom zaïrois.',
+    brief:
+        'Avec l\'« authenticité », Joseph-Désiré Mobutu abandonne son prénom chrétien. Tous les Zaïrois doivent faire pareil.',
+    photo: 'mobutu',
   ),
   HistoryEvent(
     1972.4,
@@ -325,6 +347,8 @@ const historyEvents = <HistoryEvent>[
     'Né comme dispensaire pour les Congolais au début du siècle (1912 ou 1924, selon les sources), l\'Hôpital général de '
         'Kinshasa prend en 1972 le nom de Mama Yemo, la mère de Mobutu. Le nom est abandonné en 1997 ; la population, elle, '
         'continue de dire « Mama Yemo ».',
+    brief:
+        'L\'Hôpital général de Kinshasa prend le nom de la mère de Mobutu. Les Kinois disent toujours « Mama Yemo ».',
     photo: 'mamayemo',
   ),
   HistoryEvent(
