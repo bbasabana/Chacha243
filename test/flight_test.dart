@@ -983,6 +983,41 @@ void main() {
   });
 
   test(
+    'pendant la descente, seule la chanson du boulevard joue ; quand l\'avion remonte, le Cha Cha revient en grandissant',
+    () async {
+      for (final (from, after) in [(1990.85, 'fond'), (1997.6, 'franc')]) {
+        final g = await start(year: from, autopilot: true)
+          ..showcase = 'boulevard';
+        String? playing;
+        final during = <String>[], later = <String>[];
+        final swells = <(double, double)>[];
+        var began = false, lifted = false;
+        g
+          ..songBusy = (() => playing != null)
+          ..onHush = (() => playing = null)
+          ..onSwell = ((level, seconds) {
+            if (began && g.onBoulevard) swells.add((level, seconds));
+          })
+          ..onSong = ((key, {level, loop = false}) {
+            playing = key;
+            if (g.onBoulevard && !lifted) during.add(key);
+            if (lifted) later.add(key);
+            if (key == 'boulevard') began = true;
+          });
+        for (var i = 0; i < 60 * 100; i++) {
+          g.update(1 / 60);
+          if (began && !lifted && g.onBoulevard && swells.isNotEmpty) lifted = true;
+        }
+        expect(during, ['boulevard'], reason: '$from : aucune autre chanson pendant la descente');
+        expect(later.first, after, reason: '$from : la chanson du vol repart après le décollage');
+        expect(swells.first.$1, 0, reason: 'la chanson du boulevard s\'éteint');
+        expect(swells.last.$1, greaterThan(0.3), reason: 'puis le Cha Cha grandit');
+        expect(g.onBoulevard, isFalse);
+      }
+    },
+  );
+
+  test(
     'en 1990, la descente du robot roulage : plus courte, le 207, le Wewa, la maman, le roulage, puis on remonte',
     () async {
       final g = await start(year: 1990.85, autopilot: true)

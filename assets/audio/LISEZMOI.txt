@@ -2,5 +2,6 @@ Musiques du jeu
 
 afrique/ : les tam-tams, les harpes et la forêt.
 afrique/ali-bomaye.mp3 : « Ali Boma Ye », fourni par l'auteur du jeu (novembre 2026), coupé à 49 secondes sans réencodage ; le jeu en joue 48, très doucement.
+afrique/boulevard-atterrissage.mp3 : la chanson de la descente sur le boulevard, fournie par l'auteur du jeu (novembre 2026) ; le jeu la joue à partir de 9 secondes, seule, jusqu'à ce que l'avion remonte.
 independance-cha-cha.mp3, zaire-hymne.mp3, congo-hymne.mp3 : Indépendance Cha Cha et les hymnes.
 franc-congolais.mp3 : la première minute de « Franc congolais » (1998), compressée ; l'original est dans design/audio-originaux.

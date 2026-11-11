@@ -4119,7 +4119,8 @@ class ChachaGame extends FlameGame {
 
   void _song(String key, {double? level, bool loop = false}) {
     // De 1997 à 2001, seuls l'hymne et la chanson de la monnaie interrompent la musique de l'époque.
-    if (_francOn && key != 'franc' && key != 'congo' && key != 'monnaie') return;
+    // La descente sur le boulevard a sa propre chanson, même en 1997.
+    if (_francOn && key != 'franc' && key != 'congo' && key != 'monnaie' && key != 'boulevard') return;
     if (key == 'congo') {
       if (t - _anthemAt < 90) return;
       _anthemAt = t;
@@ -4807,6 +4808,9 @@ class ChachaGame extends FlameGame {
   int _bWhich = 0, _bLine = -1, _bHonks = 0;
   bool _bForce = false, _bCleared = false, _bLifted = false;
 
+  /// La musique de la scène : 0 la chanson du boulevard, 1 elle s'éteint, 2 la chanson du vol repart bas, 3 elle monte.
+  int _bMusic = 0;
+
   /// La descente se joue en ce moment.
   bool get onBoulevard => _bT >= 0;
 
@@ -4992,6 +4996,9 @@ class ChachaGame extends FlameGame {
     _bLine = -1;
     _bHonks = 0;
     _bCleared = _bLifted = false;
+    _bMusic = 0;
+    // Une seule chanson pendant toute la descente.
+    _song('boulevard');
     if (_seen.add('boulevard $which') && !_offRecord) Checkpoint.saveSeen(_seen);
     // Rien d'autre à l'écran tant que la scène dure : elle tient la régie.
     _clearStage();
@@ -5047,7 +5054,17 @@ class ChachaGame extends FlameGame {
     _flightT += dt;
     _stageT += dt;
     _airT += dt;
-    _fillSilence(dt);
+    // La chanson du boulevard joue seule ; quand l'avion remonte dans les nuages, elle s'éteint
+    // et la chanson du vol repart tout bas, puis grandit.
+    if (_bMusic == 1 && at >= sc.lift + 2.4) {
+      _bMusic = 2;
+      final key = _francOn ? 'franc' : 'fond';
+      _song(key, level: 0.08, loop: _francOn);
+    } else if (_bMusic == 2 && at >= sc.lift + 3.6) {
+      _bMusic = 3;
+      onSwell?.call(momentSongs[_francOn ? 'franc' : 'fond']?.level ?? 0.4, 8);
+    }
+    if (_bMusic == 3) _fillSilence(dt);
     // La rue défile sous l'avion ; avec l'élan, elle file de plus en plus vite.
     final elan = _smooth((at - sc.elan) / (sc.lift - sc.elan));
     if (st > 0) _bDist += Boulevard.speed * _unit * (1 + sc.boost * elan) * dt;
@@ -5100,6 +5117,8 @@ class ChachaGame extends FlameGame {
     if (!_bLifted && at >= sc.lift) {
       // Pouf : les gaz à fond, l'avion s'arrache du boulevard.
       _bLifted = true;
+      _bMusic = 1;
+      onSwell?.call(0, 2.4);
       shake = 0.5;
       onBuzz?.call(260, 200);
       _burst(
