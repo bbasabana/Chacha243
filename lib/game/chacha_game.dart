@@ -2251,6 +2251,14 @@ class ChachaGame extends FlameGame {
           (_indep == 1 || _maintT >= 0 || scene >= 0
               ? 0
               : (_nextZone == 0 ? (_katangaWaiting ? 0.06 : 1) : (_airT < 14 ? 0.06 : 1)));
+      if (_songHold case (final from, final y0, final until, final secs)) {
+        final k = (t - from) / secs;
+        if (k >= 1) {
+          _songHold = null;
+        } else {
+          year = math.min(year, y0 + (until - y0) * k);
+        }
+      }
       _checkDecade();
     } else {
       _updateZone(dt * ts);
@@ -4095,6 +4103,12 @@ class ChachaGame extends FlameGame {
       if (e.song != null && e.song != 'fond') e.song!,
   };
 
+  /// Les chansons qu'on écoute jusqu'au bout : le calendrier n'atteint cette année qu'à la fin de la chanson.
+  static const _songYears = {'bomaye': 1975.0};
+
+  /// Une chanson qui retient le calendrier : quand elle a commencé, l'année d'alors, l'année visée, sa durée.
+  (double, double, double, double)? _songHold;
+
   /// L'heure de la dernière chanson d'histoire : on la laisse jouer avant de proposer une mission.
   double _storySongAt = -1e9;
 
@@ -4109,6 +4123,10 @@ class ChachaGame extends FlameGame {
       _anthemAt = t;
     }
     if (_storySongs.contains(key)) _storySongAt = t;
+    // « Ali, boma ye ! » se laisse écouter : le calendrier n'arrive en 1975 qu'à la fin de la chanson.
+    if (_songYears[key] case final until? when year < until) {
+      _songHold = (t, year, until, momentSongs[key]?.seconds ?? 48);
+    }
     onSong?.call(key, level: level, loop: loop);
   }
 

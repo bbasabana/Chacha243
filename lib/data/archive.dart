@@ -461,7 +461,8 @@ const momentSongs = <String, MomentSong>{
     fadeIn: 3,
   ),
   // Le combat du siècle : la cloche du ring, les coups de gant, et la foule de Kinshasa qui chante.
-  'bomaye': MomentSong('afrique/ali-bomaye.mp3', 'Ali Bomaye', 'Chacha 243', seconds: 53, level: 0.75, fadeIn: 0.3),
+  // Très doux, derrière le vol : 48 secondes, le temps d'aller de la nuit du combat à 1975.
+  'bomaye': MomentSong('afrique/ali-bomaye.mp3', 'Ali, boma ye !', 'Kinshasa 1974', seconds: 48, level: 0.4),
   'viva': MomentSong('afrique/tam-tam-village.mp3', 'Tam-tams de la route', 'Chacha 243', seconds: 70),
   'wenge': MomentSong('afrique/tam-tam-village.mp3', 'Tam-tams de la route', 'Chacha 243', seconds: 66),
   'koffi': MomentSong('afrique/tam-tam-village.mp3', 'Tam-tams de la route', 'Chacha 243', seconds: 70),

@@ -634,6 +634,27 @@ void main() {
     );
   });
 
+  test('« Ali, boma ye ! » se laisse écouter : 1975 arrive à la fin de la chanson, en une minute au plus', () async {
+    final g = await start(year: 1974.6, autopilot: true);
+    double? songAt, newYearAt;
+    var seconds = 0.0;
+    g.onSong = (key, {level, loop = false}) {
+      if (key == 'bomaye') songAt ??= seconds;
+    };
+    for (var i = 0; i < 60 * 150 && newYearAt == null; i++) {
+      g.lives = 5;
+      g.condition = 100;
+      g.fuel = 80;
+      g.update(1 / 60);
+      seconds += 1 / 60;
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+      if (songAt != null && g.year >= 1975) newYearAt = seconds;
+    }
+    expect(songAt, isNotNull);
+    expect(newYearAt! - songAt!, inInclusiveRange(46, 70));
+    expect(momentSongs['bomaye']!.seconds, 48);
+  });
+
   test('de 1965 à 1985, les fiches restent dans leur année, et le MPR et Ali ont leur chanson', () async {
     final g = await start(year: 1965.5, autopilot: true);
     final wrong = <String>[];
