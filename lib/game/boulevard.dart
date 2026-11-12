@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'ads.dart';
+
 /// Comment la rue est disposée pour une descente : où le Wewa roule et quand son chauffeur voit l'avion,
 /// et ce qui n'apparaît qu'une fois (le roulage au bord du trottoir, le robot roulage au rond-point).
 /// Les moments sont des secondes passées dans la rue.
@@ -533,6 +535,7 @@ abstract final class Boulevard {
     // La tour de l'échangeur : le repère, qui passe lentement.
     tower(c, Offset(w * 0.98 - dist * 0.085, base), h * 0.47, mist: 0.1);
     _buildings(c, w, u, base, dist * 0.42);
+    _boards(c, w, u, base, dist * 0.42, t, layout);
 
     // Le trottoir d'en face, ses arbres, ses parasols et ses passants.
     c.drawRect(Rect.fromLTRB(0, base, w, h * farRoad), Paint()..color = const Color(0xFFCDBFA6));
@@ -856,6 +859,41 @@ abstract final class Boulevard {
           Paint()..color = const Color(0xAAFFFFFF),
         );
       }
+    }
+  }
+
+  /// L'année de chaque descente dans la rue : 1963, 1990, 1997.
+  static const _years = [1963.0, 1990.0, 1997.0];
+
+  /// Trois grands panneaux numériques au-dessus des immeubles, l'un après l'autre pendant la traversée :
+  /// le premier quelques secondes après l'arrivée dans la rue, puis toutes les douze secondes environ.
+  static void _boards(Canvas c, double w, double u, double base, double scroll, double t, int layout) {
+    final ads = BoulevardBoards.ads(_years[layout.clamp(0, 2)]);
+    if (ads.isEmpty) return;
+    const bw = 196.0, bh = 110.0, lift = 58.0;
+    for (var j = 0; j < 3; j++) {
+      final x = w + (300 + j * 1500) * u - scroll;
+      if (x > w + 10 * u || x + bw * u < -10 * u) continue;
+      final r = Rect.fromLTWH(x, base - (lift + bh) * u, bw * u, bh * u);
+      // Les deux pieds d'acier, leurs croisillons et la passerelle de l'entretien.
+      final steel = Paint()..color = const Color(0xFF3A3F49);
+      for (final f in const [0.24, 0.76]) {
+        c.drawRect(Rect.fromLTWH(r.left + r.width * f - 4 * u, r.bottom, 8 * u, base - r.bottom), steel);
+      }
+      final brace = Paint()
+        ..color = const Color(0xFF4B515C)
+        ..strokeWidth = 2 * u;
+      final l = r.left + r.width * 0.24, rr = r.left + r.width * 0.76;
+      c.drawLine(Offset(l, r.bottom + 8 * u), Offset(rr, base - 6 * u), brace);
+      c.drawLine(Offset(rr, r.bottom + 8 * u), Offset(l, base - 6 * u), brace);
+      c.drawRect(Rect.fromLTWH(r.left + 8 * u, r.bottom + 6 * u, r.width - 16 * u, 3 * u), steel);
+      // Deux projecteurs sur le toit du panneau.
+      for (final f in const [0.3, 0.7]) {
+        final at = Offset(r.left + r.width * f, r.top - 7 * u);
+        c.drawLine(at, at.translate(0, 5 * u), brace);
+        c.drawCircle(at, 3 * u, Paint()..color = const Color(0xFFFFF3C4));
+      }
+      BoulevardBoards.draw(c, r, ads, t, j + layout);
     }
   }
 

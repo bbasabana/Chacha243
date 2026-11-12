@@ -50,6 +50,26 @@ class Ad {
 
   double _unit = 0;
   late TextPainter _name, _tag, _site, _offered, _toast;
+
+  /// Les textes des grands panneaux du boulevard, posés une fois à leur taille à eux.
+  TextPainter? _bigName, _bigTag, _bigSite;
+
+  void _layoutBig() {
+    if (_bigName != null) return;
+    TextPainter text(String s, double size, FontWeight w, Color c, int lines) => TextPainter(
+      text: TextSpan(
+        text: s,
+        style: TextStyle(color: c, fontSize: size, fontWeight: w, height: 1.1, letterSpacing: -0.2),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: lines,
+      ellipsis: '…',
+    )..layout(maxWidth: BoulevardBoards._textWidth);
+    _bigName = text(name, 27, FontWeight.w900, Colors.white, 1);
+    _bigTag = text(tagline, 13.5, FontWeight.w600, const Color(0xF2FFFFFF), 2);
+    _bigSite = text(site.isEmpty ? name : site, 11.5, FontWeight.w800, const Color(0xFFFFD94A), 1);
+  }
+
   bool _showSite = true;
   String _said = '';
 
@@ -276,8 +296,16 @@ class Ads {
     }
   }
 
-  static List<Ad> _for(String slot, double year) =>
-      list.where((a) => a.logo != null && a.running && a.slots.contains(slot) && a.inYear(year)).toList();
+  static List<Ad> _for(String slot, double year) => list
+      .where(
+        (a) =>
+            a.logo != null &&
+            a.running &&
+            // Le boulevard montre les marques des panneaux de l'aéroport, sans qu'on ait à les réserver.
+            (a.slots.contains(slot) || (slot == 'boulevard' && a.slots.any((s) => s.startsWith('p')))) &&
+            a.inYear(year),
+      )
+      .toList();
 
   /// La prochaine marque d'un emplacement, à tour de rôle.
   static Ad? next(String slot, double year) {
@@ -454,5 +482,376 @@ class Ads {
     a._offered.paint(c, Offset(x, y));
     a._toast.paint(c, Offset(x, y + a._offered.height));
     c.restore();
+  }
+}
+
+/// Les grands panneaux numériques du boulevard Lumumba, au-dessus des immeubles, quand l'avion rase la rue
+/// (1963, 1990, 1997). Chaque marque y joue une petite animation de son métier — le scan de Herozion qui trouve
+/// et corrige les failles, le colis de ZwaColis qui traverse de l'Europe à l'Afrique, la sauvegarde de Waddiel… —
+/// puis la suivante glisse à sa place. Le panneau se dessine dans un écran de 320 × 180, puis à sa taille.
+abstract final class BoulevardBoards {
+  static const _w = 320.0, _h = 180.0, _textWidth = 206.0;
+  static const _stay = 7.0, _swap = 0.8;
+
+  /// Les marques de ces panneaux cette année-là ; vide tant qu'aucun logo n'est chargé.
+  static List<Ad> ads(double year) => Ads._for('boulevard', year);
+
+  /// La marque qu'affiche le panneau [index] à l'instant [t] (pour sa lueur, le soir).
+  static Ad? current(List<Ad> ads, double t, int index) {
+    if (ads.isEmpty) return null;
+    final n = ((t + index * 2.7) / _stay).floor() + index * 3;
+    return ads[n % ads.length];
+  }
+
+  /// Le panneau [index] dans [r] : le cadre, l'écran, la marque du moment et celle qui s'en va.
+  static void draw(Canvas c, Rect r, List<Ad> ads, double t, int index) {
+    if (ads.isEmpty) return;
+    final clock = t + index * 2.7;
+    final n = (clock / _stay).floor() + index * 3;
+    final phase = clock % _stay;
+    final now = ads[n % ads.length], before = ads[(n - 1) % ads.length];
+    final p = ads.length > 1 && phase < _swap ? Curves.easeInOutCubic.transform(phase / _swap) : 1.0;
+
+    // Le cadre d'acier et sa lueur de la couleur de la marque.
+    final frame = RRect.fromRectAndRadius(r.inflate(r.width * 0.025), Radius.circular(r.width * 0.03));
+    c.drawRRect(
+      frame.inflate(r.width * 0.01),
+      Paint()
+        ..color = now.color.withValues(alpha: 0.45)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r.width * 0.04),
+    );
+    c.drawRRect(frame, Paint()..color = const Color(0xFF12151C));
+    c.save();
+    c.translate(r.left, r.top);
+    c.scale(r.width / _w, r.height / _h);
+    c.clipRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(0, 0, _w, _h), const Radius.circular(6)));
+    if (p < 1) {
+      c.save();
+      c.translate(-_w * 0.35 * p, 0);
+      _scene(c, before, t, 1);
+      c.drawRect(const Rect.fromLTWH(0, 0, _w, _h), Paint()..color = Color.fromRGBO(0, 0, 0, 0.6 * p));
+      c.restore();
+      c.save();
+      c.translate(_w * (1 - p), 0);
+      _scene(c, now, t, phase / _stay);
+      c.restore();
+      // Le bord lumineux qui pousse l'ancienne marque.
+      c.drawRect(Rect.fromLTWH(_w * (1 - p) - 3, 0, 3, _h), Paint()..color = const Color(0xCCFFFFFF));
+    } else {
+      _scene(c, now, t, phase / _stay);
+    }
+    // La trame des diodes, et un reflet qui passe sur la vitre.
+    final led = Paint()..color = const Color(0x16000000);
+    for (var y = 0.0; y < _h; y += 3) {
+      c.drawRect(Rect.fromLTWH(0, y, _w, 1), led);
+    }
+    final sweep = (t * 70 + index * 140) % (_w * 3) - _w * 0.5;
+    c.drawRect(
+      Rect.fromLTWH(sweep, 0, 90, _h),
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0x00FFFFFF), Color(0x1FFFFFFF), Color(0x00FFFFFF)],
+        ).createShader(Rect.fromLTWH(sweep, 0, 90, _h)),
+    );
+    c.restore();
+    c.drawRRect(
+      frame,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(1, r.width * 0.008)
+        ..color = const Color(0x55FFFFFF),
+    );
+  }
+
+  /// Une marque à l'écran : son fond qui bouge, son logo qui respire, ses mots, son animation, son temps qui file.
+  static void _scene(Canvas c, Ad a, double t, double progress) {
+    a._layoutBig();
+    const full = Rect.fromLTWH(0, 0, _w, _h);
+    c.drawRect(
+      full,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color.lerp(a.color, Colors.white, 0.16)!, Color.lerp(a.color, Colors.black, 0.55)!],
+        ).createShader(full),
+    );
+    // Des bandes de lumière qui glissent lentement derrière tout.
+    final band = Paint()..color = const Color(0x0DFFFFFF);
+    for (var i = 0; i < 6; i++) {
+      final x = (i * 70 + t * 16) % (_w + 140) - 70;
+      c.drawPath(
+        Path()
+          ..moveTo(x, 0)
+          ..lineTo(x + 26, 0)
+          ..lineTo(x - 34, _h)
+          ..lineTo(x - 60, _h)
+          ..close(),
+        band,
+      );
+    }
+    // « EN DIRECT » : le point rouge qui clignote.
+    c.drawCircle(
+      const Offset(_w - 14, 12),
+      3.2,
+      Paint()..color = Color.fromRGBO(255, 70, 70, 0.45 + 0.55 * (0.5 + 0.5 * math.sin(t * 5))),
+    );
+    // Le logo et l'onde qui part de lui.
+    const logo = Rect.fromLTWH(16, 20, 66, 66);
+    final ring = (t * 0.7) % 1;
+    c.drawCircle(
+      logo.center,
+      36 + ring * 16,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = Color.fromRGBO(255, 255, 255, 0.35 * (1 - ring)),
+    );
+    c.drawRRect(RRect.fromRectAndRadius(logo.inflate(3), const Radius.circular(17)), Paint()..color = Colors.white);
+    final breathe = 1 + 0.03 * math.sin(t * 2.2);
+    Ads._logo(c, Rect.fromCenter(center: logo.center, width: 66 * breathe, height: 66 * breathe), a, 15);
+    // Les mots : le nom, la promesse, le site.
+    var y = 18.0;
+    a._bigName!.paint(c, Offset(96, y));
+    y += a._bigName!.height + 4;
+    a._bigTag!.paint(c, Offset(96, y));
+    y += a._bigTag!.height + 5;
+    a._bigSite!.paint(c, Offset(96, y));
+    // L'animation de la marque, en bas.
+    _motif(c, a, const Rect.fromLTWH(16, 118, 288, 44), t);
+    // Le temps qui reste à la marque sur l'écran.
+    c.drawRect(const Rect.fromLTWH(0, _h - 4, _w, 4), Paint()..color = const Color(0x26FFFFFF));
+    c.drawRect(Rect.fromLTWH(0, _h - 4, _w * progress, 4), Paint()..color = const Color(0xFFFFD94A));
+  }
+
+  static Paint _fill(Color c) => Paint()..color = c;
+  static Paint _line(Color c, double w) => Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = w
+    ..strokeCap = StrokeCap.round
+    ..color = c;
+
+  static void _check(Canvas c, Offset at, double s, Color color) => c.drawPath(
+    Path()
+      ..moveTo(at.dx - s, at.dy)
+      ..lineTo(at.dx - s * 0.3, at.dy + s * 0.7)
+      ..lineTo(at.dx + s, at.dy - s * 0.8),
+    _line(color, s * 0.45),
+  );
+
+  static Offset _arc(Offset a, Offset m, Offset b, double k) =>
+      a * ((1 - k) * (1 - k)) + m * (2 * (1 - k) * k) + b * (k * k);
+
+  static void _motif(Canvas c, Ad a, Rect m, double t) {
+    const white = Color(0xE6FFFFFF), soft = Color(0x40FFFFFF), green = Color(0xFF3DDC84), red = Color(0xFFFF5252);
+    c.drawRRect(RRect.fromRectAndRadius(m, const Radius.circular(8)), _fill(const Color(0x33000000)));
+    final key = a.builtin.isNotEmpty ? a.builtin : a.id;
+    switch (key) {
+      case 'herozion':
+        // Le scan passe sur trois lignes de code : chaque faille rouge devient verte, corrigée.
+        final k = (t % 6) / 6;
+        for (var i = 0; i < 3; i++) {
+          final y = m.top + 9 + i * 13.0, len = const [168.0, 122.0, 196.0][i];
+          final fixed = k > 0.28 + i * 0.2;
+          final blink = 0.5 + 0.5 * math.sin(t * 9);
+          c.drawCircle(Offset(m.left + 12, y + 3), 4, _fill(fixed ? green : red.withValues(alpha: 0.5 + 0.5 * blink)));
+          c.drawRRect(
+            RRect.fromRectAndRadius(Rect.fromLTWH(m.left + 24, y, len, 6), const Radius.circular(3)),
+            _fill(fixed ? const Color(0x553DDC84) : soft),
+          );
+          if (fixed) _check(c, Offset(m.left + 36 + len, y + 3), 5, green);
+        }
+        final x = m.left + 20 + (k * 1.6 % 1) * (m.width - 24);
+        c.drawRect(Rect.fromLTWH(x, m.top + 3, 3, m.height - 6), _fill(const Color(0xCC5CF2B0)));
+      case 'zwacolis':
+        // Le colis part d'Europe et arrive en Afrique, le long de la route en pointillés.
+        final from = Offset(m.left + 18, m.bottom - 12), to = Offset(m.right - 18, m.bottom - 12);
+        final mid = Offset(m.center.dx, m.top - 10);
+        for (var i = 0; i <= 18; i++) {
+          c.drawCircle(_arc(from, mid, to, i / 18), 1.6, _fill(soft));
+        }
+        final k = (t * 0.22) % 1, box = _arc(from, mid, to, Curves.easeInOut.transform(k));
+        c.drawCircle(from, 6, _fill(const Color(0xFF5B8DEF)));
+        c.drawCircle(to, 6, _fill(green));
+        if (k > 0.85) {
+          final r = (k - 0.85) / 0.15;
+          c.drawCircle(to, 6 + r * 12, _line(green.withValues(alpha: 1 - r), 2));
+        }
+        c.drawRRect(
+          RRect.fromRectAndRadius(Rect.fromCenter(center: box, width: 14, height: 12), const Radius.circular(2)),
+          _fill(const Color(0xFFE8B04A)),
+        );
+        c.drawLine(box.translate(-7, 0), box.translate(7, 0), _line(const Color(0xFF8A5A1E), 1.5));
+      case 'waddiel':
+        // La base de données se sauvegarde : la barre se remplit, le bouclier se ferme.
+        final db = Offset(m.left + 22, m.center.dy);
+        for (var i = 2; i >= 0; i--) {
+          final r = Rect.fromCenter(center: db.translate(0, -9 + i * 9.0), width: 26, height: 9);
+          c.drawRect(Rect.fromLTRB(r.left, r.center.dy, r.right, r.center.dy + 9), _fill(const Color(0xFF8C82FF)));
+          c.drawOval(r, _fill(i == 0 ? const Color(0xFFC9C3FF) : const Color(0xFFA79FFF)));
+        }
+        final k = (t * 0.3) % 1;
+        final bar = Rect.fromLTWH(m.left + 50, m.center.dy - 5, m.width - 96, 10);
+        c.drawRRect(RRect.fromRectAndRadius(bar, const Radius.circular(5)), _fill(soft));
+        c.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(bar.left, bar.top, bar.width * math.min(1, k * 1.25), 10),
+            const Radius.circular(5),
+          ),
+          _fill(const Color(0xFF8C82FF)),
+        );
+        final shield = Offset(m.right - 22, m.center.dy);
+        c.drawPath(
+          Path()
+            ..moveTo(shield.dx, shield.dy - 13)
+            ..lineTo(shield.dx + 11, shield.dy - 8)
+            ..quadraticBezierTo(shield.dx + 10, shield.dy + 8, shield.dx, shield.dy + 14)
+            ..quadraticBezierTo(shield.dx - 10, shield.dy + 8, shield.dx - 11, shield.dy - 8)
+            ..close(),
+          _fill(k > 0.8 ? green : soft),
+        );
+        if (k > 0.8) _check(c, shield, 5, Colors.white);
+      case 'murmur':
+        // Le réseau tombe au milieu : le message saute par-dessus et arrive quand même.
+        final from = Offset(m.left + 16, m.center.dy), to = Offset(m.right - 16, m.center.dy);
+        for (var j = 0; j < 3; j++) {
+          final k = (t * 0.8 + j / 3) % 1;
+          c.drawArc(
+            Rect.fromCircle(center: from, radius: 6 + k * 18),
+            -0.9,
+            1.8,
+            false,
+            _line(Color.fromRGBO(255, 200, 120, 1 - k), 2),
+          );
+        }
+        c.drawCircle(from, 4, _fill(const Color(0xFFFFB45A)));
+        c.drawLine(from.translate(30, 0), Offset(m.center.dx - 16, m.center.dy), _line(soft, 2));
+        c.drawLine(Offset(m.center.dx + 16, m.center.dy), to.translate(-14, 0), _line(soft, 2));
+        final x = m.center;
+        c.drawLine(x.translate(-5, -5), x.translate(5, 5), _line(red, 2.4));
+        c.drawLine(x.translate(-5, 5), x.translate(5, -5), _line(red, 2.4));
+        final k = (t * 0.35) % 1, bx = from.dx + 30 + (to.dx - from.dx - 44) * k;
+        final hop = (bx - x.dx).abs() < 34 ? math.cos((bx - x.dx) / 34 * math.pi / 2) * 16 : 0.0;
+        c.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: Offset(bx, m.center.dy - 2 - hop), width: 20, height: 13),
+            const Radius.circular(5),
+          ),
+          _fill(white),
+        );
+        c.drawCircle(to, 5, _fill(k > 0.9 ? green : soft));
+      case 'simplypay':
+        // Orange Money, Airtel Money, M-Pesa et Visa : chaque paiement s'allume et se valide, à tour de rôle.
+        const chips = [Color(0xFFFF7900), Color(0xFFE60012), Color(0xFF00A859), Color(0xFF1A1F71)];
+        final active = (t * 1.2).floor() % 4, k = (t * 1.2) % 1;
+        for (var i = 0; i < 4; i++) {
+          final at = Offset(m.left + 36 + i * 72.0, m.center.dy);
+          final pop = i == active ? 1 + 0.25 * math.sin(k * math.pi) : 1.0;
+          c.drawCircle(at, 13 * pop, _fill(chips[i]));
+          c.drawCircle(at, 13 * pop, _line(const Color(0x88FFFFFF), 1.5));
+          if (i < active || (i == active && k > 0.5)) _check(c, at, 5, Colors.white);
+        }
+      case 'promptauth':
+        // Le curseur arrive sur « Continuer avec Google », clique : connecté.
+        final k = (t % 4) / 4;
+        final button = Rect.fromLTWH(m.left + 10, m.top + 8, 176, 28);
+        final pressed = k > 0.5 && k < 0.58;
+        final done = k >= 0.58;
+        c.drawRRect(
+          RRect.fromRectAndRadius(pressed ? button.deflate(2) : button, const Radius.circular(14)),
+          _fill(done ? green : Colors.white),
+        );
+        c.drawCircle(
+          Offset(button.left + 18, button.center.dy),
+          8,
+          _fill(done ? Colors.white : const Color(0xFF4285F4)),
+        );
+        c.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(button.left + 34, button.center.dy - 3, 110, 6),
+            const Radius.circular(3),
+          ),
+          _fill(done ? const Color(0x88FFFFFF) : const Color(0x55000000)),
+        );
+        if (done) _check(c, Offset(m.right - 40, m.center.dy), 8, green);
+        final cursor = Offset.lerp(
+          Offset(m.right - 20, m.bottom - 4),
+          button.center,
+          Curves.easeOut.transform(math.min(1, k * 2)),
+        )!;
+        c.drawPath(
+          Path()
+            ..moveTo(cursor.dx, cursor.dy)
+            ..lineTo(cursor.dx, cursor.dy + 15)
+            ..lineTo(cursor.dx + 4, cursor.dy + 11)
+            ..lineTo(cursor.dx + 9, cursor.dy + 14)
+            ..lineTo(cursor.dx + 10, cursor.dy + 11)
+            ..lineTo(cursor.dx + 6, cursor.dy + 9)
+            ..lineTo(cursor.dx + 11, cursor.dy + 8)
+            ..close(),
+          _fill(Colors.white),
+        );
+      case 'kairos':
+        // L'aiguille passe du rouge au vert, et le cache, la mémoire et le disque se vident.
+        final k = Curves.easeInOut.transform(((t % 5) / 5 * 1.4).clamp(0.0, 1.0));
+        final center = Offset(m.left + 40, m.bottom - 6);
+        final dial = Rect.fromCircle(center: center, radius: 30);
+        c.drawArc(dial, math.pi, math.pi, false, _line(soft, 6));
+        c.drawArc(dial, math.pi, math.pi * k, false, _line(Color.lerp(red, green, k)!, 6));
+        final angle = math.pi + math.pi * k;
+        c.drawLine(center, center + Offset(math.cos(angle), math.sin(angle)) * 24, _line(Colors.white, 2.5));
+        for (var i = 0; i < 3; i++) {
+          final full = 170.0 - i * 30, now = full * (1 - 0.7 * k);
+          final y = m.top + 9 + i * 12.0;
+          c.drawRRect(
+            RRect.fromRectAndRadius(Rect.fromLTWH(m.left + 92, y, full, 6), const Radius.circular(3)),
+            _fill(soft),
+          );
+          c.drawRRect(
+            RRect.fromRectAndRadius(Rect.fromLTWH(m.left + 92, y, now, 6), const Radius.circular(3)),
+            _fill(Color.lerp(red, const Color(0xFF6FB1FF), k)!),
+          );
+        }
+      case 'jompiks':
+        // Le code s'écrit tout seul, ligne après ligne, avec son curseur.
+        const widths = [
+          [30.0, 60.0, 24.0],
+          [18.0, 46.0, 70.0],
+          [40.0, 30.0, 52.0],
+        ];
+        const colors = [Color(0xFF7CD4FF), Color(0xFFFFD94A), Color(0xFFB6F09C)];
+        final typed = (t * 70) % 520;
+        var left = typed;
+        for (var i = 0; i < 3; i++) {
+          var x = m.left + 12 + (i == 1 ? 14 : 0);
+          final y = m.top + 8 + i * 12.0;
+          for (var j = 0; j < 3; j++) {
+            final seg = math.min(widths[i][j], math.max(0.0, left));
+            left -= widths[i][j];
+            if (seg > 0) {
+              c.drawRRect(
+                RRect.fromRectAndRadius(Rect.fromLTWH(x, y, seg, 6), const Radius.circular(3)),
+                _fill(colors[j]),
+              );
+            }
+            x += widths[i][j] + 6;
+            if (left <= 0 && left > -widths[i][j] && (t * 3).floor().isEven) {
+              c.drawRect(Rect.fromLTWH(x - 6 + left, y - 1, 3, 8), _fill(Colors.white));
+            }
+          }
+        }
+      default:
+        // Une marque venue du tableau de bord : un égaliseur de sa couleur.
+        for (var i = 0; i < 24; i++) {
+          final hgt = 6 + 28 * (0.5 + 0.5 * math.sin(t * 4 + i * 0.7)) * (0.5 + 0.5 * math.sin(i * 1.3));
+          c.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(m.left + 8 + i * 11.6, m.bottom - 5 - hgt, 7, hgt),
+              const Radius.circular(2),
+            ),
+            _fill(Color.lerp(a.color, Colors.white, 0.5)!),
+          );
+        }
+    }
   }
 }
