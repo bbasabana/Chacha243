@@ -535,7 +535,6 @@ abstract final class Boulevard {
     // La tour de l'échangeur : le repère, qui passe lentement.
     tower(c, Offset(w * 0.98 - dist * 0.085, base), h * 0.47, mist: 0.1);
     _buildings(c, w, u, base, dist * 0.42);
-    _boards(c, w, u, base, dist * 0.42, t, layout);
 
     // Le trottoir d'en face, ses arbres, ses parasols et ses passants.
     c.drawRect(Rect.fromLTRB(0, base, w, h * farRoad), Paint()..color = const Color(0xFFCDBFA6));
@@ -551,6 +550,9 @@ abstract final class Boulevard {
       _walker(c, Offset(x + 96 * u, base + 5 * u), u * 0.8, t + i, _awnings[((i * 3) % _awnings.length).abs()]);
       if (k > 0.5) _walker(c, Offset(x + 120 * u, base + 5 * u), u * 0.76, t * 0.8 + i * 2, const Color(0xFFF1EEE6));
     }
+
+    // Les panneaux numériques, devant les arbres du trottoir pour qu'on lise les marques.
+    _boards(c, w, u, base, dist * 0.42, t, layout);
 
     // La chaussée : l'asphalte, plus clair au loin.
     final asphalt = Rect.fromLTRB(0, h * farRoad, w, h * kerb);
@@ -865,35 +867,14 @@ abstract final class Boulevard {
   /// L'année de chaque descente dans la rue : 1963, 1990, 1997.
   static const _years = [1963.0, 1990.0, 1997.0];
 
-  /// Trois grands panneaux numériques au-dessus des immeubles, l'un après l'autre pendant la traversée :
-  /// le premier quelques secondes après l'arrivée dans la rue, puis toutes les douze secondes environ.
+  /// Les panneaux numériques de l'aéroport, au pied des immeubles, tout le long du boulevard : déjà là quand
+  /// l'avion arrive dans la rue, deux ou trois à l'écran, chacun avec ses marques à lui.
   static void _boards(Canvas c, double w, double u, double base, double scroll, double t, int layout) {
-    final ads = BoulevardBoards.ads(_years[layout.clamp(0, 2)]);
-    if (ads.isEmpty) return;
-    const bw = 196.0, bh = 110.0, lift = 58.0;
-    for (var j = 0; j < 3; j++) {
-      final x = w + (300 + j * 1500) * u - scroll;
-      if (x > w + 10 * u || x + bw * u < -10 * u) continue;
-      final r = Rect.fromLTWH(x, base - (lift + bh) * u, bw * u, bh * u);
-      // Les deux pieds d'acier, leurs croisillons et la passerelle de l'entretien.
-      final steel = Paint()..color = const Color(0xFF3A3F49);
-      for (final f in const [0.24, 0.76]) {
-        c.drawRect(Rect.fromLTWH(r.left + r.width * f - 4 * u, r.bottom, 8 * u, base - r.bottom), steel);
-      }
-      final brace = Paint()
-        ..color = const Color(0xFF4B515C)
-        ..strokeWidth = 2 * u;
-      final l = r.left + r.width * 0.24, rr = r.left + r.width * 0.76;
-      c.drawLine(Offset(l, r.bottom + 8 * u), Offset(rr, base - 6 * u), brace);
-      c.drawLine(Offset(rr, r.bottom + 8 * u), Offset(l, base - 6 * u), brace);
-      c.drawRect(Rect.fromLTWH(r.left + 8 * u, r.bottom + 6 * u, r.width - 16 * u, 3 * u), steel);
-      // Deux projecteurs sur le toit du panneau.
-      for (final f in const [0.3, 0.7]) {
-        final at = Offset(r.left + r.width * f, r.top - 7 * u);
-        c.drawLine(at, at.translate(0, 5 * u), brace);
-        c.drawCircle(at, 3 * u, Paint()..color = const Color(0xFFFFF3C4));
-      }
-      BoulevardBoards.draw(c, r, ads, t, j + layout);
+    const period = 400.0;
+    final step = period * u, year = _years[layout.clamp(0, 2)];
+    for (var i = (scroll / step).floor() - 1; i * step - scroll < w + step; i++) {
+      final x = i * step - scroll + 120 * u;
+      Ads.board(c, Offset(x, base + 3 * u), u, t, ((i % 3) + 3) % 3, year, 0, motion: true);
     }
   }
 
