@@ -191,7 +191,8 @@ const aircraftTypes = <AircraftType>[
     from: 1998.3,
     to: 2011.52,
     seats: 246,
-    story: "Le trimoteur de Hewa Bora Airways, la grande compagnie privée de Kinshasa, de ses débuts en 1998 jusqu'à sa fin le 8 juillet 2011.",
+    story:
+        "Le trimoteur de Hewa Bora Airways, la grande compagnie privée de Kinshasa, de ses débuts en 1998 jusqu'à sa fin le 8 juillet 2011.",
     length: 0.95,
     bodyHeight: 12.5,
     speed: 0.78,
@@ -209,7 +210,8 @@ const aircraftTypes = <AircraftType>[
     from: 2005.0,
     to: 2013.5,
     seats: 200,
-    story: "Le biréacteur moyen-porteur des LAC (Lignes Aériennes Congolaises), la compagnie créée en 2005 et liquidée en 2013.",
+    story:
+        "Le biréacteur moyen-porteur des LAC (Lignes Aériennes Congolaises), la compagnie créée en 2005 et liquidée en 2013.",
     length: 0.92,
     bodyHeight: 12,
     speed: 0.8,

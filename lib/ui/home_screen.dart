@@ -150,11 +150,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       children: [
         Positioned.fill(child: _main()),
         if (_top case final top?)
-          Positioned(
-            top: 14,
-            left: 22,
-            child: TopPilotsTicker(top, onDone: () => setState(() => _top = null)),
-          ),
+          Positioned(top: 14, left: 22, child: TopPilotsTicker(top, onDone: () => setState(() => _top = null))),
         Positioned(
           top: 14,
           right: 22,

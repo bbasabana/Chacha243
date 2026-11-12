@@ -132,9 +132,27 @@ class AircraftPainter {
       );
     }
     if (l.word != null) {
-      _paintWord(canvas, l.word!, l.wordX, -h * 0.62, l.wordSize, l.wordColor, serif: l.wordSerif, weight: FontWeight.w900);
+      _paintWord(
+        canvas,
+        l.word!,
+        l.wordX,
+        -h * 0.62,
+        l.wordSize,
+        l.wordColor,
+        serif: l.wordSerif,
+        weight: FontWeight.w900,
+      );
       if (l.wordSub != null) {
-        _paintWord(canvas, l.wordSub!, l.wordX - 27, -h * 0.62, l.wordSize * 0.36, l.wordColor, weight: FontWeight.w800, spacing: 0.5);
+        _paintWord(
+          canvas,
+          l.wordSub!,
+          l.wordX - 27,
+          -h * 0.62,
+          l.wordSize * 0.36,
+          l.wordColor,
+          weight: FontWeight.w800,
+          spacing: 0.5,
+        );
       }
     }
     if (l.fuselageFlag case final flag?) {
