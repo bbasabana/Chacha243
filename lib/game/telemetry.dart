@@ -295,7 +295,8 @@ class Telemetry {
           () async {
             final place = (x['place'] as num?)?.toInt() ?? 0;
             Uint8List? photo;
-            if (x['photo'] == true) {
+            // Sur iPhone, le classement ne montre que les noms : pas de photo d'un autre joueur.
+            if (x['photo'] == true && !appStoreRules) {
               try {
                 final ph = await http.get(Uri.parse('$_url/top?photo=$place')).timeout(const Duration(seconds: 6));
                 if (ph.statusCode == 200) photo = ph.bodyBytes;
@@ -303,7 +304,7 @@ class Telemetry {
             }
             return TopPilot(
               place,
-              x['name'] as String? ?? '',
+              cleanPilotName(x['name'] as String? ?? ''),
               (x['year'] as num?)?.toInt() ?? 1960,
               x['arrived'] == true,
               (x['score'] as num?)?.toInt() ?? 0,
@@ -707,6 +708,68 @@ class Championship {
 }
 
 /// One of the five best pilots.
+/// Words a pilot name may not show to the other players (French, English, Lingala).
+const _rude = {
+  'con',
+  'conne',
+  'connard',
+  'connasse',
+  'salope',
+  'pute',
+  'putain',
+  'merde',
+  'encule',
+  'nique',
+  'niquer',
+  'bite',
+  'couille',
+  'couilles',
+  'batard',
+  'pd',
+  'fdp',
+  'ntm',
+  'fuck',
+  'shit',
+  'bitch',
+  'dick',
+  'cunt',
+  'nigger',
+  'nigga',
+  'nyoko',
+  'mabolo',
+  'zoba',
+};
+
+/// A rude pilot name never reaches the ranking: it reads « Pilote » instead.
+String cleanPilotName(String name) {
+  const accents = {
+    'é': 'e',
+    'è': 'e',
+    'ê': 'e',
+    'ë': 'e',
+    'à': 'a',
+    'â': 'a',
+    'î': 'i',
+    'ï': 'i',
+    'ô': 'o',
+    'û': 'u',
+    'ù': 'u',
+    'ç': 'c',
+  };
+  final plain = name.toLowerCase().split('').map((c) => accents[c] ?? c).join();
+  // « F.u.c.k » ou « m3rde » : les chiffres et les points ne cachent pas le mot.
+  final leet = plain
+      .replaceAll('0', 'o')
+      .replaceAll('1', 'i')
+      .replaceAll('3', 'e')
+      .replaceAll('4', 'a')
+      .replaceAll('@', 'a');
+  final words = leet.split(RegExp(r'[^a-z]+')).where((w) => w.isNotEmpty);
+  final glued = leet.replaceAll(RegExp(r'[^a-z]'), '');
+  final rude = words.any(_rude.contains) || _rude.any((w) => w.length >= 5 && glued.contains(w));
+  return rude || name.trim().isEmpty ? 'Pilote' : name.trim();
+}
+
 class TopPilot {
   const TopPilot(this.place, this.name, this.year, this.arrived, this.score, this.photo);
 
