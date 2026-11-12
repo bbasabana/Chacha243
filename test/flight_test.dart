@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:chacha243/data/archive.dart';
 import 'package:chacha243/data/eras.dart';
@@ -1291,11 +1292,112 @@ void main() {
     },
   );
 
-  test('trois descentes dans le voyage, chacune disposée autrement', () {
-    expect(ChachaGame.boulevardYears, [1963.5, 1990.9, 1997.7]);
-    expect(Boulevard.plans, hasLength(3));
+  test('quatre descentes dans le voyage, chacune disposée autrement', () {
+    expect(ChachaGame.boulevardYears, [1963.5, 1990.9, 1997.7, 2026.5]);
+    expect(Boulevard.plans, hasLength(4));
     expect(Boulevard.plans[1].robotAt, isNotNull, reason: 'le robot roulage est au rond-point de 1990');
-    expect(Boulevard.plans.map((p) => p.wewaStop).toSet(), hasLength(3), reason: 'le Wewa n\'est pas au même endroit');
+    expect(Boulevard.plans.map((p) => p.wewaStop).toSet(), hasLength(4), reason: 'le Wewa n\'est pas au même endroit');
+    // Les panneaux du boulevard Triomphal montrent les photos des matchs, toutes dans le jeu.
+    for (final (key, _, _) in Boulevard.mondialSlides) {
+      expect(archivePhotos[key], isNotNull, reason: key);
+      expect(File(archivePhotos[key]!.asset).existsSync(), isTrue, reason: key);
+    }
+  });
+
+  test('le Mondial 2026 : le ballon frappe l\'avion, il descend sur le boulevard Triomphal, '
+      'la cabine, les motards, le 207, la cabine, puis les deux pilotes au pare-brise', () async {
+    final g = await start(year: 2026.48, autopilot: true)
+      ..showcase = 'boulevard';
+    final lines = <SceneLine>[];
+    final at = <double>[];
+    final sounds = <String>[];
+    var clock = 0.0, lowest = 0.0, endY = 1.0, began = -1.0, ended = -1.0;
+    g.onSound = sounds.add;
+    g.sceneLine.addListener(() {
+      if (g.sceneLine.value case final l?) {
+        lines.add(l);
+        at.add(clock);
+      }
+    });
+    for (var i = 0; i < 60 * 115; i++) {
+      g.update(1 / 60);
+      clock += 1 / 60;
+      if (g.onBoulevard) {
+        if (began < 0) began = clock;
+        endY = g.planeY / g.size.y;
+        lowest = math.max(lowest, g.planeY / g.size.y);
+        expect(g.year, closeTo(2026.48, 0.03), reason: 'le calendrier attend la fin de la scène');
+      } else if (began >= 0 && ended < 0) {
+        ended = clock;
+      }
+    }
+    expect(began, greaterThanOrEqualTo(0));
+    expect(ended, greaterThan(began), reason: 'la scène a une fin');
+    expect(lines, hasLength(13));
+    // Jamais deux conversations en même temps : la cabine, la rue, le 207, la cabine, la rue, puis les pilotes.
+    expect(lines.map((l) => l.voice), [
+      SceneVoice.pilot,
+      SceneVoice.cabin,
+      SceneVoice.cabin,
+      SceneVoice.street,
+      SceneVoice.street,
+      SceneVoice.street,
+      SceneVoice.bus,
+      SceneVoice.bus,
+      SceneVoice.bus,
+      SceneVoice.cabin,
+      SceneVoice.street,
+      SceneVoice.pilot,
+      SceneVoice.pilot,
+    ]);
+    for (var i = 1; i < at.length; i++) {
+      expect(at[i] - at[i - 1], greaterThanOrEqualTo(5), reason: 'le temps de lire chaque réplique');
+    }
+    expect(lines.where((l) => l.duo), hasLength(2), reason: 'le commandant et le copilote parlent ensemble');
+    final said = lines.map((l) => l.text).join('\n');
+    for (final words in [
+      'boulevard Triomphal',
+      'Fimbu Fimbu chicotte',
+      'RDC eloko ya Makasi',
+      'Ezo pese te Solo',
+      'Bana Leopard Oooooh',
+      'Yo petit nani muana na yo',
+      'Face lokola NGIDI',
+      'To beti na CR7',
+      'Cipenga aza monstre',
+      'Tika biso to sepela',
+      'okotuta moto Wewa',
+      'Fleuve eza makambu eyaka',
+      'Na bosani ko tuta moto Wewa',
+    ]) {
+      expect(said.toLowerCase(), contains(words.toLowerCase()));
+    }
+    expect(sounds.where((s) => s == 'choc'), hasLength(2), reason: 'pan, puis pan encore');
+    expect(sounds, containsAll(['sifflet', 'klaxon']), reason: 'les motards sifflent et klaxonnent');
+    expect(lowest, greaterThan(0.66), reason: 'l\'avion rase le boulevard');
+    expect(endY, lessThan(0.5), reason: 'puis il redécolle');
+    expect(g.lives, greaterThan(0));
+    expect(g.sceneLine.value, isNull);
+  });
+
+  test('après un saut du tableau de bord à 2026,44 : la fiche du Mondial, puis la descente sur le Triomphal', () async {
+    final g = await start(year: 2026.44);
+    var seen = 0, was = false, cardAt = -1.0, sceneAt = -1.0, clock = 0.0;
+    for (var i = 0; i < 60 * 240 && sceneAt < 0; i++) {
+      g.fuel = 100;
+      g.update(1 / 60);
+      clock += 1 / 60;
+      if (g.card.value?.event.title == 'Les Léopards au Mondial' && cardAt < 0) cardAt = clock;
+      if (g.onBoulevard && !was) {
+        seen++;
+        sceneAt = clock;
+      }
+      was = g.onBoulevard;
+    }
+    expect(cardAt, greaterThan(0), reason: 'la fiche du 17 juin passe d\'abord');
+    expect(seen, 1);
+    expect(sceneAt, greaterThan(cardAt));
+    expect(g.year, closeTo(2026.5, 0.05));
   });
 
   test('en 1963, après les sécessions, la descente arrive une seule fois ; le pilote automatique la saute', () async {

@@ -292,12 +292,14 @@ class CabinCameraShot {
 enum SceneVoice { pilot, tower, cabin, street, bus, police }
 
 /// Une réplique d'une scène (la descente sur le boulevard) : la phrase, sa traduction si elle est en lingala.
+/// [duo] : le commandant et le copilote la disent ensemble.
 class SceneLine {
-  const SceneLine(this.voice, this.text, [this.french]);
+  const SceneLine(this.voice, this.text, [this.french, this.duo = false]);
 
   final SceneVoice voice;
   final String text;
   final String? french;
+  final bool duo;
 }
 
 /// Une descente sur le boulevard : ses répliques et leurs moments, puis quand on passe au pare-brise,
@@ -314,12 +316,16 @@ class _BScene {
     required this.lift,
     required this.end,
     this.boost = 0.9,
+    this.outro = -1,
   });
 
   final int layout;
   final List<SceneLine> lines;
   final List<double> lineAt;
   final double cockpit, aerial, street, elan, lift, end;
+
+  /// Après le décollage, on revient au pare-brise jusqu'à la fin (le Mondial) ; -1 sinon.
+  final double outro;
 
   /// Ce que l'élan ajoute à la vitesse de la rue.
   final double boost;
@@ -1109,6 +1115,18 @@ class ChachaGame extends FlameGame {
         _portraits[k] = (await codec.getNextFrame()).image;
       } catch (_) {
         // Le fichier n'est pas là (il reste chez l'auteur) : le médaillon garde son année.
+      }
+    }
+    // Les photos des panneaux du Mondial, sur le boulevard Triomphal.
+    for (final (key, _, _) in Boulevard.mondialSlides) {
+      final p = archivePhotos[key];
+      if (p == null || Boulevard.photos.containsKey(key)) continue;
+      try {
+        final data = await rootBundle.load(p.asset);
+        final codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: 360);
+        Boulevard.photos[key] = (await codec.getNextFrame()).image;
+      } catch (_) {
+        // Sans la photo, le panneau garde son fond bleu.
       }
     }
   }
@@ -4836,14 +4854,20 @@ class ChachaGame extends FlameGame {
 
   /// L'avion a pris un choc : il descend raser le boulevard Lumumba, à Kinshasa, pour reprendre de l'élan.
   /// Trois fois dans le voyage, chaque fois autrement : après les sécessions, après « Comprenez mon émotion »
-  /// (le rond-point du robot roulage), puis après la guerre de l'AFDL.
-  static const boulevardYears = [1963.5, 1990.9, 1997.7];
+  /// (le rond-point du robot roulage), puis après la guerre de l'AFDL. La quatrième est une fête : le 1er juillet
+  /// 2026, un ballon des Léopards frappe l'avion, qui descend sur le boulevard Triomphal fêter le Mondial.
+  static const boulevardYears = [1963.5, 1990.9, 1997.7, 2026.5];
 
   /// La réplique en cours : une bulle en haut de l'écran, une seule à la fois.
   final sceneLine = ValueNotifier<SceneLine?>(null);
 
   double _bT = -1, _bDist = 0, _bWait = 0;
   int _bWhich = 0, _bLine = -1, _bHonks = 0;
+
+  /// Le Mondial : les coups du ballon sur l'avion, puis les sifflets et les klaxons de la rue.
+  int _bBall = 0, _bToots = 0;
+  double _bToot = 0;
+  bool get _mondial => _bT >= 0 && _scene.layout == Boulevard.mondial;
   bool _bForce = false, _bCleared = false, _bLifted = false;
 
   /// La musique de la scène : 0 la chanson du boulevard, 1 elle s'éteint, 2 la chanson du vol repart bas, 3 elle monte.
@@ -4896,6 +4920,75 @@ class ChachaGame extends FlameGame {
       boost: 0.35,
     ),
     _BScene(2, _bLines1997, _bLineAt, cockpit: 17.6, aerial: 24.0, street: 29.6, elan: 65.4, lift: 70.2, end: 77.0),
+    // 2026 : le ballon, le brouillard du moment historique, le pare-brise, le stade vu d'en haut, puis la rue :
+    // la cabine, les motards, le 207, la cabine encore. Le message du redécollage, et les pilotes pour finir.
+    _BScene(
+      Boulevard.mondial,
+      _bLines2026,
+      [9.8, 15.8, 21.6, 27.4, 33.2, 39.0, 44.8, 50.6, 56.4, 62.2, 68.0, 82.8, 88.6],
+      cockpit: 9.2,
+      aerial: 15.6,
+      street: 21.0,
+      elan: 74.4,
+      lift: 79.0,
+      outro: 82.0,
+      end: 94.8,
+      boost: 0.6,
+    ),
+  ];
+
+  /// Le ballon frappe l'avion deux fois (pan !), puis le brouillard du moment historique couvre l'écran.
+  static const _ballHits = [0.6, 1.45];
+  static const _fogIn = 1.6, _fogOut = 9.0;
+
+  /// Le message du redécollage, en bandeau, pendant que l'avion prend son élan.
+  static const _byeFrom = 73.8, _byeTo = 78.8;
+
+  // Les répliques en lingala du Mondial sont celles du concepteur ; leurs traductions sont à faire valider.
+  static const _bLines2026 = [
+    SceneLine(
+      SceneVoice.pilot,
+      'Mesdames et messieurs, un ballon des Léopards vient de nous toucher ! '
+      'On descend fêter le Mondial sur le boulevard Triomphal.',
+    ),
+    SceneLine(SceneVoice.cabin, 'Fimbu Fimbu chicotte !', 'Le fouet, le fouet, la chicotte !'),
+    SceneLine(SceneVoice.cabin, 'RDC eloko ya Makasi !', "La RDC, c'est du solide !"),
+    SceneLine(
+      SceneVoice.street,
+      'Mondiale yoooo ! Ezo pese te Solo',
+      "Le Mondial, yoooo ! Ce n'est pas donné à tout le monde !",
+    ),
+    SceneLine(SceneVoice.street, 'Bana mayiii eehhhh ! Bana Leopard Oooooh'),
+    SceneLine(SceneVoice.street, 'Yo petit nani muana na yo !', 'Toi, petit, tu es le fils de qui ?!'),
+    SceneLine(SceneVoice.bus, 'Tala butu ya Imana ! Face lokola NGIDI'),
+    SceneLine(
+      SceneVoice.bus,
+      'To kende Mondial to beti na CR7 ! To silisi ye carrière.',
+      'On va au Mondial, on joue contre CR7 ! On lui a fini sa carrière.',
+    ),
+    SceneLine(
+      SceneVoice.bus,
+      'Mais Cipenga aza monstre ! A pesi nga elengi ya Balé',
+      'Mais Cipenga est un monstre ! Il m\'a donné le plaisir du but.',
+    ),
+    SceneLine(
+      SceneVoice.cabin,
+      'Eeeh Papa, yo ata bale ya mbula obeta te ! Tika biso to sepela.',
+      "Eeeh Papa, toi, tu n'as pas marqué un seul but de l'année ! Laisse-nous fêter.",
+    ),
+    SceneLine(SceneVoice.street, 'Attention, okotuta moto Wewa !', 'Attention, tu vas cogner le Wewa !'),
+    SceneLine(
+      SceneVoice.pilot,
+      'Leopard ba mondialiste, ba voisin bo surveille : Fleuve eza makambu eyaka !',
+      'Les Léopards sont mondialistes ! Voisins, surveillez-vous : le Fleuve, ce sont les ennuis qui arrivent !',
+      true,
+    ),
+    SceneLine(
+      SceneVoice.pilot,
+      'Toleka ! Fimbu… Na bosani ko tuta moto Wewa.',
+      "On passe ! La chicotte… J'ai oublié de cogner le Wewa.",
+      true,
+    ),
   ];
 
   // Les répliques en lingala de 1990 sont celles du concepteur ; leurs traductions sont à faire valider.
@@ -5045,6 +5138,8 @@ class ChachaGame extends FlameGame {
     _bCleared = _bLifted = false;
     _bMusic = 0;
     _bHonkAt = -1;
+    _bBall = _bToots = 0;
+    _bToot = _scene.street + 8;
     // Une seule chanson pendant toute la descente.
     _song('boulevard', loop: true);
     if (_seen.add('boulevard $which') && !_offRecord) Checkpoint.saveSeen(_seen);
@@ -5057,6 +5152,8 @@ class ChachaGame extends FlameGame {
     _birds.clear();
     _traffic.clear();
     _clouds.removeWhere((c) => c.storm);
+    // Le Mondial : le choc viendra du ballon, un instant plus tard.
+    if (_mondial) return true;
     // Le choc : l'avion tremble, un moteur crache.
     shake = 0.9;
     flash = 0.35;
@@ -5078,9 +5175,14 @@ class ChachaGame extends FlameGame {
     return k * k * (3 - 2 * k);
   }
 
-  /// On avance jusqu'au pare-brise pendant que le commandant annonce la descente.
-  double get _cockpitZoom =>
-      _bT < 0 ? 0 : _smooth(math.min((_bT - _scene.cockpit) / 1.2, (_scene.aerial + 0.4 - _bT) / 1.0));
+  /// On avance jusqu'au pare-brise pendant que le commandant annonce la descente (et, au Mondial, à la fin).
+  double get _cockpitZoom {
+    if (_bT < 0) return 0;
+    final sc = _scene;
+    final first = _smooth(math.min((_bT - sc.cockpit) / 1.2, (sc.aerial + 0.4 - _bT) / 1.0));
+    if (sc.outro < 0) return first;
+    return math.max(first, _smooth(math.min((_bT - sc.outro) / 1.2, (sc.end - 0.2 - _bT) / 1.0)));
+  }
 
   /// La hauteur de l'avion pendant la scène : il tient son cap, descend sur la ville, rase la chaussée,
   /// saute le trou, puis remonte.
@@ -5088,7 +5190,8 @@ class ChachaGame extends FlameGame {
     final sc = _scene, st = at - sc.street;
     if (at >= sc.lift) return _h * (0.69 - 0.29 * _smooth((at - sc.lift) / 3.8));
     if (st > -1.2) {
-      final hop = math.exp(-math.pow((st - Boulevard.holeAt / Boulevard.speed) / 0.75, 2)) * 0.1;
+      final hole = sc.layout == Boulevard.mondial ? 0.0 : 0.1;
+      final hop = math.exp(-math.pow((st - Boulevard.holeAt / Boulevard.speed) / 0.75, 2)) * hole;
       return _h * (0.5 + 0.19 * _smooth((st + 1.2) / 2.8) - hop + 0.005 * math.sin(at * 5));
     }
     if (at >= sc.aerial) return _h * (0.4 + 0.1 * _smooth((at - sc.aerial) / 4.4));
@@ -5132,8 +5235,8 @@ class ChachaGame extends FlameGame {
     pitch += ((step / dt / _h * 0.9).clamp(-0.3, 0.3) + shaken - pitch) * math.min(1, dt * 5);
     final wheels = at > sc.aerial + 2.5 && at < sc.lift + 1 ? 1.0 : 0.0;
     gear = (gear + (wheels - gear).sign * dt * 0.8).clamp(0.0, 1.0);
-    // Le moteur abîmé fume jusqu'à ce que l'avion reprenne sa vitesse.
-    if (at < sc.lift && _rng.nextDouble() < dt * 14) {
+    // Le moteur abîmé fume jusqu'à ce que l'avion reprenne sa vitesse (pas au Mondial : le ballon ne casse rien).
+    if (sc.layout != Boulevard.mondial && at < sc.lift && _rng.nextDouble() < dt * 14) {
       _particles.add(
         _Particle(
           planeX - planeLength * 0.08,
@@ -5163,12 +5266,13 @@ class ChachaGame extends FlameGame {
       }
       // Le troisième coup de klaxon : le chauffeur a vu l'avion, il reste stupéfait.
       _float(
-        _bHonks == 3 ? 'Kokamwa !' : 'Pip pip !',
+        _bHonks == 3 ? (sc.layout == Boulevard.mondial ? 'Fimbu !' : 'Kokamwa !') : 'Pip pip !',
         Boulevard.wewaX(_w, _unit, st, _bDist - Boulevard.speed * _unit * st, sc.layout),
         _h * 0.72,
         ChachaColors.yellow,
       );
     }
+    if (sc.layout == Boulevard.mondial) _mondialBeats(at, st, sc);
     if (!_bLifted && at >= sc.lift) {
       // Pouf : les gaz à fond, l'avion s'arrache du boulevard.
       _bLifted = true;
@@ -5210,6 +5314,159 @@ class ChachaGame extends FlameGame {
     _airT = math.min(_airT, 8);
   }
 
+  /// Le Mondial : les deux coups du ballon sur l'avion, puis, dans la rue, les sifflets et les klaxons des supporters.
+  void _mondialBeats(double at, double st, _BScene sc) {
+    if (_bBall < _ballHits.length && at >= _ballHits[_bBall]) {
+      final hit = _ballAt(_ballHits[_bBall]), first = _bBall == 0;
+      _bBall++;
+      shake = first ? 0.75 : 0.45;
+      flash = first ? 0.3 : 0.15;
+      onBuzz?.call(first ? 300 : 160, first ? 220 : 160);
+      onSound?.call('choc');
+      _float(first ? 'PAN !' : 'pan !', hit.dx, hit.dy - planeLength * 0.18, Colors.white);
+      _burst(hit.dx, hit.dy, 16, const [Colors.white, Color(0xFFFFE08A), ChachaColors.sky], speed: 200, size: 4);
+    }
+    if (st > 0 && at < sc.elan && at >= _bToot) {
+      const toots = ['Piiiiip !', 'Pip pip !', 'Fimbu !', 'Piiip piiip !', 'Léopards !', 'Pip pip pip !'];
+      const colors = [ChachaColors.yellow, Colors.white, ChachaColors.sky, ChachaColors.red];
+      // Un coup sur deux s'entend, sifflet puis klaxon, pour laisser la place aux répliques.
+      if (_bToots.isEven) onSound?.call(_bToots % 4 == 0 ? 'sifflet' : 'klaxon');
+      _float(
+        toots[_bToots % toots.length],
+        _w * (0.42 + 0.5 * _rng.nextDouble()),
+        _h * (0.6 + 0.16 * _rng.nextDouble()),
+        colors[_bToots % colors.length],
+      );
+      _bToots++;
+      _bToot = at + 2.1 + _rng.nextDouble() * 1.3;
+    }
+  }
+
+  /// Où est le ballon du Mondial à ce moment de la scène : il arrive d'en haut à droite, frappe le nez, rebondit,
+  /// retombe sur la queue, puis repart vers la gauche.
+  Offset _ballAt(double time) {
+    final l = planeLength;
+    final start = Offset(_w * 1.08, _h * 0.02), nose = Offset(planeX + l * 0.3, planeY - l * 0.07);
+    final tail = Offset(planeX - l * 0.2, planeY - l * 0.1), away = Offset(-_w * 0.12, _h * 0.5);
+    if (time < _ballHits[0]) return Offset.lerp(start, nose, math.max(0.0, time) / _ballHits[0])!;
+    if (time < _ballHits[1]) {
+      final k = (time - _ballHits[0]) / (_ballHits[1] - _ballHits[0]);
+      return Offset.lerp(nose, tail, k)!.translate(0, -l * 0.85 * 4 * k * (1 - k));
+    }
+    final k = (time - _ballHits[1]) / 1.2;
+    return Offset.lerp(tail, away, k)!.translate(0, -l * 1.1 * 4 * k * (1 - k));
+  }
+
+  final _mTexts = <String, TextPainter>{};
+
+  TextPainter _mText(String text, double size, Color color, {double spacing = 0}) =>
+      _mTexts['$text|${size.toStringAsFixed(1)}'] ??= TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(color: color, fontSize: size, fontWeight: FontWeight.w900, letterSpacing: spacing),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
+
+  /// Le Mondial à l'écran : le ballon et ses traînées, le brouillard et le titre du moment historique,
+  /// puis le bandeau du redécollage.
+  void _drawMondial(Canvas canvas, Size s) {
+    final at = _bT, u = _unit, r = planeLength * 0.07;
+    if (at < _ballHits[1] + 1.3) {
+      for (var i = 4; i >= 1; i--) {
+        canvas.drawCircle(
+          _ballAt(at - i * 0.04),
+          r * (1 - i * 0.12),
+          Paint()..color = Colors.white.withValues(alpha: 0.1 * (5 - i)),
+        );
+      }
+      Scenery.football(canvas, _ballAt(at), r, at * 3);
+    }
+    for (final hit in _ballHits) {
+      final age = at - hit;
+      if (age < 0 || age > 0.4) continue;
+      canvas.drawCircle(
+        _ballAt(hit),
+        r * (1.2 + 6 * age),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3 * u
+          ..color = Colors.white.withValues(alpha: 1 - age / 0.4),
+      );
+    }
+
+    void show(TextPainter tp, Offset centre, double from, double alpha) {
+      final k = _smooth((at - from) / 0.8) * alpha;
+      if (k <= 0) return;
+      final fit = math.min(1.0, _w * 0.9 / tp.width), grow = fit * (1.05 - 0.05 * k);
+      canvas.save();
+      canvas.translate(centre.dx, centre.dy + 10 * u * (1 - k));
+      canvas.scale(grow);
+      final box = Rect.fromLTWH(-tp.width / 2, -tp.height / 2, tp.width, tp.height);
+      canvas.saveLayer(box.inflate(4), Paint()..color = Colors.white.withValues(alpha: k));
+      tp.paint(canvas, box.topLeft);
+      canvas.restore();
+      canvas.restore();
+    }
+
+    // Le brouillard monte, le titre apparaît mot à mot, puis tout se dissipe sur le pare-brise.
+    final fog = _smooth((at - _fogIn) / 1.0) * (1 - _smooth((at - _fogOut + 1.1) / 1.1));
+    if (fog > 0) {
+      canvas.drawRect(Offset.zero & s, Paint()..color = Color.fromRGBO(238, 242, 247, 0.94 * fog));
+      for (var i = 0; i < 7; i++) {
+        final x = _w * (1.2 - ((at * (0.04 + 0.012 * i) + i * 0.23) % 1.0) * 1.6), y = _h * (0.1 + 0.14 * i);
+        canvas.drawOval(
+          Rect.fromCenter(center: Offset(x, y), width: _w * 0.5, height: _h * 0.2),
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.55 * fog)
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, 30 * u),
+        );
+      }
+      final cy = _h * 0.44;
+      final title = _mText('Vous entrez dans un moment historique…', 26 * u, const Color(0xFF0E2340));
+      show(_mText('MONDIAL 2026 · RDC', 11 * u, Boulevard.leopards, spacing: 3), Offset(_w / 2, cy - 34 * u), 2.6, fog);
+      show(title, Offset(_w / 2, cy), 3.0, fog);
+      // Le trait aux couleurs du drapeau s'allonge sous le titre.
+      final bar = math.min(title.width, _w * 0.8) * _smooth((at - 3.6) / 0.8);
+      if (bar > 0) {
+        for (final (i, col) in const [Boulevard.leopards, Color(0xFFF7D618), Color(0xFFCE1021)].indexed) {
+          canvas.drawRect(
+            Rect.fromLTWH(_w / 2 - bar / 2 + bar * i / 3, cy + 20 * u, bar / 3, 3 * u),
+            Paint()..color = col.withValues(alpha: fog),
+          );
+        }
+      }
+      show(
+        _mText('Les Léopards sont au Mondial : vous devez descendre.', 14 * u, const Color(0xFFB3261E)),
+        Offset(_w / 2, cy + 40 * u),
+        4.6,
+        fog,
+      );
+    }
+
+    // « C'est l'ambiance du moment » : le bandeau entre par la gauche, sort par la droite.
+    final come = _smooth((at - _byeFrom) / 0.6), go = _smooth((at - _byeTo + 0.6) / 0.6);
+    if (come > 0 && go < 1) {
+      final l1 = _mText("C'est l'ambiance du moment…", 18 * u, Colors.white);
+      final l2 = _mText('Nous devons redécoller !', 14 * u, const Color(0xFFF7D618));
+      final bw = math.max(l1.width, l2.width) + 44 * u, bh = l1.height + l2.height + 18 * u;
+      final x = -bw + (_w / 2 + bw / 2) * come + _w * go, y = _h * 0.18;
+      final band = Rect.fromLTWH(x, y, bw, bh);
+      canvas.drawRRect(RRect.fromRectAndRadius(band, Radius.circular(8 * u)), Paint()..color = const Color(0xE60B1F3A));
+      for (final (i, col) in const [Boulevard.leopards, Color(0xFFF7D618), Color(0xFFCE1021)].indexed) {
+        canvas.drawRect(Rect.fromLTWH(x + 8 * u + i * 3 * u, y + 8 * u, 3 * u, bh - 16 * u), Paint()..color = col);
+      }
+      l1.paint(canvas, Offset(x + 26 * u, y + 8 * u));
+      final k = _smooth((at - _byeFrom - 0.6) / 0.5);
+      if (k > 0) {
+        canvas.saveLayer(band, Paint()..color = Colors.white.withValues(alpha: k));
+        l2.paint(canvas, Offset(x + 26 * u + 10 * u * (1 - k), y + 10 * u + l1.height));
+        canvas.restore();
+      }
+    }
+  }
+
   void _drawBoulevard(Canvas canvas, Size s, {required bool front}) {
     final sc = _scene, at = _bT, st = at - sc.street;
     if (st >= 0) {
@@ -5229,7 +5486,10 @@ class ChachaGame extends FlameGame {
         layout: sc.layout,
       );
     }
-    if (front) return;
+    if (front) {
+      if (sc.layout == Boulevard.mondial) _drawMondial(canvas, s);
+      return;
+    }
     final above = st >= 0 ? 0.0 : ((at - sc.aerial) / 1.0).clamp(0.0, 1.0);
     if (above > 0) {
       Boulevard.aerial(
@@ -7378,6 +7638,8 @@ class ChachaGame extends FlameGame {
         skin: _airline.livery.body,
         band: _airline.livery.stripe,
         talk: line?.voice == SceneVoice.pilot ? (0.5 + 0.5 * math.sin(t * 15)).abs() : 0,
+        copilotTalk: line?.duo == true ? (0.5 + 0.5 * math.sin(t * 13 + 1)).abs() : 0,
+        party: _mondial,
       );
     }
     super.render(canvas);

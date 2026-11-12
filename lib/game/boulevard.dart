@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -18,6 +19,7 @@ class StreetPlan {
     this.roulages = const [],
     this.shout,
     this.robotAt,
+    this.ahead = false,
   });
 
   /// Le Wewa arrive par la droite à partir de [wewaIn], puis se tient à [wewaStop] de la largeur de l'écran.
@@ -40,6 +42,9 @@ class StreetPlan {
 
   /// Le rond-point et son robot passent sous l'avion vers ce moment-là, juste après le décollage.
   final double? robotAt;
+
+  /// Une fois sa surprise passée, le Wewa file devant l'avion au lieu de rester derrière.
+  final bool ahead;
 }
 
 /// Le boulevard Lumumba à Kinshasa, redessiné d'après des photos : la tour de l'échangeur de Limete,
@@ -61,7 +66,8 @@ abstract final class Boulevard {
   /// Le trou dans la chaussée : sa distance depuis l'entrée dans la rue.
   static const holeAt = speed * 4.6;
 
-  /// Les trois descentes ne se ressemblent pas : 1963, 1990 (le rond-point du robot) et 1997.
+  /// Les quatre descentes ne se ressemblent pas : 1963, 1990 (le rond-point du robot), 1997, et le Mondial
+  /// de 2026 sur le boulevard Triomphal.
   static const plans = [
     StreetPlan(wewaIn: 10, wewaStop: 0.58, amazedAt: 29.4, honks: [13, 18.5, 29.4]),
     StreetPlan(
@@ -76,7 +82,22 @@ abstract final class Boulevard {
       robotAt: 48.8,
     ),
     StreetPlan(wewaIn: 8, wewaStop: 0.66, amazedAt: 29.4, honks: [13, 18.5, 29.4], roulages: [34]),
+    StreetPlan(
+      wewaIn: 1,
+      wewaStop: 0.62,
+      amazedAt: 6.6,
+      amazedFor: 15,
+      honks: [3.2, 5.0, 6.6],
+      drift: false,
+      ahead: true,
+    ),
   ];
+
+  /// Les photos des panneaux du Mondial, chargées par le jeu : sans elles, les panneaux gardent leur fond bleu.
+  static final photos = <String, ui.Image>{};
+
+  /// La scène du Mondial 2026, sur le boulevard Triomphal, à côté du stade des Martyrs.
+  static const mondial = 3;
 
   static double _rnd(int i, int salt) {
     final x = math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
@@ -271,6 +292,8 @@ abstract final class Boulevard {
         ).createShader(Rect.fromLTRB(0, y0, w, h)),
     );
 
+    // En 2026, le boulevard Triomphal file tout droit : à droite, le stade des Martyrs et l'aréna en chantier.
+    final triomphal = layout == mondial;
     // Le boulevard : du bas de l'écran jusqu'à l'horizon, à gauche de la tour.
     double roadX(double d) => w * (0.42 - 0.26 * d);
     double roadHalf(double d) => w * (0.003 + 0.115 * d * d);
@@ -279,9 +302,10 @@ abstract final class Boulevard {
     double sideX(double d) => w * (0.57 + 0.3 * (d - 0.45) / 0.55);
     double sideHalf(double d) => w * (0.012 + 0.07 * (d - 0.45) / 0.55 * d);
     bool onRoad(double x, double d) =>
-        (x - roadX(d)).abs() < roadHalf(d) * 1.25 || (d > 0.45 && (x - sideX(d)).abs() < sideHalf(d) * 1.3);
+        (x - roadX(d)).abs() < roadHalf(d) * 1.25 ||
+        (!triomphal && d > 0.45 && (x - sideX(d)).abs() < sideHalf(d) * 1.3);
 
-    final towerBase = Offset(w * 0.56, depthY(0.45));
+    final towerBase = triomphal ? Offset(w * 0.66, depthY(0.5)) : Offset(w * 0.56, depthY(0.45));
     // Les quartiers : des rangées de toits de tôle et de dalles, des manguiers entre les maisons.
     const roofs = [
       Color(0xFFB5583A),
@@ -379,7 +403,7 @@ abstract final class Boulevard {
       }
     }
 
-    road(sideX, sideHalf, 0.45, 1.05);
+    if (!triomphal) road(sideX, sideHalf, 0.45, 1.05);
     road(roadX, roadHalf, 0.0, 1.05);
 
     // En 1990, un rond-point coupe le boulevard : le robot roulage y est debout, les voitures le contournent.
@@ -434,7 +458,12 @@ abstract final class Boulevard {
       robot(c, at.translate(0, half * 0.04), half * 0.0042, t, mist: 0.12);
     }
 
-    tower(c, towerBase, h * 0.5, mist: 0.12, plaza: true);
+    if (triomphal) {
+      arena(c, Offset(w * 0.93, depthY(0.4)), h * 0.1, t, mist: 0.16);
+      stadium(c, towerBase, h * 0.14, t, mist: 0.1, inside: true);
+    } else {
+      tower(c, towerBase, h * 0.5, mist: 0.12, plaza: true);
+    }
 
     // Des nuages bas passent sous l'avion.
     for (var i = 0; i < 5; i++) {
@@ -532,9 +561,16 @@ abstract final class Boulevard {
       final x = i * 46 * u - far, bh = (16 + 44 * _rnd(i, 21)) * u, bw = (30 + 26 * _rnd(i, 22)) * u;
       c.drawRect(Rect.fromLTRB(x, base - bh, x + bw, base), Paint()..color = const Color(0xFFAFC0CC));
     }
-    // La tour de l'échangeur : le repère, qui passe lentement.
-    tower(c, Offset(w * 0.98 - dist * 0.085, base), h * 0.47, mist: 0.1);
-    _buildings(c, w, u, base, dist * 0.42);
+    final fans = layout == mondial;
+    if (fans) {
+      // Le boulevard Triomphal : à droite, l'aréna en chantier puis le stade des Martyrs, qui passent lentement.
+      arena(c, Offset(w * 0.34 - dist * 0.02, base), h * 0.17, t, mist: 0.08);
+      stadium(c, Offset(w * 0.78 - dist * 0.02, base), h * 0.28, t, mist: 0.06);
+    } else {
+      // La tour de l'échangeur : le repère, qui passe lentement.
+      tower(c, Offset(w * 0.98 - dist * 0.085, base), h * 0.47, mist: 0.1);
+      _buildings(c, w, u, base, dist * 0.42);
+    }
 
     // Le trottoir d'en face, ses arbres, ses parasols et ses passants.
     c.drawRect(Rect.fromLTRB(0, base, w, h * farRoad), Paint()..color = const Color(0xFFCDBFA6));
@@ -547,12 +583,20 @@ abstract final class Boulevard {
       } else if (k < 0.75) {
         _stall(c, Offset(x + 30 * u, base + 4 * u), u, _awnings[(i % _awnings.length).abs()]);
       }
+      if (fans) {
+        // Les supporters : le maillot bleu des Léopards, et un drapeau sur deux.
+        _walker(c, Offset(x + 96 * u, base + 5 * u), u * 0.8, t + i, _fanShirts[(i % _fanShirts.length).abs()]);
+        flag(c, Offset(x + 100 * u, base - 30 * u), 7 * u, t + i);
+        _walker(c, Offset(x + 120 * u, base + 5 * u), u * 0.76, t * 0.8 + i * 2, leopards);
+        if (k > 0.5) flag(c, Offset(x + 124 * u, base - 28 * u), 6.5 * u, t * 1.1 + i);
+        continue;
+      }
       _walker(c, Offset(x + 96 * u, base + 5 * u), u * 0.8, t + i, _awnings[((i * 3) % _awnings.length).abs()]);
       if (k > 0.5) _walker(c, Offset(x + 120 * u, base + 5 * u), u * 0.76, t * 0.8 + i * 2, const Color(0xFFF1EEE6));
     }
 
-    // Les panneaux numériques, devant les arbres du trottoir pour qu'on lise les marques.
-    _boards(c, w, u, base, dist * 0.42, t, layout);
+    // Les panneaux numériques, devant les arbres du trottoir pour qu'on lise les marques ; en 2026, les matchs.
+    fans ? _mondialBoards(c, w, u, base, dist * 0.42, t) : _boards(c, w, u, base, dist * 0.42, t, layout);
 
     // La chaussée : l'asphalte, plus clair au loin.
     final asphalt = Rect.fromLTRB(0, h * farRoad, w, h * kerb);
@@ -591,6 +635,7 @@ abstract final class Boulevard {
       [0, 1, 2, 3, 0, 2, 1, 3],
       [2, 0, 3, 2, 1, 0, 2, 3],
       [3, 2, 0, 1, 2, 3, 0, 2],
+      [2, 1, 2, 2, 0, 2, 1, 2],
     ][layout];
     final lane = h * (farRoad + (median - farRoad) * 0.72);
     for (var i = 0; i < kinds.length; i++) {
@@ -601,9 +646,9 @@ abstract final class Boulevard {
         case 0:
           car(c, at, u * 0.58, t, flip: true);
         case 1:
-          bus207(c, at, u * 0.58, t, flip: true);
+          bus207(c, at, u * 0.58, t, flip: true, fans: fans);
         case 2:
-          wewa(c, at, u * 0.58, t, flip: true, riders: 1 + i % 2);
+          wewa(c, at, u * 0.58, t, flip: true, riders: fans ? 2 + i % 2 : 1 + i % 2, fans: fans);
         default:
           car(
             c,
@@ -647,8 +692,9 @@ abstract final class Boulevard {
     }
 
     // Le trou dans la voie de l'avion, signalé par une branche et un vieux pneu.
+    // Pas de trou sur le boulevard Triomphal.
     final holeX = plane.dx + holeAt * u - dist;
-    if (holeX > -160 * u && holeX < w + 160 * u) pothole(c, Offset(holeX, h * (planeLane - 0.012)), u * 1.25);
+    if (!fans && holeX > -160 * u && holeX < w + 160 * u) pothole(c, Offset(holeX, h * (planeLane - 0.012)), u * 1.25);
 
     switch (layout) {
       case 1:
@@ -657,6 +703,11 @@ abstract final class Boulevard {
       case 2:
         // Un pick-up rouge sur la voie du fond.
         car(c, Offset(w * 1.1 - 44 * u * st - lead, back), u * 0.86, t, color: const Color(0xFFB03A2E), taxi: false);
+      case mondial:
+        // Un 207 de supporters sur la voie du fond, les drapeaux aux fenêtres, puis des Wewa qui sifflent.
+        bus207(c, Offset(w * 0.95 - 40 * u * st - lead, back), u * 0.95, t, fans: true);
+        wewa(c, Offset(w * 1.6 - 52 * u * (st - 12) - lead, back), u * 0.9, t, riders: 3, fans: true);
+        wewa(c, Offset(w * 1.6 - 48 * u * (st - 30) - lead, back), u * 0.9, t, riders: 2, fans: true);
       default:
         // Une jeep roule sur la voie du fond, à côté de la séparation.
         car(c, Offset(w * 1.02 - 36 * u * st - lead, back), u * 0.86, t, color: const Color(0xFF2F3E46), taxi: false);
@@ -715,6 +766,27 @@ abstract final class Boulevard {
         wewa(c, wewaAt, u * 1.22, t, lean: lean, amazed: amazed, riders: 2);
         bus207(c, Offset(-w * 0.2 + 100 * u * (st - 3) - lead, lane - swerve), u * 1.24, t);
         car(c, Offset(w * 1.5 - 62 * u * (st - 38) - lead, lane), u * 1.2, t);
+      case mondial:
+        // 2026 : les motards sifflent et klaxonnent à côté de l'avion, puis filent devant.
+        wewa(c, wewaAt.translate(150 * u, 0), u * 1.18, t, riders: 3, fans: true);
+        wewa(c, wewaAt, u * 1.22, t, lean: lean, amazed: amazed, riders: 2, fans: true);
+        // Le 207 des supporters arrive par derrière et roule avec l'avion le temps de sa conversation,
+        // puis il reste en arrière.
+        final bus = math.min(-w * 0.35 + 110 * u * (st - 20), w * 0.7) - math.max(0.0, st - 41) * 130 * u;
+        bus207(c, Offset(bus - lead, lane), u * 1.24, t, fans: true);
+        // Un Wewa se rabat vers l'avion : « Attention, okotuta moto Wewa ! »
+        final close = _ease((st - 44) / 2.5) * (1 - _ease((st - 52) / 2));
+        final cx = math.max(w * 1.15 - 80 * u * (st - 40), w * 0.56) + math.max(0.0, st - 53) * 120 * u;
+        wewa(
+          c,
+          Offset(cx - lead, h * (frontLane - 0.055 * close)),
+          u * 1.22,
+          t,
+          lean: -0.07 * close,
+          amazed: close,
+          riders: 3,
+          fans: true,
+        );
       default:
         wewa(c, wewaAt, u * 1.22, t, lean: lean, amazed: amazed);
         // Le taxi jaune, puis le 207, sur la voie de devant.
@@ -760,7 +832,7 @@ abstract final class Boulevard {
     final p = plans[layout];
     final arrive = w * 1.12 - 70 * u * (st - p.wewaIn);
     final gone = math.max(0.0, st - p.amazedAt - p.amazedFor - 0.5) * 110 * u;
-    return math.max(arrive, w * p.wewaStop) - gone - lead;
+    return math.max(arrive, w * p.wewaStop) + (p.ahead ? gone : -gone) - lead;
   }
 
   /// La place du robot roulage à l'écran : il est posé sur la chaussée et passe sous l'avion vers [at].
@@ -864,18 +936,559 @@ abstract final class Boulevard {
     }
   }
 
-  /// L'année de chaque descente dans la rue : 1963, 1990, 1997.
-  static const _years = [1963.0, 1990.0, 1997.0];
+  /// L'année de chaque descente dans la rue : 1963, 1990, 1997, 2026.
+  static const _years = [1963.0, 1990.0, 1997.0, 2026.0];
 
   /// Les panneaux numériques de l'aéroport, au pied des immeubles, tout le long du boulevard : déjà là quand
   /// l'avion arrive dans la rue, deux ou trois à l'écran, chacun avec ses marques à lui.
   static void _boards(Canvas c, double w, double u, double base, double scroll, double t, int layout) {
     const period = 400.0;
-    final step = period * u, year = _years[layout.clamp(0, 2)];
+    final step = period * u, year = _years[layout.clamp(0, 3)];
     for (var i = (scroll / step).floor() - 1; i * step - scroll < w + step; i++) {
       final x = i * step - scroll + 120 * u;
       Ads.board(c, Offset(x, base + 3 * u), u, t, ((i % 3) + 3) % 3, year, 0, motion: true);
     }
+  }
+
+  // ------------------------------------------------------------ le Mondial 2026
+
+  /// Le bleu du maillot des Léopards (2026) ; on y ajoute ses chevrons blancs.
+  static const leopards = Color(0xFF2E86DE);
+  static const _fanShirts = [leopards, leopards, Color(0xFFD23B2E), leopards, Color(0xFFF7D618)];
+
+  /// Les chevrons blancs du maillot, sur la poitrine.
+  static void _chevron(Canvas c, Offset at, double size) {
+    final p = Paint()
+      ..color = const Color(0xEEFFFFFF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size * 0.32
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    for (final dy in const [0.0, 0.55]) {
+      c.drawPath(
+        Path()
+          ..moveTo(at.dx - size, at.dy + (dy - 0.45) * size)
+          ..lineTo(at.dx, at.dy + (dy + 0.2) * size)
+          ..lineTo(at.dx + size, at.dy + (dy - 0.45) * size),
+        p,
+      );
+    }
+  }
+
+  static Path _starPath(Offset o, double r) {
+    final p = Path();
+    for (var i = 0; i < 10; i++) {
+      final rr = i.isEven ? r : r * 0.42, a = -math.pi / 2 + i * math.pi / 5;
+      final pt = o + Offset(math.cos(a), math.sin(a)) * rr;
+      i == 0 ? p.moveTo(pt.dx, pt.dy) : p.lineTo(pt.dx, pt.dy);
+    }
+    return p..close();
+  }
+
+  /// Le drapeau de la RDC qui flotte : bleu ciel, la bande rouge bordée de jaune en diagonale, l'étoile jaune.
+  /// [top] est le haut de la hampe ; le drapeau part vers la droite, haut de [size].
+  static void flag(Canvas c, Offset top, double size, double t, {double mist = 0}) {
+    Color tone(Color col) => Color.lerp(col, _haze, mist)!;
+    final fw = size * 1.45, fh = size;
+    c.drawLine(
+      top.translate(0, -size * 0.1),
+      top.translate(0, size * 2),
+      Paint()
+        ..color = tone(const Color(0xFF6B5A48))
+        ..strokeWidth = size * 0.1
+        ..strokeCap = StrokeCap.round,
+    );
+    // Le tissu ondule : on le peint en bandes verticales, chacune soulevée par la vague.
+    final len = math.sqrt(fw * fw + fh * fh), n = Offset(fh / len, fw / len);
+    Path band(double half) => Path()
+      ..addPolygon([
+        Offset(0, fh) + n * half,
+        Offset(fw, 0) + n * half,
+        Offset(fw, 0) - n * half,
+        Offset(0, fh) - n * half,
+      ], true);
+    final blue = Paint()..color = tone(const Color(0xFF007FFF));
+    final yellow = Paint()..color = tone(const Color(0xFFF7D618));
+    final red = Paint()..color = tone(const Color(0xFFCE1021));
+    final yellowBand = band(fh * 0.2),
+        redBand = band(fh * 0.13),
+        star = _starPath(Offset(fw * 0.18, fh * 0.27), fh * 0.17);
+    const slices = 5;
+    for (var i = 0; i < slices; i++) {
+      final k = i / slices, a = t * 7 - k * 4.2;
+      final lift = math.sin(a) * fh * 0.13 * (0.2 + k), light = math.cos(a) * 0.12 * k;
+      c.save();
+      c.translate(top.dx, top.dy + lift);
+      c.clipRect(Rect.fromLTRB(fw * k - 0.2, -fh, fw * (i + 1) / slices + 0.2, fh * 2));
+      c.drawRect(Rect.fromLTWH(0, 0, fw, fh), blue);
+      c.save();
+      c.clipRect(Rect.fromLTWH(0, 0, fw, fh));
+      c.drawPath(yellowBand, yellow);
+      c.drawPath(redBand, red);
+      c.restore();
+      c.drawPath(star, yellow);
+      if (light.abs() > 0.01) {
+        c.drawRect(
+          Rect.fromLTWH(0, 0, fw, fh),
+          Paint()..color = (light > 0 ? Colors.white : Colors.black).withValues(alpha: light.abs()),
+        );
+      }
+      c.restore();
+    }
+  }
+
+  /// Le stade des Martyrs, d'après la photo : un grand anneau de béton porté par des poteaux penchés deux à deux,
+  /// la bande du haut couverte de banderoles rouges et bleues (sans marque), le socle jaune, deux drapeaux.
+  /// Vu d'en haut ([inside]), on voit aussi les gradins pleins, la piste rouge et la pelouse. [h] est sa hauteur.
+  static void stadium(Canvas c, Offset base, double h, double t, {double mist = 0, bool inside = false}) {
+    Color tone(Color col) => Color.lerp(col, _haze, mist)!;
+    final half = h * 1.3, x0 = base.dx, y0 = base.dy, top = y0 - h, bandH = h * 0.2, socle = h * 0.12;
+    // Le haut de l'anneau se bombe vers nous, le bas aussi : s va de -1 (bord gauche) à 1.
+    double rim(double s) => top + h * (0.02 - 0.06 * (1 - s * s));
+    double foot(double s) => y0 + h * 0.04 * (1 - s * s);
+    // Une bande entre deux bords ; le pied de l'anneau est un peu moins large que son sommet.
+    Path between(double Function(double) a, double Function(double) b, double from, double to, [double narrow = 1]) {
+      final p = Path();
+      const steps = 24;
+      for (var i = 0; i <= steps; i++) {
+        final s = from + (to - from) * i / steps, x = x0 + s * half;
+        i == 0 ? p.moveTo(x, a(s)) : p.lineTo(x, a(s));
+      }
+      for (var i = steps; i >= 0; i--) {
+        final s = from + (to - from) * i / steps;
+        p.lineTo(x0 + s * half * narrow, b(s));
+      }
+      return p..close();
+    }
+
+    if (inside) {
+      final bowl = Rect.fromCenter(center: Offset(x0, top - h * 0.27), width: half * 2, height: h * 0.62);
+      c.drawOval(bowl, Paint()..color = tone(const Color(0xFFD8D1C2)));
+      final stands = bowl.deflate(h * 0.05);
+      c.drawOval(stands, Paint()..color = tone(const Color(0xFF7D8696)));
+      // La foule, en bleu, jaune et rouge.
+      const crowd = [leopards, Color(0xFFF7D618), Color(0xFFD23B2E), Colors.white];
+      for (var i = 0; i < 120; i++) {
+        final a = i / 120 * 2 * math.pi, rr = 0.78 + 0.16 * _rnd(i, 61);
+        final p = stands.center + Offset(math.cos(a) * stands.width / 2 * rr, math.sin(a) * stands.height / 2 * rr);
+        final jump = math.max(0.0, math.sin(t * 6 + i * 0.7)) * h * 0.012;
+        c.drawCircle(p.translate(0, -jump), h * 0.016, Paint()..color = tone(crowd[i % 4]));
+      }
+      final track = Rect.fromCenter(center: stands.center, width: stands.width * 0.7, height: stands.height * 0.6);
+      c.drawRRect(
+        RRect.fromRectAndRadius(track, Radius.circular(track.height / 2)),
+        Paint()..color = tone(const Color(0xFFB4553A)),
+      );
+      final pitch = Rect.fromCenter(center: track.center, width: track.width * 0.74, height: track.height * 0.72);
+      c.drawRect(pitch, Paint()..color = tone(const Color(0xFF3F8E3A)));
+      for (var j = 0; j < 8; j += 2) {
+        c.drawRect(
+          Rect.fromLTWH(pitch.left + pitch.width * j / 8, pitch.top, pitch.width / 8, pitch.height),
+          Paint()..color = tone(const Color(0xFF4C9C44)),
+        );
+      }
+      final line = Paint()
+        ..color = Colors.white.withValues(alpha: 0.85)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(0.6, h * 0.008);
+      c.drawRect(pitch, line);
+      c.drawLine(pitch.topCenter, pitch.bottomCenter, line);
+      c.drawOval(Rect.fromCenter(center: pitch.center, width: pitch.height * 0.36, height: pitch.height * 0.36), line);
+    }
+
+    // L'ombre sous l'anneau, entre les poteaux.
+    c.drawPath(between(rim, foot, -1, 1, 0.94), Paint()..color = tone(const Color(0xFF5E5A54)));
+    // La rampe à mi-hauteur.
+    double mid(double s) => rim(s) + bandH + (foot(s) - socle - rim(s) - bandH) * 0.45;
+    c.drawPath(between(mid, (s) => mid(s) + h * 0.035, -0.97, 0.97), Paint()..color = tone(const Color(0xFFCFC8B8)));
+    // Les poteaux penchés, deux à deux : clairs à gauche, à l'ombre à droite.
+    const n = 30;
+    for (var i = 0; i < n; i++) {
+      final a = -1.35 + 2.7 * i / (n - 1), s = math.sin(a), wide = math.cos(a);
+      final x = x0 + s * half * 0.97, lean = (i.isEven ? 1 : -1) * h * 0.07 * wide;
+      final wc = h * 0.045 * wide + h * 0.008, yt = rim(s) + bandH, yb = foot(s) - socle;
+      c.drawPath(
+        Path()..addPolygon([
+          Offset(x - wc / 2, yt),
+          Offset(x + wc / 2, yt),
+          Offset(x + lean + wc * 0.35, yb),
+          Offset(x + lean - wc * 0.35, yb),
+        ], true),
+        Paint()..color = tone(Color.lerp(const Color(0xFFEDE7DA), const Color(0xFFADA697), (s + 1) / 2)!),
+      );
+    }
+    // Le socle jaune et ses portes.
+    c.drawPath(between((s) => foot(s) - socle, foot, -0.94, 0.94), Paint()..color = tone(const Color(0xFFD9C27C)));
+    for (var i = 0; i < 14; i++) {
+      final s = -0.85 + 1.7 * i / 13, x = x0 + s * half * 0.9;
+      c.drawRect(
+        Rect.fromLTWH(x - h * 0.02, foot(s) - socle * 0.75, h * 0.04, socle * 0.75),
+        Paint()..color = tone(const Color(0xFF6E5A3A)),
+      );
+    }
+    // La bande du haut, et ses banderoles rouges et bleues.
+    c.drawPath(between(rim, (s) => rim(s) + bandH, -1, 1), Paint()..color = tone(const Color(0xFFF0EBDF)));
+    const banners = 11;
+    for (var i = 0; i < banners; i++) {
+      final a0 = -1.3 + 2.6 * i / banners + 0.03, a1 = -1.3 + 2.6 * (i + 1) / banners - 0.03;
+      final s0 = math.sin(a0), s1 = math.sin(a1), xa = x0 + s0 * half, xb = x0 + s1 * half;
+      final color = tone(i.isEven ? const Color(0xFFE0303A) : const Color(0xFF2A8FC4));
+      c.drawPath(
+        Path()..addPolygon([
+          Offset(xa, rim(s0) + bandH * 0.16),
+          Offset(xb, rim(s1) + bandH * 0.16),
+          Offset(xb, rim(s1) + bandH * 0.84),
+          Offset(xa, rim(s0) + bandH * 0.84),
+        ], true),
+        Paint()..color = color,
+      );
+      // Des formes blanches à la place des lettres.
+      final cx = (xa + xb) / 2, cy = (rim(s0) + rim(s1)) / 2 + bandH / 2;
+      c.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(cx, cy), width: (xb - xa) * 0.56, height: bandH * 0.2),
+          Radius.circular(bandH * 0.1),
+        ),
+        Paint()..color = Colors.white.withValues(alpha: 0.85),
+      );
+    }
+    final edge = Path();
+    for (var i = 0; i <= 24; i++) {
+      final s = -1 + 2 * i / 24;
+      i == 0 ? edge.moveTo(x0 + s * half, rim(s)) : edge.lineTo(x0 + s * half, rim(s));
+    }
+    c.drawPath(
+      edge,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = h * 0.016
+        ..color = tone(const Color(0xFF9E978A)),
+    );
+    for (final s in const [-0.55, 0.45]) {
+      flag(c, Offset(x0 + s * half, rim(s) - h * 0.22), h * 0.11, t + s * 3, mist: mist);
+    }
+  }
+
+  /// L'aréna en chantier, à côté du stade, d'après la photo : un grand tambour de poutres grises, des échafaudages,
+  /// la grue à tour jaune qui promène sa charge, la pelleteuse jaune qui creuse et la baraque bleue. [h] est la
+  /// hauteur du tambour.
+  static void arena(Canvas c, Offset base, double h, double t, {double mist = 0}) {
+    Color tone(Color col) => Color.lerp(col, _haze, mist)!;
+    final half = h * 1.05, x0 = base.dx, y0 = base.dy, top = y0 - h;
+    final drum = Rect.fromLTRB(x0 - half, top, x0 + half, y0);
+    c.drawRRect(
+      RRect.fromRectAndCorners(
+        drum,
+        topLeft: Radius.elliptical(half * 0.22, h * 0.18),
+        topRight: Radius.elliptical(half * 0.22, h * 0.18),
+      ),
+      Paint()
+        ..shader = LinearGradient(
+          colors: [tone(const Color(0xFF3B3F44)), tone(const Color(0xFF6A6F75)), tone(const Color(0xFF34383C))],
+        ).createShader(drum),
+    );
+    // Les poutres : les poteaux, plus serrés vers les bords du tambour, et les étages.
+    final beam = Paint()
+      ..color = tone(const Color(0xFF222529))
+      ..strokeWidth = math.max(0.6, h * 0.014);
+    const cols = 22, floors = 6;
+    for (var i = 0; i <= cols; i++) {
+      final x = x0 + math.sin(-1.4 + 2.8 * i / cols) * half * 0.99;
+      c.drawLine(Offset(x, top + h * 0.06), Offset(x, y0), beam);
+    }
+    for (var f = 1; f < floors; f++) {
+      final y = top + h * f / floors;
+      c.drawLine(Offset(x0 - half, y), Offset(x0 + half, y), beam);
+    }
+    // Quelques travées déjà bardées en gris clair, et des croix de contreventement.
+    for (var i = 0; i < cols; i++) {
+      for (var f = 2; f < floors; f++) {
+        final k = _rnd(i * 7 + f, 71);
+        final xa = x0 + math.sin(-1.4 + 2.8 * i / cols) * half * 0.99,
+            xb = x0 + math.sin(-1.4 + 2.8 * (i + 1) / cols) * half * 0.99;
+        final ya = top + h * f / floors, yb = top + h * (f + 1) / floors;
+        if (k < 0.3) {
+          c.drawRect(
+            Rect.fromLTRB(xa + 0.6, ya + 0.6, xb - 0.6, yb - 0.6),
+            Paint()..color = tone(const Color(0xFF8E939A)),
+          );
+        } else if (k < 0.45) {
+          c.drawLine(Offset(xa, ya), Offset(xb, yb), beam);
+          c.drawLine(Offset(xb, ya), Offset(xa, yb), beam);
+        }
+      }
+    }
+    // Les fermes du toit, à moitié posées.
+    final truss = Paint()
+      ..color = tone(const Color(0xFF2A2D31))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(0.6, h * 0.016);
+    for (final (rise, sweep) in const [(0.26, 0.62), (0.2, 0.8), (0.14, 1.0)]) {
+      c.drawArc(
+        Rect.fromLTRB(x0 - half * 0.86, top - h * rise, x0 + half * 0.86, top + h * rise),
+        math.pi,
+        math.pi * sweep,
+        false,
+        truss,
+      );
+    }
+    // L'échafaudage sur la droite.
+    final scaff = Paint()
+      ..color = tone(const Color(0xFFC2C6CA))
+      ..strokeWidth = math.max(0.5, h * 0.008);
+    for (var i = 0; i <= 6; i++) {
+      final x = x0 + half * (0.42 + 0.1 * i);
+      c.drawLine(Offset(x, top + h * 0.12), Offset(x, y0), scaff);
+    }
+    for (var f = 0; f < 8; f++) {
+      final y = top + h * (0.12 + 0.11 * f);
+      c.drawLine(Offset(x0 + half * 0.42, y), Offset(x0 + half * 1.02, y), scaff);
+      c.drawLine(Offset(x0 + half * 0.42, y), Offset(x0 + half * 1.02, y + h * 0.11), scaff);
+    }
+
+    // La grue à tour : le mât en treillis jaune, la flèche, la contre-flèche et son lest, la cabine.
+    final yellow = tone(const Color(0xFFF0B323));
+    final lattice = Paint()
+      ..color = yellow
+      ..strokeWidth = math.max(0.6, h * 0.014);
+    final mx = x0 - half * 0.5, mTop = y0 - h * 1.85, mw = h * 0.07;
+    c.drawLine(Offset(mx - mw / 2, y0), Offset(mx - mw / 2, mTop), lattice);
+    c.drawLine(Offset(mx + mw / 2, y0), Offset(mx + mw / 2, mTop), lattice);
+    for (var y = y0; y > mTop; y -= mw) {
+      c.drawLine(Offset(mx - mw / 2, y), Offset(mx + mw / 2, y - mw), lattice);
+    }
+    final jibL = mx - h * 0.55, jibR = mx + h * 1.75, jh = h * 0.06;
+    c.drawLine(Offset(jibL, mTop), Offset(jibR, mTop), lattice);
+    c.drawLine(Offset(mx, mTop - jh), Offset(jibR, mTop - jh * 0.4), lattice);
+    for (var x = mx; x < jibR - jh; x += jh * 1.4) {
+      c.drawLine(Offset(x, mTop), Offset(x + jh * 0.7, mTop - jh * 0.8), lattice);
+    }
+    // Les tirants depuis la pointe du mât.
+    final tie = Paint()
+      ..color = tone(const Color(0xFF8A7A50))
+      ..strokeWidth = math.max(0.4, h * 0.006);
+    final peak = Offset(mx, mTop - h * 0.24);
+    c.drawLine(Offset(mx - mw / 2, mTop), peak, lattice);
+    c.drawLine(Offset(mx + mw / 2, mTop), peak, lattice);
+    c.drawLine(peak, Offset(jibR - h * 0.4, mTop - jh * 0.5), tie);
+    c.drawLine(peak, Offset(jibL, mTop), tie);
+    c.drawRect(
+      Rect.fromLTWH(jibL, mTop - h * 0.02, h * 0.16, h * 0.13),
+      Paint()..color = tone(const Color(0xFF8D9096)),
+    );
+    c.drawRect(Rect.fromLTWH(mx + mw / 2, mTop + h * 0.01, h * 0.09, h * 0.08), Paint()..color = yellow);
+    c.drawRect(
+      Rect.fromLTWH(mx + mw / 2 + h * 0.045, mTop + h * 0.025, h * 0.035, h * 0.04),
+      Paint()..color = tone(const Color(0xFF22323C)),
+    );
+    // Le chariot glisse le long de la flèche, la charge se balance au bout du câble.
+    final tx = mx + h * (0.85 + 0.5 * math.sin(t * 0.22)), hook = mTop + h * (0.95 + 0.12 * math.sin(t * 0.31));
+    c.drawLine(Offset(tx, mTop), Offset(tx, hook), tie);
+    c.save();
+    c.translate(tx, hook);
+    c.rotate(0.12 * math.sin(t * 0.7));
+    c.drawRect(
+      Rect.fromCenter(center: Offset(0, h * 0.03), width: h * 0.42, height: h * 0.045),
+      Paint()..color = tone(const Color(0xFFB0432E)),
+    );
+    c.restore();
+
+    // La pelleteuse, devant le chantier, et la baraque bleue.
+    _excavator(c, Offset(x0 + half * 0.92, y0), h * 0.2, t, tone);
+    c.drawRect(
+      Rect.fromLTWH(x0 + half * 1.3, y0 - h * 0.2, h * 0.34, h * 0.2),
+      Paint()..color = tone(const Color(0xFF2D6FB5)),
+    );
+    c.drawRect(
+      Rect.fromLTWH(x0 + half * 1.3 + h * 0.05, y0 - h * 0.16, h * 0.07, h * 0.16),
+      Paint()..color = tone(const Color(0xFF1D4F86)),
+    );
+  }
+
+  /// Une pelleteuse jaune qui creuse : les chenilles, la cabine, le bras qui monte et descend.
+  static void _excavator(Canvas c, Offset base, double s, double t, Color Function(Color) tone) {
+    final yellow = tone(const Color(0xFFF2B01E));
+    c.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(base.dx - 0.62 * s, base.dy - 0.26 * s, base.dx + 0.62 * s, base.dy),
+        Radius.circular(0.13 * s),
+      ),
+      Paint()..color = tone(const Color(0xFF2B2B2E)),
+    );
+    for (var i = 0; i < 5; i++) {
+      c.drawCircle(
+        Offset(base.dx - 0.48 * s + i * 0.24 * s, base.dy - 0.13 * s),
+        0.07 * s,
+        Paint()..color = tone(const Color(0xFF6A6A6E)),
+      );
+    }
+    c.drawRect(
+      Rect.fromLTRB(base.dx - 0.55 * s, base.dy - 0.6 * s, base.dx + 0.4 * s, base.dy - 0.26 * s),
+      Paint()..color = yellow,
+    );
+    c.drawRect(
+      Rect.fromLTRB(base.dx - 0.1 * s, base.dy - 1.0 * s, base.dx + 0.36 * s, base.dy - 0.6 * s),
+      Paint()..color = yellow,
+    );
+    c.drawRect(
+      Rect.fromLTRB(base.dx - 0.04 * s, base.dy - 0.94 * s, base.dx + 0.3 * s, base.dy - 0.66 * s),
+      Paint()..color = tone(const Color(0xFF22323C)),
+    );
+    // Le bras : la flèche, le balancier et le godet, qui creusent en rythme.
+    final arm = Paint()
+      ..color = yellow
+      ..strokeWidth = 0.13 * s
+      ..strokeCap = StrokeCap.round;
+    final dig = math.sin(t * 0.9);
+    final shoulder = Offset(base.dx + 0.35 * s, base.dy - 0.55 * s);
+    final elbow = shoulder + Offset(math.cos(-0.9 + 0.2 * dig), math.sin(-0.9 + 0.2 * dig)) * 1.0 * s;
+    final wrist = elbow + Offset(math.cos(1.2 + 0.35 * dig), math.sin(1.2 + 0.35 * dig)) * 0.8 * s;
+    c.drawLine(shoulder, elbow, arm);
+    c.drawLine(elbow, wrist, arm..strokeWidth = 0.1 * s);
+    c.drawPath(
+      Path()..addPolygon([wrist, wrist + Offset(0.24 * s, 0.05 * s), wrist + Offset(0.05 * s, 0.26 * s)], true),
+      Paint()..color = tone(const Color(0xFF4A4A4E)),
+    );
+  }
+
+  /// Les matchs des Léopards sur les panneaux du boulevard Triomphal : la photo, le score, les buteurs.
+  static const mondialSlides = [
+    ('mondialportugal', 'RDC 1 – 1 PORTUGAL', 'But de Wissa · Houston, 17 juin'),
+    ('mondialcr7', 'MBEMBA FACE À CR7', 'Le Portugal tenu en échec'),
+    ('mondialmaillot', 'COLOMBIE 1 – 0 RDC', 'Guadalajara, 23 juin'),
+    ('mondialfete', 'RDC 3 – 1 OUZBÉKISTAN', 'Wissa (2), Mayele · Atlanta, 28 juin'),
+    ('mondialangleterre', 'ANGLETERRE 2 – 1 RDC', 'But de Cipenga · Atlanta, 1er juillet'),
+    ('mondialpresident', 'LE PRÉSIDENT AU STADE', 'Félix Tshisekedi suit les Léopards'),
+  ];
+
+  static void _mondialBoards(Canvas c, double w, double u, double base, double scroll, double t) {
+    final step = 720 * u;
+    for (var i = (scroll / step).floor() - 1; i * step - scroll < w + step; i++) {
+      mondialBoard(c, Offset(i * step - scroll + 260 * u, base + 3 * u), u, t + i * 1.7, i * 2);
+    }
+  }
+
+  /// Un panneau du Mondial : chaque match reste quelques secondes, la photo grossit doucement, le bandeau
+  /// du score glisse dessous ; le suivant arrive en balayant l'écran.
+  static void mondialBoard(Canvas c, Offset base, double u, double t, int offset) {
+    const bw = 172.0, bh = 96.0, legs = 14.0, stay = 4.8, swap = 0.7;
+    final frame = Rect.fromLTWH(base.dx - bw / 2 * u, base.dy - (bh + legs) * u, bw * u, bh * u);
+    final posts = Paint()..color = const Color(0xFF232833);
+    for (final x in [-52.0, 52.0]) {
+      c.drawRect(Rect.fromLTWH(base.dx + (x - 2.5) * u, frame.bottom, 5 * u, legs * u), posts);
+    }
+    final rr = RRect.fromRectAndRadius(frame, Radius.circular(6 * u));
+    c.drawRRect(
+      rr.inflate(2 * u),
+      Paint()
+        ..color = leopards.withValues(alpha: 0.35)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 9 * u),
+    );
+    c.drawRRect(rr, Paint()..color = const Color(0xFF0B0E14));
+    final screen = frame.deflate(3 * u);
+    final clock = math.max(0.0, t), n = (clock / stay).floor(), phase = clock - n * stay;
+    final count = mondialSlides.length;
+    c.save();
+    c.clipRRect(RRect.fromRectAndRadius(screen, Radius.circular(3.5 * u)));
+    if (phase < swap && n > 0) {
+      _slide(c, screen, u, mondialSlides[(n - 1 + offset) % count], stay);
+      // Le nouveau match balaie l'ancien, de droite à gauche, en biais.
+      final edge = screen.right + 30 * u - (screen.width + 60 * u) * _ease(phase / swap);
+      c.save();
+      c.clipPath(
+        Path()..addPolygon([
+          Offset(edge, screen.top),
+          Offset(screen.right + 40 * u, screen.top),
+          Offset(screen.right + 40 * u, screen.bottom),
+          Offset(edge - 30 * u, screen.bottom),
+        ], true),
+      );
+      _slide(c, screen, u, mondialSlides[(n + offset) % count], phase);
+      c.restore();
+      c.drawLine(
+        Offset(edge, screen.top),
+        Offset(edge - 30 * u, screen.bottom),
+        Paint()
+          ..color = const Color(0xFFF7D618)
+          ..strokeWidth = 2.4 * u,
+      );
+    } else {
+      _slide(c, screen, u, mondialSlides[(n + offset) % count], phase);
+    }
+    final led = Paint()..color = const Color(0x12000000);
+    for (var y = screen.top; y < screen.bottom; y += 2.2 * u) {
+      c.drawRect(Rect.fromLTWH(screen.left, y, screen.width, 0.8 * u), led);
+    }
+    c.restore();
+    c.drawRRect(
+      rr,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = u
+        ..color = const Color(0x33FFFFFF),
+    );
+  }
+
+  static void _slide(Canvas c, Rect r, double u, (String, String, String) s, double phase) {
+    final img = photos[s.$1];
+    if (img != null) {
+      // La photo couvre l'écran et grossit doucement pendant que le match reste affiché.
+      final iw = img.width.toDouble(), ih = img.height.toDouble();
+      final scale = math.max(r.width / iw, r.height / ih) * (1.03 + 0.07 * (phase / 4.8));
+      final sw = r.width / scale, sh = r.height / scale;
+      c.drawImageRect(
+        img,
+        Rect.fromLTWH((iw - sw) / 2, (ih - sh) * 0.3, sw, sh),
+        r,
+        Paint()..filterQuality = FilterQuality.medium,
+      );
+    } else {
+      c.drawRect(r, Paint()..shader = const LinearGradient(colors: [Color(0xFF0B3C7A), leopards]).createShader(r));
+    }
+    // Le petit badge du Mondial, en haut à gauche.
+    final badge = _text('MONDIAL 2026', 5.6 * u, const Color(0xFF0B1F3A));
+    final br = Rect.fromLTWH(r.left + 5 * u, r.top + 5 * u, badge.width + 8 * u, badge.height + 3 * u);
+    c.drawRRect(RRect.fromRectAndRadius(br, Radius.circular(2 * u)), Paint()..color = const Color(0xFFF7D618));
+    badge.paint(c, br.topLeft + Offset(4 * u, 1.5 * u));
+    // Le bandeau du score glisse depuis la gauche, le titre puis la ligne des buteurs.
+    final band = Rect.fromLTRB(r.left, r.bottom - r.height * 0.36, r.right, r.bottom);
+    final slideIn = _ease((phase - 0.2) / 0.5);
+    c.save();
+    c.clipRect(band);
+    c.translate(-r.width * (1 - slideIn), 0);
+    c.drawRect(band, Paint()..color = const Color(0xE60B1F3A));
+    for (final (i, col) in const [leopards, Color(0xFFF7D618), Color(0xFFCE1021)].indexed) {
+      c.drawRect(Rect.fromLTWH(band.left + i * 2.4 * u, band.top, 2.4 * u, band.height), Paint()..color = col);
+    }
+    final room = band.width - 16 * u;
+    void line(TextPainter tp, double y, double appear) {
+      final k = _ease((phase - appear) / 0.45);
+      if (k <= 0) return;
+      c.save();
+      c.translate(band.left + 11 * u - 12 * u * (1 - k), y);
+      if (tp.width > room) c.scale(room / tp.width);
+      tp.paint(c, Offset.zero);
+      c.restore();
+    }
+
+    final title = _text(s.$2, 11 * u, Colors.white), sub = _text(s.$3, 7 * u, const Color(0xFFF7D618));
+    line(title, band.top + 3.5 * u, 0.45);
+    line(sub, band.top + 5 * u + title.height, 0.75);
+    c.restore();
+  }
+
+  static final _texts = <String, TextPainter>{};
+
+  static TextPainter _text(String text, double size, Color color) {
+    if (_texts.length > 120) _texts.clear();
+    return _texts['$text|${size.toStringAsFixed(1)}|${color.toARGB32()}'] ??= TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(color: color, fontSize: size, fontWeight: FontWeight.w900, letterSpacing: 0.2, height: 1.05),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
   }
 
   static void _tree(Canvas c, Offset base, double size) {
@@ -1060,7 +1673,8 @@ abstract final class Boulevard {
 
   /// Le « 207 » : le minibus Mercedes bleu en haut, jaune en bas, plein à craquer, le receveur à la porte.
   /// Rien n'est écrit sur lui : « Esprit de mort », on ne le dit que dans la conversation.
-  static void bus207(Canvas c, Offset base, double k, double t, {bool flip = false}) {
+  /// [fans] : un jour de Mondial, tout le monde porte le maillot des Léopards et les drapeaux sortent des fenêtres.
+  static void bus207(Canvas c, Offset base, double k, double t, {bool flip = false, bool fans = false}) {
     _begin(c, base, k, flip);
     _shadow(c, 64, 1);
     // Il tremble sur ses vieux amortisseurs.
@@ -1119,10 +1733,12 @@ abstract final class Boulevard {
         c.drawCircle(Offset(x + 5 + j * 8, -48 + bob + j * 1.5), 3.9, Paint()..color = _skins[(i + j) % _skins.length]);
         c.drawRect(
           Rect.fromLTWH(x + 1.5 + j * 8, -44.5 + bob, 7, 3),
-          Paint()..color = _awnings[(i * 2 + j) % _awnings.length],
+          Paint()..color = fans ? leopards : _awnings[(i * 2 + j) % _awnings.length],
         );
       }
       c.drawRect(Rect.fromLTWH(x, -61, 18, 2.5), Paint()..color = const Color(0x33FFFFFF));
+      // Un drapeau par fenêtre, tenu à bout de bras au-dessus du toit.
+      if (fans) flag(c, Offset(x + 6, -84 + math.sin(t * 5 + i) * 1.5), 9, t * 1.3 + i);
     }
     // La porte coulissante ouverte, et le receveur accroché dehors qui appelle les clients.
     c.drawRect(const Rect.fromLTRB(8, -61, 28, -11), Paint()..color = const Color(0xFF141C22));
@@ -1134,9 +1750,12 @@ abstract final class Boulevard {
     c.drawLine(const Offset(22, -30), const Offset(24, -11), limb);
     c.drawRRect(
       RRect.fromRectAndRadius(const Rect.fromLTWH(15, -48, 11, 19), const Radius.circular(3)),
-      Paint()..color = const Color(0xFFC0392B),
+      Paint()..color = fans ? leopards : const Color(0xFFC0392B),
     );
+    if (fans) _chevron(c, const Offset(20.5, -41), 3.2);
     c.drawLine(const Offset(24, -45), Offset(36, -52 + wave), limb..color = _skins[1]);
+    // Le receveur agite le drapeau.
+    if (fans) flag(c, Offset(36, -72 + wave), 11, t * 1.5);
     c.drawLine(const Offset(17, -45), const Offset(12, -58), limb);
     c.drawCircle(const Offset(21, -53), 4.6, Paint()..color = _skins[1]);
     // Le phare, le pare-chocs, le feu arrière.
@@ -1227,6 +1846,7 @@ abstract final class Boulevard {
   /// le guidon et ses clients serrés derrière lui. Elle roule : les rayons tournent, le pot fume, l'air file.
   /// [amazed] : le chauffeur voit l'avion, tourne la tête et lève le bras, bouche ouverte.
   /// [mama] : une maman enceinte est assise derrière lui ; [alarm] : elle crie, la main sur la tête.
+  /// [fans] : un jour de Mondial, tous en maillot des Léopards, celui de derrière brandit le drapeau.
   static void wewa(
     Canvas c,
     Offset base,
@@ -1238,6 +1858,7 @@ abstract final class Boulevard {
     double amazed = 0,
     bool mama = false,
     double alarm = 0,
+    bool fans = false,
   }) {
     _begin(c, base, k, flip, lean);
     _shadow(c, 36, 1);
@@ -1523,7 +2144,7 @@ abstract final class Boulevard {
       }
     }
 
-    void passenger(double x, Color top, Color legs, Color skin, int hat) {
+    void passenger(double x, Color top, Color legs, Color skin, int hat, {bool waves = false}) {
       final hip = Offset(x, -30), shoulder = Offset(x + 1.5, -45), knee = Offset(x + 8, -27);
       // La jambe : la cuisse vers l'avant, le tibia vers le repose-pied.
       c.drawLine(
@@ -1549,7 +2170,15 @@ abstract final class Boulevard {
           ..strokeWidth = 7
           ..color = top,
       );
-      c.drawLine(shoulder + const Offset(0.5, 2), Offset(x + 7, -36), limb..strokeWidth = 2.8);
+      if (fans) _chevron(c, Offset(x + 0.8, -39), 2.6);
+      if (waves) {
+        // Le bras levé, le drapeau au bout.
+        final hand = Offset(x - 1 + math.sin(t * 4) * 1.5, -62);
+        c.drawLine(shoulder + const Offset(0.5, 1), hand, limb..strokeWidth = 2.6);
+        flag(c, hand.translate(0, -12), 10, t * 1.4);
+      } else {
+        c.drawLine(shoulder + const Offset(0.5, 2), Offset(x + 7, -36), limb..strokeWidth = 2.8);
+      }
       head(shoulder + const Offset(1.4, -6.6), skin, hat);
     }
 
@@ -1595,8 +2224,13 @@ abstract final class Boulevard {
     if (mama) {
       mother(-15);
     } else {
-      if (riders >= 3) passenger(-19, const Color(0xFF2456A6), const Color(0xFF2456A6), _skins[2], 3);
-      if (riders >= 2) passenger(-11, const Color(0xFF8A5A3B), const Color(0xFF1B1B1D), _skins[3], 2);
+      if (fans) {
+        if (riders >= 3) passenger(-19, leopards, const Color(0xFF1B1B1D), _skins[2], 0, waves: true);
+        if (riders >= 2) passenger(-11, leopards, const Color(0xFF2456A6), _skins[3], 3, waves: riders == 2);
+      } else {
+        if (riders >= 3) passenger(-19, const Color(0xFF2456A6), const Color(0xFF2456A6), _skins[2], 3);
+        if (riders >= 2) passenger(-11, const Color(0xFF8A5A3B), const Color(0xFF1B1B1D), _skins[3], 2);
+      }
     }
     // Le chauffeur : penché sur le guidon, les mains sur les poignées, les pieds sur les repose-pieds.
     final skin = _skins[0];
@@ -1616,13 +2250,15 @@ abstract final class Boulevard {
         ..strokeWidth = 2.8
         ..color = const Color(0xFF111111),
     );
+    final shirt = fans ? leopards : const Color(0xFFB3261E);
     c.drawLine(
       hip,
       shoulder,
       limb
         ..strokeWidth = 7.6
-        ..color = const Color(0xFFB3261E),
+        ..color = shirt,
     );
+    if (fans) _chevron(c, const Offset(3.8, -39), 2.8);
     c.drawLine(
       const Offset(0, -40),
       const Offset(7, -41),
@@ -1638,7 +2274,7 @@ abstract final class Boulevard {
         up,
         limb
           ..strokeWidth = 2.8
-          ..color = const Color(0xFFB3261E),
+          ..color = shirt,
       );
       c.drawCircle(up, 1.7, Paint()..color = skin);
     }
@@ -1647,7 +2283,7 @@ abstract final class Boulevard {
       const Offset(10.5, -38.3),
       limb
         ..strokeWidth = 2.8
-        ..color = const Color(0xFFB3261E),
+        ..color = shirt,
     );
     c.drawCircle(const Offset(11, -38.4), 1.6, Paint()..color = skin);
     head(shoulder + const Offset(2.6, -6.2), skin, 1, turned: amazed > 0.5);
@@ -1924,7 +2560,8 @@ abstract final class Boulevard {
   // ------------------------------------------------------------ le pare-brise
 
   /// Le nez de l'avion vu de tout près : derrière le pare-brise, le commandant, son casque et son micro,
-  /// et le copilote à côté. [talk] ouvre la bouche du commandant quand il parle.
+  /// et le copilote à côté. [talk] ouvre la bouche du commandant quand il parle, [copilotTalk] celle du copilote.
+  /// [party] : un jour de fête (le Mondial), pas d'alarme ; ils sourient et un fanion pend au plafond.
   static void cockpit(
     Canvas c,
     Size s,
@@ -1933,6 +2570,8 @@ abstract final class Boulevard {
     required Color skin,
     required Color band,
     double talk = 0,
+    double copilotTalk = 0,
+    bool party = false,
   }) {
     if (fade <= 0) return;
     final layered = fade < 1;
@@ -2035,11 +2674,16 @@ abstract final class Boulevard {
       );
     }
     // L'alarme : la lumière rouge bat dans le poste.
-    final alarm = 0.5 + 0.5 * math.sin(t * 7);
+    final alarm = party ? 0.0 : 0.5 + 0.5 * math.sin(t * 7);
     c.drawRect(const Rect.fromLTRB(0, 60, 1000, 340), Paint()..color = Color.fromRGBO(255, 60, 40, 0.1 * alarm));
 
-    _pilot(c, const Offset(362, 240), 1.0, t, captain: false, talk: 0);
-    _pilot(c, const Offset(640, 238), 1.2, t, captain: true, talk: talk);
+    _pilot(c, const Offset(362, 240), 1.0, t, captain: false, talk: copilotTalk, happy: party);
+    _pilot(c, const Offset(640, 238), 1.2, t, captain: true, talk: talk, happy: party);
+    // Les drapeaux du Mondial, accrochés au panneau du plafond, un de chaque côté du montant.
+    if (party) {
+      flag(c, const Offset(430, 136), 22, t * 0.7);
+      flag(c, const Offset(528, 136), 22, t * 0.8 + 1);
+    }
 
     // La casquette du tableau de bord, en bas des vitres, avec ses cadrans.
     c.drawPath(
@@ -2096,7 +2740,15 @@ abstract final class Boulevard {
 
   /// Un pilote derrière la vitre : la casquette, le casque sur les oreilles, le micro devant la bouche,
   /// la chemise blanche et les galons. Le commandant fronce les sourcils ; le copilote ouvre de grands yeux.
-  static void _pilot(Canvas c, Offset at, double k, double t, {required bool captain, required double talk}) {
+  static void _pilot(
+    Canvas c,
+    Offset at,
+    double k,
+    double t, {
+    required bool captain,
+    required double talk,
+    bool happy = false,
+  }) {
     c.save();
     c.translate(at.dx, at.dy + math.sin(t * 9 + (captain ? 0 : 2)) * 1.5);
     c.scale(k);
@@ -2152,7 +2804,7 @@ abstract final class Boulevard {
     c.drawOval(const Rect.fromLTRB(-37, -10, -20, 30), Paint()..color = shade.withValues(alpha: 0.5));
     c.drawOval(const Rect.fromLTRB(-10, -8, 22, 12), Paint()..color = light.withValues(alpha: 0.35));
     // Les yeux et les sourcils.
-    final wide = captain ? 1.0 : 1.35;
+    final wide = captain || happy ? 1.0 : 1.35;
     for (final side in const [-1.0, 1.0]) {
       final eye = Offset(side * 14, -6);
       c.drawOval(Rect.fromCenter(center: eye, width: 15, height: 9.5 * wide), Paint()..color = const Color(0xFFF7F4EC));
@@ -2162,11 +2814,22 @@ abstract final class Boulevard {
         ..color = const Color(0xFF120B07)
         ..strokeWidth = 4.4
         ..strokeCap = StrokeCap.round;
-      captain
-          // En colère : les sourcils plongent vers le nez.
-          ? c.drawLine(eye + Offset(side * 10, -13), eye + Offset(-side * 7, -8), brow)
-          // Effrayé : ils montent.
-          : c.drawLine(eye + Offset(side * 9, -13), eye + Offset(-side * 7, -17), brow);
+      if (happy) {
+        // Content : les sourcils en arc, bien haut.
+        c.drawArc(
+          Rect.fromCenter(center: eye.translate(0, -11), width: 18, height: 8),
+          math.pi * 1.1,
+          math.pi * 0.8,
+          false,
+          brow..style = PaintingStyle.stroke,
+        );
+      } else {
+        captain
+            // En colère : les sourcils plongent vers le nez.
+            ? c.drawLine(eye + Offset(side * 10, -13), eye + Offset(-side * 7, -8), brow)
+            // Effrayé : ils montent.
+            : c.drawLine(eye + Offset(side * 9, -13), eye + Offset(-side * 7, -17), brow);
+      }
     }
     c.drawPath(
       Path()
@@ -2180,17 +2843,36 @@ abstract final class Boulevard {
         ..strokeCap = StrokeCap.round,
     );
     // La bouche : elle s'ouvre quand il parle (ou reste ronde de peur).
-    final open = captain ? talk : 0.55 + 0.15 * math.sin(t * 3);
-    final mouth = Rect.fromCenter(center: const Offset(0, 25), width: captain ? 24 : 15, height: 3 + 13 * open);
-    c.drawOval(mouth, Paint()..color = const Color(0xFF2A0E0A));
+    final open = captain || happy ? talk : 0.55 + 0.15 * math.sin(t * 3);
+    final mouth = Rect.fromCenter(
+      center: const Offset(0, 25),
+      width: captain || happy ? 24 : 15,
+      height: 3 + 13 * open,
+    );
+    if (happy && open < 0.2) {
+      // Le sourire, quand il ne parle pas.
+      c.drawArc(
+        Rect.fromCenter(center: const Offset(0, 18), width: 26, height: 16),
+        0.15 * math.pi,
+        0.7 * math.pi,
+        false,
+        Paint()
+          ..color = const Color(0xFF2A0E0A)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.2
+          ..strokeCap = StrokeCap.round,
+      );
+    } else {
+      c.drawOval(mouth, Paint()..color = const Color(0xFF2A0E0A));
+    }
     if (open > 0.25) {
       c.drawRect(
         Rect.fromLTRB(mouth.left + 4, mouth.top + 1, mouth.right - 4, mouth.top + 4),
         Paint()..color = const Color(0xFFF7F4EC),
       );
     }
-    // Une goutte de sueur.
-    final drop = (t * 0.5 + (captain ? 0 : 0.5)) % 1.0;
+    // Une goutte de sueur (pas un jour de fête).
+    final drop = happy ? 1.0 : (t * 0.5 + (captain ? 0 : 0.5)) % 1.0;
     c.drawOval(
       Rect.fromCenter(center: Offset(captain ? 30 : -30, -18 + drop * 34), width: 5, height: 8),
       Paint()..color = Color.fromRGBO(190, 225, 255, 0.85 * (1 - drop)),

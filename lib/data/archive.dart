@@ -175,6 +175,29 @@ const archivePhotos = <String, ArchivePhoto>{
   'fally2006': ArchivePhoto('fally-ipupa-2006.jpg', 'Fally Ipupa, « Droit chemin », 2006'),
   'fallysdf': ArchivePhoto('fally-stade-de-france-2026.jpg', 'Fally Ipupa au Stade de France, 2 et 3 mai 2026'),
   'fallychevalier': ArchivePhoto('fally-chevalier-2026.jpg', 'Fally Ipupa reçoit les insignes de chevalier du Léopard'),
+  // Le Mondial 2026 : la fiche du 17 juin, et les panneaux du boulevard Triomphal.
+  'mondialportugal': ArchivePhoto(
+    'mondial-portugal-2026.jpg',
+    'RDC – Portugal (1-1), Houston, 17 juin 2026',
+    wide: true,
+  ),
+  'mondialcr7': ArchivePhoto(
+    'mondial-cr7-2026.jpg',
+    'Chancel Mbemba face à Cristiano Ronaldo, 17 juin 2026',
+    wide: true,
+  ),
+  'mondialangleterre': ArchivePhoto(
+    'mondial-angleterre-2026.jpg',
+    'RDC – Angleterre (1-2), Atlanta, 1er juillet 2026',
+    wide: true,
+  ),
+  'mondialfete': ArchivePhoto('mondial-fete-2026.jpg', 'Les Léopards font la fête, Mondial 2026', wide: true),
+  'mondialmaillot': ArchivePhoto('mondial-maillot-2026.jpg', 'Le maillot des Léopards, Mondial 2026', wide: true),
+  'mondialpresident': ArchivePhoto(
+    'mondial-president-2026.jpg',
+    'Le président Félix Tshisekedi suit les Léopards au stade',
+    wide: true,
+  ),
   'president': ArchivePhoto('tshisekedi-president.jpg', 'Félix Tshisekedi, président de la République'),
   'mutombo': ArchivePhoto('dikembe-mutombo.jpg', 'Dikembe Mutombo, ambassadeur de la NBA, avec le drapeau de la RDC'),
   'mutombohawks': ArchivePhoto(

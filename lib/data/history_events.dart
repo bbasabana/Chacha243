@@ -1373,6 +1373,21 @@ const historyEvents = <HistoryEvent>[
     song: 'fally2026',
     brief: 'Après le Stade de France, le président Tshisekedi lui remet les insignes de l\'Ordre national du Léopard.',
   ),
+  // Puis, le 1er juillet, la descente sur le boulevard Triomphal pour fêter tout le parcours.
+  HistoryEvent(
+    2026.46,
+    EventKind.glory,
+    '17 juin 2026',
+    'Houston',
+    'Les Léopards au Mondial',
+    'Pour leur premier Mondial depuis 1974, du temps du Zaïre, les Léopards accrochent le Portugal '
+        'de Cristiano Ronaldo : 1-1, d\'une tête de Yoane Wissa. Le 28 juin, ils battent l\'Ouzbékistan 3-1 '
+        'et passent en seizièmes de finale, une première.',
+    photo: 'mondialportugal',
+    medal: 'Mondial 2026',
+    balls: true,
+    brief: 'Premier Mondial depuis 1974 : 1-1 contre le Portugal, puis la qualification pour les seizièmes.',
+  ),
   HistoryEvent(
     2026.78,
     EventKind.life,
