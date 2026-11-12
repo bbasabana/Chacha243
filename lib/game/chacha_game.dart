@@ -1013,6 +1013,10 @@ class ChachaGame extends FlameGame {
   /// le temps d'« Alain Moloto » : les mois défilent, l'avion se pilote seul et dévie
   /// des orages, puis il descend vers Kinshasa pour le 30 juin 2027.
   static const _finaleFrom = 2026.75;
+
+  /// Du Mondial 2026 à l'arrivée, le voyage touche à sa fin : plus d'escale ni de mission, le kérosène suit.
+  static const _lastLegFrom = 2026.46;
+  bool get _lastLeg => year >= _lastLegFrom;
   static const _finaleLength = 40.0;
   static const _homeYear = 2027.44;
   double _finaleT = -1, _finaleYear0 = 0, _gapY = 0, _wallX = -1e9;
@@ -1072,11 +1076,13 @@ class ChachaGame extends FlameGame {
   }
 
   int _fuelCans = 0;
-  double _nextSponsor = 0, _sponsorAt = 0, _sponsorTop = 0.36, _nextTow = 20, _towAt = 0, _nextArrivalAd = 0;
+  double _nextSponsor = 0, _sponsorAt = 0, _sponsorTop = 0.36, _nextTow = 20, _towAt = 0;
   String _sponsorLabel = '';
   Ad? _sponsor, _tow;
 
   void _showSponsor(Ad ad, String label, double top) {
+    // Pas de pastille de pub dans le ciel pendant la dernière ligne droite.
+    if (_finaleT >= 0) return;
     _sponsor = ad;
     _sponsorAt = t;
     _sponsorLabel = label;
@@ -2352,6 +2358,11 @@ class ChachaGame extends FlameGame {
     // En guerre, le kérosène part bien plus vite.
     fuel -= dt * ts * (1.15 + (boost ? 1.3 : 0)) * (1.35 - type.tank * 0.6) * (_zone != null ? 1.8 : 1);
     condition = math.max(0, condition - _hurt(dt * ts * 0.15));
+    if (_lastLeg) {
+      // Sans escale jusqu'au bout, l'avion ne manque de rien.
+      fuel = math.max(fuel, 60);
+      condition = math.max(condition, 60);
+    }
     if (fuel < 25 && !_lowFuelSaid) {
       _lowFuelSaid = true;
       _hudAwakeUntil = t + 8;
@@ -2397,7 +2408,7 @@ class ChachaGame extends FlameGame {
       _setPhase(FlightPhase.crashed);
       return;
     }
-    if (_offerCalm && !_offerPending && _calmForStop && t >= _nextOffer && (fuel < 35 || condition < 30)) {
+    if (!_lastLeg && _offerCalm && !_offerPending && _calmForStop && t >= _nextOffer && (fuel < 35 || condition < 30)) {
       _offerStopover();
     }
     _checkMission();
@@ -2511,16 +2522,11 @@ class ChachaGame extends FlameGame {
     _clearStage();
     if (passengers == 0) passengers = (type.seats * 0.8).round();
     _song('moloto');
+    // Peu de messages jusqu'à l'arrivée : une annonce par moment, l'une après l'autre ; on regarde le ciel.
+    _sponsor = _tow = null;
     _queueBanner(
       const FlightBanner('La dernière ligne droite', 'Le pilote automatique te ramène à Kinshasa pour le 30 juin 2027'),
     );
-    _say(
-      'Tour de Kinshasa',
-      'Tokokoma !',
-      '« Nous allons arriver ! » On prend les commandes avec toi : regarde, et tiens bon.',
-      seconds: 6,
-    );
-    _talk(TalkMoment.finaleStart, force: true);
     _pushHud();
   }
 
@@ -2569,7 +2575,6 @@ class ChachaGame extends FlameGame {
         _finaleStep++;
       case 1 when _finaleT >= 11:
         _stormWall();
-        _talk(TalkMoment.finaleStorm, force: true);
         _finaleStep++;
       case 2 when _finaleT >= 13.5:
         slowMo = 1.6;
@@ -2582,7 +2587,6 @@ class ChachaGame extends FlameGame {
       case 4 when _finaleT >= 20.5:
         slowMo = 1.4;
         shake = 0.45;
-        _talk(TalkMoment.finaleStorm, force: true);
         _finaleStep++;
       case 5 when _finaleT >= 25:
         _stormWall();
@@ -2598,7 +2602,6 @@ class ChachaGame extends FlameGame {
         _queueBanner(
           const FlightBanner('Le calme après la tempête', 'Le ciel s\'ouvre au-dessus du pays', color: _peaceGreen),
         );
-        _talk(TalkMoment.finaleCalm, force: true);
         _finaleStep++;
       case 8 when _finaleT >= _finaleLength:
         _beginHomecoming();
@@ -2618,14 +2621,7 @@ class ChachaGame extends FlameGame {
     _gusty = false;
     touchTarget = null;
     onFinale?.call();
-    _talk(TalkMoment.approachHome, force: true);
     _startApproach();
-    _say(
-      'Tour de Kinshasa',
-      Lingala.kitaMalembe,
-      '« Descends doucement. » Bienvenue à la maison : le pays t\'attend pour le 30 juin.',
-      seconds: 7,
-    );
   }
 
   void _arriveHome() {
@@ -2991,7 +2987,8 @@ class ChachaGame extends FlameGame {
         first: true,
       );
     }
-    if (t >= _nextTow && card.value == null && turningPoint.value == null) {
+    // Pas de banderole dans le ciel pendant la dernière ligne droite : seuls les panneaux de l'aéroport restent.
+    if (t >= _nextTow && _finaleT < 0 && card.value == null && turningPoint.value == null) {
       _nextTow = t + 60;
       _tow = Ads.next('ciel', year);
       _towAt = t;
@@ -3112,7 +3109,7 @@ class ChachaGame extends FlameGame {
   /// Kérosène en alerte : la tour propose d'acheter le plein en vol, ou d'atterrir.
   void _fuelAlert() {
     _nextFuelAlert = t + 30;
-    if (_offerPending || phase != FlightPhase.cruising || _finaleT >= 0) return;
+    if (_offerPending || phase != FlightPhase.cruising || _finaleT >= 0 || _lastLeg) return;
     // Pas de quoi payer même un peu de kérosène en vol : il faut descendre, l'aéroport fait crédit.
     if (money + score < fuelPrice * 10) return _mustLand();
     _airport = _nearestAirport();
@@ -4095,7 +4092,7 @@ class ChachaGame extends FlameGame {
   /// Au sol, tout est prêt : TURBO appelle le pouce.
   bool get turboWanted => phase == FlightPhase.ready && _boardT < 0 && _truckT < 0 && fuel >= 50 && !boost;
 
-  bool get canLand => phase == FlightPhase.cruising && _zone == null && _finaleT < 0 && _bT < 0;
+  bool get canLand => phase == FlightPhase.cruising && _zone == null && _finaleT < 0 && _bT < 0 && !_lastLeg;
 
   /// Le bouton ATTERRIR ne se montre que s'il sert : kérosène bas, avion abîmé, ou passagers à prendre ou à déposer.
   bool get landingUseful =>
@@ -4368,9 +4365,8 @@ class ChachaGame extends FlameGame {
     }
     if (_approachT > _aerialTime + _glideTime * 0.7 && !_cueRunway) {
       _cueRunway = true;
-      _homeApproach
-          ? _say('Tour de Kinshasa', Lingala.elonga, 'Piste de N\'djili en vue. Tout le pays te regarde.')
-          : _say('Tour de ${_airport!.cityAt(year)}', Lingala.tokende, 'Piste en vue : on se pose !');
+      // Au retour à Kinshasa, le survol a déjà tout dit : pas de message de plus avant la piste.
+      if (!_homeApproach) _say('Tour de ${_airport!.cityAt(year)}', Lingala.tokende, 'Piste en vue : on se pose !');
     }
 
     final shift = _groundShift;
@@ -6206,7 +6202,9 @@ class ChachaGame extends FlameGame {
 
   void _checkMission() {
     final m = mission.value;
-    if (year < 1962 || !_offerCalm || _offerPending || !_calmForStop) return;
+    // Plus de mission pour la fin du voyage : ceux qui sont à bord vont jusqu'à Kinshasa.
+    if (_lastLeg && m != null && phase == FlightPhase.cruising && !_offerPending) mission.value = null;
+    if (year < 1962 || _lastLeg || !_offerCalm || _offerPending || !_calmForStop) return;
     if (m == null) {
       // Pas d'escale juste avant un grand tournant (Mobutu, le Zaïre…) : on le vit en vol, puis on descend.
       // Le repas est servi d'abord : une mission attend jusqu'à 30 s qu'il trouve sa place.
@@ -7485,12 +7483,6 @@ class ChachaGame extends FlameGame {
       }
     }
 
-    // À l'arrivée du 30 juin 2027, les partenaires passent l'un après l'autre.
-    if (_finaleT >= 0 && t >= _nextArrivalAd) {
-      _nextArrivalAd = t + 4;
-      final partner = Ads.next('arrivee', year);
-      if (partner != null) _showSponsor(partner, 'Partenaire de l\'arrivée', 0.2);
-    }
     if (_sponsor != null) Ads.thanks(canvas, s, _unit, _sponsor!, t - _sponsorAt, _sponsorLabel, _sponsorTop);
     if (_bT < 0 || _bT < _scene.aerial) _drawTrail(canvas);
     if (phase == FlightPhase.approach) _drawGlidePath(canvas);

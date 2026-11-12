@@ -1380,6 +1380,51 @@ void main() {
     expect(g.sceneLine.value, isNull);
   });
 
+  test('après le Mondial, plus d\'escale ni de mission : l\'avion va jusqu\'au bout sans manquer de rien', () async {
+    final g = await start(year: 2026.52);
+    var offers = 0;
+    g.radio.addListener(() {
+      if (g.radio.value?.offer != null) offers++;
+    });
+    for (var i = 0; i < 60 * 90; i++) {
+      g.fuel = math.min(g.fuel, 20);
+      g.condition = math.min(g.condition, 20);
+      g.update(1 / 60);
+      expect(g.canLand, isFalse);
+      expect(g.mission.value, isNull);
+    }
+    expect(offers, 0, reason: 'la tour ne propose plus d\'escale');
+    expect(g.lives, greaterThan(0));
+  });
+
+  test('la dernière ligne droite : pas de pub dans le ciel, peu de messages, puis la parole de l\'arrivée', () async {
+    final g = await start(year: 2026.8, autopilot: true);
+    final banners = <String>[];
+    var talks = 0, radios = 0, talksAtHome = 0;
+    g.banner.addListener(() {
+      if (g.banner.value case final b?) banners.add(b.title);
+    });
+    g.radio.addListener(() {
+      if (g.radio.value != null && !g.homecoming.value) radios++;
+    });
+    g.talk.addListener(() {
+      if (g.talk.value == null) return;
+      g.homecoming.value ? talksAtHome++ : talks++;
+    });
+    for (var i = 0; i < 60 * 200 && !g.homecoming.value; i++) {
+      g.fuel = 100;
+      g.update(1 / 60);
+    }
+    expect(g.homecoming.value, isTrue, reason: 'l\'avion est arrivé à Kinshasa');
+    for (var i = 0; i < 60 * 5; i++) {
+      g.update(1 / 60);
+    }
+    expect(talks, 0, reason: 'pas de conversation de la cabine pendant la dernière ligne droite');
+    expect(radios, lessThanOrEqualTo(3), reason: 'la tour ne parle que pour le survol de Kinshasa');
+    expect(banners.where((b) => b.contains('Partenaire')), isEmpty);
+    expect(talksAtHome, greaterThan(0), reason: 'à l\'arrivée, les passagers parlent');
+  });
+
   test('après un saut du tableau de bord à 2026,44 : la fiche du Mondial, puis la descente sur le Triomphal', () async {
     final g = await start(year: 2026.44);
     var seen = 0, was = false, cardAt = -1.0, sceneAt = -1.0, clock = 0.0;
