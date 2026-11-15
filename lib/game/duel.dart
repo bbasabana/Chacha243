@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:bonsoir/bonsoir.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -245,8 +246,20 @@ class DuelPeer {
 /// Qui est là sur le Wi-Fi, comme AirDrop. Chaque téléphone dont l'écran du duel est ouvert se signale
 /// toutes les secondes et demie, à tout le Wi-Fi et directement à ceux qu'il a déjà entendus : certains
 /// Wi-Fi laissent passer l'un sans l'autre. Les salles ouvertes et les invitations suivent le même chemin.
+///
+/// L'iPhone n'a pas le droit d'écrire à tout le Wi-Fi : il se fait connaître par Bonjour, comme une
+/// imprimante, et Android le comprend aussi. Bonjour donne l'adresse de l'autre, puis on se parle directement.
 class DuelFinder extends ChangeNotifier {
   static const _lock = MethodChannel('chacha243/net');
+
+  /// Le nom du service Bonjour, déclaré aussi dans l'Info.plist de l'iPhone (NSBonjourServices).
+  static const bonjourType = '_chacha243._tcp';
+
+  BonsoirBroadcast? _shout;
+  BonsoirDiscovery? _look;
+
+  /// Les adresses données par Bonjour : on leur écrit directement.
+  final _hints = <String>{};
 
   /// Sans nouvelles depuis sept secondes, un pilote ou une salle est parti.
   static const _forget = 7000;
@@ -283,6 +296,58 @@ class DuelFinder extends ChangeNotifier {
     } catch (_) {}
     _pulse = Timer.periodic(const Duration(milliseconds: 1500), (_) => _beat());
     await _beat();
+    _bonjour();
+  }
+
+  /// Bonjour : je m'annonce avec mes adresses, et je cherche ceux qui s'annoncent.
+  Future<void> _bonjour() async {
+    try {
+      final ips = [for (final a in await wifiAddresses()) a.address];
+      final shout = BonsoirBroadcast(
+        service: BonsoirService(
+          name: 'Chacha243 ${_myId.length > 10 ? _myId.substring(0, 10) : _myId}',
+          type: bonjourType,
+          port: duelPort,
+          attributes: {'id': _myId, 'ip': ips.join(',')},
+        ),
+      );
+      await shout.initialize();
+      await shout.start();
+      if (_stopped) return shout.stop();
+      _shout = shout;
+    } catch (_) {}
+    try {
+      final look = BonsoirDiscovery(type: bonjourType);
+      await look.initialize();
+      look.eventStream?.listen((e) {
+        switch (e) {
+          case BonsoirDiscoveryServiceFoundEvent():
+            if (e.service.attributes['id'] != _myId) look.serviceResolver.resolveService(e.service).catchError((_) {});
+          case BonsoirDiscoveryServiceResolvedEvent() || BonsoirDiscoveryServiceUpdatedEvent():
+            _hint(e.service);
+          default:
+        }
+      });
+      await look.start();
+      if (_stopped) return look.stop();
+      _look = look;
+    } catch (_) {}
+  }
+
+  void _hint(BonsoirService? s) {
+    if (s == null || s.attributes['id'] == _myId) return;
+    var fresh = false;
+    for (final ip in [...?s.attributes['ip']?.split(','), ?s.host]) {
+      final a = InternetAddress.tryParse(ip.trim());
+      if (a != null && a.type == InternetAddressType.IPv4 && _isPrivate(a)) fresh = _hints.add(a.address) || fresh;
+    }
+    // Une nouvelle adresse : on lui dit bonjour tout de suite.
+    if (fresh && _socket != null) {
+      final hi = _packet({'t': 'hi', 'room': ?room});
+      for (final to in _hints) {
+        _send(_socket!, hi, to);
+      }
+    }
   }
 
   Future<void> _bind() async {
@@ -328,7 +393,7 @@ class DuelFinder extends ChangeNotifier {
     }
     if (before != _rooms.length + _peers.length) notifyListeners();
     final hi = _packet({'t': 'hi', 'room': ?room});
-    for (final to in {...await _everyone(), for (final p in _peers.values) p.address}) {
+    for (final to in {...await _everyone(), ..._hints, for (final p in _peers.values) p.address}) {
       _send(s, hi, to);
     }
   }
@@ -427,6 +492,11 @@ class DuelFinder extends ChangeNotifier {
     _socket = null;
     _rooms.clear();
     _peers.clear();
+    _hints.clear();
+    _shout?.stop().catchError((_) {});
+    _look?.stop().catchError((_) {});
+    _shout = null;
+    _look = null;
     _lock.invokeMethod<void>('release').catchError((_) {});
   }
 

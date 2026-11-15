@@ -4,6 +4,10 @@
 <dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Chacha243 cherche tes amis sur le même réseau Wi-Fi pour jouer des duels entre vos téléphones.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_chacha243._tcp</string>
+	</array>
 	<key>NSMotionUsageDescription</key>
 	<string>Chacha243 utilise l'inclinaison du téléphone pour piloter l'avion.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
