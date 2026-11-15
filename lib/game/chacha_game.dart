@@ -58,6 +58,7 @@ class HudState {
     this.planeLow = false,
     this.planeHigh = false,
     this.quiet = false,
+    this.cockpit = 1,
     this.showMission = false,
     this.refuel = 0,
     this.reserve = 0,
@@ -108,6 +109,10 @@ class HudState {
   /// L'avion passe derrière le tableau de bord (en bas) ou derrière l'année (en haut) :
   /// le panneau s'efface pour qu'on voie toujours l'avion.
   final bool planeLow, planeHigh, quiet, showMission;
+
+  /// Le tableau de bord du bas : 1 en entier, pâle quand il repasse un instant, 0 caché.
+  /// Le ciel calme et l'avion en forme, il laisse toute la place au pilote.
+  final double cockpit;
 
   /// Le plein au sol : 0 aucun, 1 le camion arrive, 2 il remplit, 3 il repart.
   final int refuel;
@@ -7219,6 +7224,14 @@ class ChachaGame extends FlameGame {
       condition >= 45 &&
       t % 50 >= 5;
 
+  /// Le tableau de bord se cache dans le calme, puis repasse pâle six secondes toutes les quarante-cinq.
+  /// Il revient en entier dès qu'il faut le lire : peu de kérosène, avion abîmé, décollage ou approche.
+  double get _cockpitLook {
+    final calm = phase == FlightPhase.cruising && _finaleT < 0 && t >= _hudAwakeUntil && fuel >= 30 && condition >= 45;
+    if (!calm) return 1;
+    return t % 45 < 6 ? 0.35 : 0;
+  }
+
   void _pushHud() {
     hud.value = HudState(
       phase: phase,
@@ -7258,6 +7271,7 @@ class ChachaGame extends FlameGame {
       planeLow: planeY > _h * 0.6 && planeX < _w * 0.42,
       planeHigh: planeY < _h * 0.3 && planeX < _w * 0.42,
       quiet: _hudQuiet,
+      cockpit: _cockpitLook,
       showMission: t - _missionShownAt < 7,
       refuel: _truckT < 0 ? 0 : _truckStep,
       reserve: reserve,

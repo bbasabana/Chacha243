@@ -149,6 +149,56 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return Stack(
       children: [
         Positioned.fill(child: _main()),
+        // La fiche de l'avion à droite, sous les petits boutons : loin des boutons de vol, l'avion se voit.
+        Positioned(
+          top: 70,
+          right: 22,
+          child: ValueListenableBuilder(
+            valueListenable: selectedAircraft,
+            builder: (_, type, _) => GestureDetector(
+              onTap: _hangar,
+              child: Glass(
+                radius: 22,
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+                child: SizedBox(
+                  width: 190,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('TON AVION', style: _label),
+                          const Spacer(),
+                          Icon(Icons.chevron_right_rounded, color: Colors.white.withValues(alpha: 0.6), size: 18),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${type.maker} ${type.name}',
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Au Congo : ${type.inCongo}',
+                        style: const TextStyle(color: ChachaColors.yellow, fontSize: 12.5, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${type.seats} passagers',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12.5),
+                      ),
+                      const SizedBox(height: 10),
+                      _Bar('Vitesse', type.speed),
+                      _Bar('Maniabilité', type.handling),
+                      _Bar('Réservoir', type.tank),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
         if (_top case final top?)
           Positioned(top: 14, left: 22, child: TopPilotsTicker(top, onDone: () => setState(() => _top = null))),
         Positioned(
@@ -187,7 +237,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Widget _main() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
+      // À droite, la place de la fiche de l'avion : les boutons ne la touchent jamais.
+      padding: const EdgeInsets.fromLTRB(32, 24, 260, 24),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -291,17 +342,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Objectif : arriver à Kinshasa le 30 juin 2027',
-                  style: TextStyle(color: ChachaColors.yellow, fontSize: 13, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
+                const SizedBox(height: 12),
+                // Un seul bouton : il déploie le hangar, le classement et le duel, et laisse voir l'avion.
+                _Menu(
+                  items: [
                     _Pill(icon: Icons.warehouse_rounded, label: 'Hangar', onTap: _hangar),
                     if (!kIsWeb)
                       _Pill(
@@ -320,51 +364,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   ],
                 ),
               ],
-            ),
-          ),
-          ValueListenableBuilder(
-            valueListenable: selectedAircraft,
-            builder: (_, type, _) => GestureDetector(
-              onTap: _hangar,
-              child: Glass(
-                radius: 22,
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-                child: SizedBox(
-                  width: 210,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Text('TON AVION', style: _label),
-                          const Spacer(),
-                          Icon(Icons.chevron_right_rounded, color: Colors.white.withValues(alpha: 0.6), size: 18),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${type.maker} ${type.name}',
-                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Au Congo : ${type.inCongo}',
-                        style: const TextStyle(color: ChachaColors.yellow, fontSize: 12.5, fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${type.seats} passagers',
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12.5),
-                      ),
-                      const SizedBox(height: 10),
-                      _Bar('Vitesse', type.speed),
-                      _Bar('Maniabilité', type.handling),
-                      _Bar('Réservoir', type.tank),
-                    ],
-                  ),
-                ),
-              ),
             ),
           ),
         ],
@@ -420,7 +419,7 @@ class _Pill extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           onTap: onTap,
           child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: big ? 235 : 0),
+            constraints: BoxConstraints(minWidth: big ? 200 : 0),
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: label == null ? 12 : (big ? 26 : 18), vertical: 9),
               child: Row(
@@ -456,6 +455,101 @@ class _Pill extends StatelessWidget {
       ),
     );
     return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
+  }
+}
+
+/// Le bouton « Menu » : un toucher, et le hangar, le classement et le duel jaillissent l'un après l'autre
+/// à sa droite, avec un petit rebond ; un autre toucher les range. L'écran reste dégagé pour voir l'avion.
+class _Menu extends StatefulWidget {
+  const _Menu({required this.items});
+
+  final List<Widget> items;
+
+  @override
+  State<_Menu> createState() => _MenuState();
+}
+
+class _MenuState extends State<_Menu> with SingleTickerProviderStateMixin {
+  late final _open = AnimationController(vsync: this, duration: const Duration(milliseconds: 560));
+
+  @override
+  void dispose() {
+    _open.dispose();
+    super.dispose();
+  }
+
+  void _toggle() => _open.isForwardOrCompleted ? _open.reverse() : _open.forward();
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _open,
+      builder: (_, _) {
+        final v = _open.value;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Le bouton tourne d'un huitième de tour : la grille devient une croix pour refermer.
+            Transform.rotate(
+              angle: Curves.easeOutBack.transform(v) * math.pi / 4,
+              child: _Pill(
+                icon: v > 0.5 ? Icons.add_rounded : Icons.apps_rounded,
+                accent: v > 0.5,
+                onTap: _toggle,
+                tooltip: 'Hangar · Classement · Duel',
+              ),
+            ),
+            // « Menu » s'efface quand les boutons sortent.
+            if (v < 1)
+              Align(
+                widthFactor: 1 - Curves.easeOut.transform(v),
+                alignment: Alignment.centerLeft,
+                child: Opacity(
+                  opacity: 1 - v,
+                  child: GestureDetector(
+                    onTap: _toggle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 10),
+                      child: Text(
+                        'Menu',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.95),
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                          shadows: const [Shadow(color: Color(0x66001433), blurRadius: 6)],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            for (var i = 0; i < widget.items.length; i++) _item(i, v),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Chaque bouton sort de derrière le menu, un peu après le précédent, et se pose en rebondissant.
+  Widget _item(int i, double v) {
+    if (v == 0) return const SizedBox.shrink();
+    final start = i * 0.16, end = math.min(1.0, start + 0.6);
+    final bounce = Interval(start, end, curve: Curves.easeOutBack).transform(v);
+    final grow = Interval(start, end, curve: Curves.easeOutCubic).transform(v);
+    return Align(
+      widthFactor: grow,
+      alignment: Alignment.centerLeft,
+      child: Opacity(
+        opacity: grow,
+        child: Transform.translate(
+          offset: Offset(-48 * (1 - bounce), 0),
+          child: Transform.scale(
+            scale: 0.55 + 0.45 * bounce,
+            child: Padding(padding: const EdgeInsets.only(left: 10), child: widget.items[i]),
+          ),
+        ),
+      ),
+    );
   }
 }
 

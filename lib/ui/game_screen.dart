@@ -413,7 +413,7 @@ class _Hud extends StatelessWidget {
                         from: const Offset(-0.3, 0),
                         // Pas plus large qu'il ne faut : la prochaine étape se coupe plutôt que d'élargir le panneau.
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 250),
+                          constraints: const BoxConstraints(maxWidth: 290),
                           child: _YearPanel(hud: hud),
                         ),
                       ),
@@ -604,7 +604,8 @@ class _Hud extends StatelessWidget {
               alignment: Alignment.bottomLeft,
               child: _Reveal(
                 visible: showCockpit,
-                dim: hud.planeLow || hud.quiet,
+                dim: hud.planeLow,
+                level: hud.cockpit,
                 from: const Offset(0, 0.4),
                 child: Transform.scale(
                   scale: 0.84,
@@ -664,77 +665,90 @@ class _Hud extends StatelessWidget {
   );
 }
 
+/// En haut à gauche, comme les points et l'argent à droite : le drapeau et l'année en gras, un trait,
+/// l'avion du moment, un trait, puis le temps de vol.
 class _YearPanel extends StatelessWidget {
   const _YearPanel({required this.hud});
 
   final HudState hud;
 
+  static Widget _big(String text, {Color color = Colors.white, double size = 18}) => Text(
+    text,
+    maxLines: 1,
+    softWrap: false,
+    overflow: TextOverflow.ellipsis,
+    style: TextStyle(
+      color: color,
+      fontSize: size,
+      height: 1.1,
+      fontWeight: FontWeight.w900,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    ),
+  );
+
+  static Widget _small(String text, {Color? color}) => Text(
+    text,
+    maxLines: 1,
+    softWrap: false,
+    style: TextStyle(
+      color: color ?? Colors.white.withValues(alpha: 0.65),
+      fontSize: 9,
+      fontWeight: FontWeight.w700,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    ),
+  );
+
+  static Widget _bar() => Container(
+    width: 1,
+    height: 22,
+    margin: const EdgeInsets.symmetric(horizontal: 10),
+    color: const Color(0x44FFFFFF),
+  );
+
   @override
   Widget build(BuildContext context) {
+    final flying = hud.phase != FlightPhase.ready && hud.flightSeconds >= 1;
+    final left = ((2027.5 - hud.year) / 67 * 100).clamp(0, 100).ceil();
     return Glass(
-      padding: const EdgeInsets.fromLTRB(9, 5, 12, 6),
+      padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(width: 30, height: 20, child: CustomPaint(painter: FlagPainter(hud.flag))),
+          SizedBox(width: 24, height: 16, child: CustomPaint(painter: FlagPainter(hud.flag))),
           const SizedBox(width: 8),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _big('${hud.year.floor()}'),
+              _small(hud.phase == FlightPhase.ready ? 'objectif 2027' : 'reste $left %'),
+            ],
+          ),
+          _bar(),
           Flexible(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${hud.year.floor()}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    height: 1,
-                    fontWeight: FontWeight.w900,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
-                Text(
-                  hud.airline,
-                  style: const TextStyle(color: ChachaColors.yellow, fontSize: 10, fontWeight: FontWeight.w800),
-                ),
-                if (hud.phase != FlightPhase.ready)
-                  const Text(
-                    'Objectif : 30 juin 2027',
-                    maxLines: 1,
-                    softWrap: false,
-                    style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w900),
-                  ),
-                if (hud.flightSeconds >= 1 && hud.phase != FlightPhase.ready) ...[
-                  const SizedBox(height: 2),
-                  // Le temps qui passe : tout le vol, et l'étape en cours.
-                  Text(
-                    '⏱ ${_clock(hud.flightSeconds)} · ${hud.inZone ? 'zone' : 'paix'} ${_clock(hud.stageSeconds)}'
-                    ' · reste ${((2027.5 - hud.year) / 67 * 100).clamp(0, 100).ceil()} %',
-                    maxLines: 1,
-                    softWrap: false,
-                    style: TextStyle(
-                      color: hud.inZone ? const Color(0xFFFF9A9A) : Colors.white.withValues(alpha: 0.8),
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  if (hud.nextStage.isNotEmpty && !hud.inZone)
-                    Text(
-                      hud.nextStage,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: ChachaColors.yellow,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        fontFeatures: [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                ],
+                _big(hud.airline, color: ChachaColors.yellow, size: 13),
+                _small('avion actuel'),
               ],
             ),
           ),
+          if (flying) ...[
+            _bar(),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _big(_clock(hud.flightSeconds), size: 15),
+                _small(
+                  '${hud.inZone ? 'zone' : 'paix'} ${_clock(hud.stageSeconds)}',
+                  color: hud.inZone ? const Color(0xFFFF9A9A) : null,
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -743,9 +757,19 @@ class _YearPanel extends StatelessWidget {
 
 /// Un panneau qui entre en glissant quand son moment vient, et s'efface quand l'avion passe derrière.
 class _Reveal extends StatelessWidget {
-  const _Reveal({required this.visible, required this.from, required this.child, this.dim = false, this.faint = false});
+  const _Reveal({
+    required this.visible,
+    required this.from,
+    required this.child,
+    this.dim = false,
+    this.faint = false,
+    this.level = 1,
+  });
 
   final bool visible, dim, faint;
+
+  /// Au plus cette opacité : le tableau de bord se cache (0) ou repasse pâle.
+  final double level;
   final Offset from;
   final Widget child;
 
@@ -758,8 +782,8 @@ class _Reveal extends StatelessWidget {
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeOutCubic,
         child: AnimatedOpacity(
-          opacity: !visible ? 0 : (dim ? 0.3 : (faint ? 0.4 : 1)),
-          duration: const Duration(milliseconds: 400),
+          opacity: !visible ? 0 : math.min(level, dim ? 0.3 : (faint ? 0.4 : 1.0)),
+          duration: Duration(milliseconds: level < 1 ? 1200 : 400),
           child: child,
         ),
       ),
@@ -867,7 +891,11 @@ class _StageSlot extends StatelessWidget {
             child: _PlaneCardView(card: pc),
           );
         } else if ((g.zoneHud.value, zoneNext) case (final z?, final next?)) {
-          child = _ZonePanel(key: ValueKey(z.zone), zone: z, next: next);
+          // L'alerte de guerre passe six secondes à chaque nouvelle vague, puis laisse le ciel au pilote.
+          child = _Brief(
+            key: ValueKey('${z.zone.name} ${z.wave} ${z.active}'),
+            child: _ZonePanel(zone: z, next: next),
+          );
         } else {
           child = const SizedBox.shrink();
         }
@@ -2377,8 +2405,43 @@ class _MagnetIcon extends CustomPainter {
 }
 
 /// Pendant une guerre : le nom de la zone, la vague en cours et la traversée des années.
+/// Un panneau qui se montre un instant, puis s'efface tout seul.
+class _Brief extends StatefulWidget {
+  const _Brief({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<_Brief> createState() => _BriefState();
+}
+
+class _BriefState extends State<_Brief> {
+  bool _shown = true;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(const Duration(seconds: 6), () {
+      if (mounted) setState(() => _shown = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    ignoring: !_shown,
+    child: AnimatedOpacity(opacity: _shown ? 1 : 0, duration: const Duration(milliseconds: 600), child: widget.child),
+  );
+}
+
 class _ZonePanel extends StatelessWidget {
-  const _ZonePanel({super.key, required this.zone, required this.next});
+  const _ZonePanel({required this.zone, required this.next});
 
   final ZoneHud zone;
   final String next;
