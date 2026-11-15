@@ -149,9 +149,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return Stack(
       children: [
         Positioned.fill(child: _main()),
-        // La fiche de l'avion à droite, sous les petits boutons : loin des boutons de vol, l'avion se voit.
+        // La fiche de l'avion en bas à droite : le haut reste au ciel et à l'avion, qui se voit en entier.
         Positioned(
-          top: 70,
+          bottom: 24,
           right: 22,
           child: ValueListenableBuilder(
             valueListenable: selectedAircraft,
@@ -319,11 +319,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   ),
                 ),
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
+                // Une seule rangée : les boutons de vol et le Menu. Touché, le Menu fait place au hangar,
+                // au classement et au duel, à la même hauteur ; la croix ramène les boutons de vol.
+                _Deck(
+                  buttons: [
                     // Une reprise en dette n'est pas possible : il faut recommencer et récolter.
                     if (_saved case final cp? when cp.money >= 0)
                       _Pill(
@@ -341,16 +340,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       onTap: _play,
                     ),
                   ],
-                ),
-                const SizedBox(height: 12),
-                // Un seul bouton : il déploie le hangar, le classement et le duel, et laisse voir l'avion.
-                _Menu(
                   items: [
-                    _Pill(icon: Icons.warehouse_rounded, label: 'Hangar', onTap: _hangar),
+                    _Pill(icon: Icons.warehouse_rounded, label: 'Hangar', tall: true, onTap: _hangar),
                     if (!kIsWeb)
                       _Pill(
                         icon: Icons.workspace_premium_rounded,
                         label: 'Classement',
+                        tall: true,
                         iconColor: ChachaColors.yellow,
                         onTap: () => Navigator.of(context).push(_fade(const RankingScreen())),
                       ),
@@ -358,6 +354,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       _Pill(
                         icon: Icons.sports_score_rounded,
                         label: 'Duel',
+                        tall: true,
                         accent: true,
                         onTap: () => Navigator.of(context).push(_fade(const DuelScreen())),
                       ),
@@ -384,6 +381,8 @@ class _Pill extends StatelessWidget {
     this.accent = false,
     this.iconColor = Colors.white,
     this.tooltip,
+    this.wide = true,
+    this.tall = false,
   });
 
   final IconData icon;
@@ -391,6 +390,10 @@ class _Pill extends StatelessWidget {
   final VoidCallback? onTap;
   final bool primary, accent;
   final Color iconColor;
+
+  /// [wide] : un grand bouton garde sa largeur de bouton de vol. [tall] : un bouton rond, sans texte,
+  /// aussi haut qu'un grand bouton pour s'aligner avec lui.
+  final bool wide, tall;
 
   @override
   Widget build(BuildContext context) {
@@ -419,16 +422,18 @@ class _Pill extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           onTap: onTap,
           child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: big ? 200 : 0),
+            constraints: BoxConstraints(minWidth: big && wide ? 200 : 0),
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: label == null ? 12 : (big ? 26 : 18), vertical: 9),
+              padding: tall
+                  ? EdgeInsets.symmetric(horizontal: label == null ? 14 : 18, vertical: 14)
+                  : EdgeInsets.symmetric(horizontal: label == null ? 12 : (big ? (wide ? 26 : 20) : 18), vertical: 9),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, color: iconColor, size: big ? 26 : (label == null ? 22 : 20)),
+                  Icon(icon, color: iconColor, size: big || tall ? 26 : (label == null ? 22 : 20)),
                   if (label != null) ...[
-                    SizedBox(width: big ? 14 : 8),
+                    SizedBox(width: big ? (wide ? 14 : 10) : 8),
                     Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,7 +442,7 @@ class _Pill extends StatelessWidget {
                           label!,
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: big ? 17 : 14.5,
+                            fontSize: big ? 17 : (tall ? 16 : 14.5),
                             fontWeight: FontWeight.w800,
                             height: 1.1,
                           ),
@@ -458,19 +463,21 @@ class _Pill extends StatelessWidget {
   }
 }
 
-/// Le bouton « Menu » : un toucher, et le hangar, le classement et le duel jaillissent l'un après l'autre
-/// à sa droite, avec un petit rebond ; un autre toucher les range. L'écran reste dégagé pour voir l'avion.
-class _Menu extends StatefulWidget {
-  const _Menu({required this.items});
+/// La rangée de boutons de l'accueil. Fermée : les boutons de vol et le Menu, comme Continuer et Recommencer.
+/// Touché, le Menu chasse les boutons de vol vers la gauche ; à leur place jaillissent le hangar, le classement
+/// et le duel, l'un après l'autre, avec un rebond. La croix fait le chemin inverse. Rien ne bouge autour :
+/// la rangée garde sa hauteur, le titre et l'avion restent où ils sont.
+class _Deck extends StatefulWidget {
+  const _Deck({required this.buttons, required this.items});
 
-  final List<Widget> items;
+  final List<Widget> buttons, items;
 
   @override
-  State<_Menu> createState() => _MenuState();
+  State<_Deck> createState() => _DeckState();
 }
 
-class _MenuState extends State<_Menu> with SingleTickerProviderStateMixin {
-  late final _open = AnimationController(vsync: this, duration: const Duration(milliseconds: 560));
+class _DeckState extends State<_Deck> with SingleTickerProviderStateMixin {
+  late final _open = AnimationController(vsync: this, duration: const Duration(milliseconds: 680));
 
   @override
   void dispose() {
@@ -482,71 +489,80 @@ class _MenuState extends State<_Menu> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    // Avec un seul bouton de vol, le Menu prend sa forme de grand bouton ; avec deux, il se fait rond.
+    final roomy = widget.buttons.length < 2;
     return AnimatedBuilder(
       animation: _open,
       builder: (_, _) {
         final v = _open.value;
-        return Row(
-          mainAxisSize: MainAxisSize.min,
+        final away = Curves.easeInCubic.transform((v / 0.4).clamp(0.0, 1.0));
+        return Stack(
+          alignment: Alignment.centerLeft,
           children: [
-            // Le bouton tourne d'un huitième de tour : la grille devient une croix pour refermer.
-            Transform.rotate(
-              angle: Curves.easeOutBack.transform(v) * math.pi / 4,
-              child: _Pill(
-                icon: v > 0.5 ? Icons.add_rounded : Icons.apps_rounded,
-                accent: v > 0.5,
-                onTap: _toggle,
-                tooltip: 'Hangar · Classement · Duel',
-              ),
-            ),
-            // « Menu » s'efface quand les boutons sortent.
-            if (v < 1)
-              Align(
-                widthFactor: 1 - Curves.easeOut.transform(v),
-                alignment: Alignment.centerLeft,
+            if (away < 1)
+              IgnorePointer(
+                ignoring: v > 0,
                 child: Opacity(
-                  opacity: 1 - v,
-                  child: GestureDetector(
-                    onTap: _toggle,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 10),
-                      child: Text(
-                        'Menu',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w800,
-                          shadows: const [Shadow(color: Color(0x66001433), blurRadius: 6)],
+                  opacity: 1 - away,
+                  child: Transform.translate(
+                    offset: Offset(-36 * away, 0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final b in widget.buttons) Padding(padding: const EdgeInsets.only(right: 12), child: b),
+                        _Pill(
+                          icon: Icons.apps_rounded,
+                          label: roomy ? 'Menu' : null,
+                          sub: roomy ? 'Hangar · Classement · Duel' : null,
+                          wide: false,
+                          tall: !roomy,
+                          tooltip: roomy ? null : 'Hangar · Classement · Duel',
+                          onTap: _toggle,
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            for (var i = 0; i < widget.items.length; i++) _item(i, v),
+            if (v > 0)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // La croix arrive en tournant d'un quart de tour.
+                  Opacity(
+                    opacity: (v * 3).clamp(0.0, 1.0),
+                    child: Transform.rotate(
+                      angle: (1 - Curves.easeOutBack.transform(v)) * -math.pi / 2,
+                      child: _Pill(
+                        icon: Icons.close_rounded,
+                        accent: true,
+                        tall: true,
+                        onTap: _toggle,
+                        tooltip: 'Fermer',
+                      ),
+                    ),
+                  ),
+                  for (var i = 0; i < widget.items.length; i++) _item(i, v),
+                ],
+              ),
           ],
         );
       },
     );
   }
 
-  /// Chaque bouton sort de derrière le menu, un peu après le précédent, et se pose en rebondissant.
+  /// Chaque bouton arrive de la droite, d'où était le Menu, un peu après le précédent, et se pose en rebondissant.
   Widget _item(int i, double v) {
-    if (v == 0) return const SizedBox.shrink();
-    final start = i * 0.16, end = math.min(1.0, start + 0.6);
+    final start = 0.18 + i * 0.14, end = math.min(1.0, start + 0.52);
     final bounce = Interval(start, end, curve: Curves.easeOutBack).transform(v);
-    final grow = Interval(start, end, curve: Curves.easeOutCubic).transform(v);
-    return Align(
-      widthFactor: grow,
-      alignment: Alignment.centerLeft,
-      child: Opacity(
-        opacity: grow,
-        child: Transform.translate(
-          offset: Offset(-48 * (1 - bounce), 0),
-          child: Transform.scale(
-            scale: 0.55 + 0.45 * bounce,
-            child: Padding(padding: const EdgeInsets.only(left: 10), child: widget.items[i]),
-          ),
+    final shown = Interval(start, end, curve: Curves.easeOut).transform(v);
+    return Opacity(
+      opacity: shown,
+      child: Transform.translate(
+        offset: Offset(90 * (1 - bounce), 0),
+        child: Transform.scale(
+          scale: 0.6 + 0.4 * bounce,
+          child: Padding(padding: const EdgeInsets.only(left: 12), child: widget.items[i]),
         ),
       ),
     );
