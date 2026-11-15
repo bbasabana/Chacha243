@@ -173,13 +173,16 @@ void main() {
     print(seen.join("\n"));
     int at(String what) => seen.indexWhere((x) => x.contains(what));
     expect(at('étape Le Congo prend son indépendance'), greaterThanOrEqualTo(0));
-    expect(at("cabine Les ceintures s'attachent"), greaterThan(at('étape Le Congo prend son indépendance')));
-    expect(at('zone Sécession du Katanga'), greaterThan(at('cabine Ceintures attachées')));
+    expect(
+      at("cabine Les passagers ont mis leurs ceintures"),
+      greaterThan(at('étape Le Congo prend son indépendance')),
+    );
+    expect(at('zone Sécession du Katanga'), greaterThan(at('cabine Les passagers ont mis leurs ceintures')));
     // Les ceintures ne se demandent qu'une fois avant la première guerre.
-    expect(seen.where((x) => x.contains("cabine Les ceintures s'attachent")).length, 1);
+    expect(seen.where((x) => x.contains("cabine Les passagers ont mis leurs ceintures")).length, 1);
     // Rien sur le Katanga avant la fin de l'Indépendance, et la guerre arrive vers une minute.
     final katanga = seen.indexWhere((x) => x.contains('Katanga'));
-    expect(katanga, greaterThan(at('cabine Ceintures attachées')));
+    expect(katanga, greaterThan(at('cabine Les passagers ont mis leurs ceintures')));
     int secondsOf(int i) => int.parse(seen[i].split('· ').last.split(' ').first);
     expect(secondsOf(katanga), lessThanOrEqualTo(120));
     // Quand les passagers parlent, rien d'autre : ils arrivent après les ceintures, avant la guerre.
@@ -1146,6 +1149,28 @@ void main() {
     },
     timeout: const Timeout(Duration(minutes: 10)),
   );
+
+  test('en duel aussi, l\'avion descend sur le boulevard, et sans repas ni mission autour', () async {
+    final g = ChachaGame(aircraftById('b737'))
+      ..duel = true
+      ..startYear = 1990.0;
+    g.duelSeed = 7;
+    g.onGameResize(Vector2(844, 390));
+    await g.onLoad();
+    var sawScene = false, meals = 0, missions = 0;
+    g.boost = true;
+    for (var i = 0; i < 60 * 240 && !sawScene; i++) {
+      if (g.cabin.value?.mode == CabinMode.beltsAsk) g.fastenBelts();
+      g.update(1 / 60);
+      if (g.cabin.value?.mode == CabinMode.serving || g.meal.value != null) meals++;
+      if (g.mission.value != null) missions++;
+      if (g.phase == FlightPhase.crashed) break;
+      sawScene = g.onBoulevard;
+    }
+    expect(sawScene, isTrue, reason: 'la descente de 1990 se joue aussi en duel (${g.phase} ${g.year})');
+    expect(meals, 0);
+    expect(missions, 0);
+  });
 
   test('la descente sur le boulevard Lumumba : treize répliques lentes, puis l\'avion remonte', () async {
     final g = await start(year: 1997.6, autopilot: true)

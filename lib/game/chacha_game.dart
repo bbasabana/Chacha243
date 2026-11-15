@@ -807,7 +807,7 @@ class ChachaGame extends FlameGame {
   // Les ceintures oubliées : un signal d'alarme, puis la faute se paie dans les turbulences.
   bool _beltPenalty = false;
 
-  /// Les ceintures s'attachent seules, une seule fois par vol : plus jamais de demande ensuite.
+  /// Les ceintures s'attachent seules, une seule fois pour tout le voyage : un message, puis plus jamais.
   bool _beltsFastened = false;
 
   /// Après une faute de ceintures, le signal revient jusqu'à ce que les passagers soient attachés.
@@ -1621,6 +1621,8 @@ class ChachaGame extends FlameGame {
   /// Le pilote regarde son avion : en guerre, seul l'essentiel ; ailleurs, plus de petits messages.
   bool _tooMuchText(String title) {
     if (_zone != null) return !_vitalBanners.any(title.startsWith);
+    // En duel, on court : aucun petit message, même au sol.
+    if (duel && _idleBanners.any(title.startsWith)) return true;
     return phase == FlightPhase.cruising && _idleBanners.any(title.startsWith);
   }
 
@@ -2236,7 +2238,6 @@ class ChachaGame extends FlameGame {
     if (climb >= 1) {
       tilt.calibrate();
       _airT = 0;
-      _beltsFastened = false;
       _setPhase(FlightPhase.cruising);
       _nextOffer = t + 20;
       // La cabine parle juste après le décollage, derrière les messages de la tour et de l'Indépendance.
@@ -4877,7 +4878,7 @@ class ChachaGame extends FlameGame {
 
   bool get _boulevardSoon => _bT >= 0 || _boulevardDue >= 0;
 
-  /// Quelle descente attend son moment, sinon -1. Pas en duel ; le pilote automatique la saute.
+  /// Quelle descente attend son moment, sinon -1. En duel aussi, la même pour tous ; le pilote automatique la saute.
   int get _boulevardDue {
     if (_bForce) {
       var near = 0;
@@ -4886,7 +4887,7 @@ class ChachaGame extends FlameGame {
       }
       return near;
     }
-    if (duel || _finaleT >= 0 || autopilot) return -1;
+    if (_finaleT >= 0 || autopilot) return -1;
     for (var i = 0; i < boulevardYears.length; i++) {
       if (year >= boulevardYears[i] && year < boulevardYears[i] + 0.3 && !_seen.contains('boulevard $i')) return i;
     }
@@ -5732,6 +5733,7 @@ class ChachaGame extends FlameGame {
     // Le chariot vient de passer : pas de second service tout de suite.
     if (_drinksDue && t < _nextDrinks) _drinksDue = false;
     if (_drinksDue &&
+        !duel &&
         !_crowdedYears &&
         _camTalk == null &&
         _zone == null &&
@@ -5757,6 +5759,7 @@ class ChachaGame extends FlameGame {
       _askBelts('Turbulences droit devant : la sécurité s\'en charge');
     }
     if (_indep != 1 &&
+        !duel &&
         !_katangaWaiting &&
         t >= _nextMeal &&
         year >= _mealYear &&
@@ -5782,14 +5785,22 @@ class ChachaGame extends FlameGame {
   void _askBelts(String why, {bool first = false}) {
     if (cabin.value?.mode == CabinMode.beltsAsk || passengers == 0) return;
     // Une seule fois par vol : une fois bouclés, les passagers le restent jusqu'à l'atterrissage.
-    if (_beltsFastened || t < _beltsQueuedAt + 30) return;
+    if (_beltsFastened || t < _beltsQueuedAt + 90) return;
     _beltsQueuedAt = t;
     _nextBelts = t + 100 + _rng.nextDouble() * 50;
     _cue(
       () {
+        // Rien à toucher : la sécurité boucle tout le monde, et un seul message le dit.
+        _beltsFastened = true;
         _cabinT = 0;
-        _beltsDeadline = t + 9;
-        cabin.value = CabinHud(CabinMode.beltsAsk, 0, passengers, 'Les ceintures s\'attachent', why);
+        onSound?.call('ceinture');
+        cabin.value = CabinHud(
+          CabinMode.beltsDone,
+          1,
+          passengers,
+          'Les passagers ont mis leurs ceintures',
+          'Bouclées jusqu\'à l\'arrivée',
+        );
       },
       0,
       hold: true,
@@ -6204,7 +6215,8 @@ class ChachaGame extends FlameGame {
     final m = mission.value;
     // Plus de mission pour la fin du voyage : ceux qui sont à bord vont jusqu'à Kinshasa.
     if (_lastLeg && m != null && phase == FlightPhase.cruising && !_offerPending) mission.value = null;
-    if (year < 1962 || _lastLeg || !_offerCalm || _offerPending || !_calmForStop) return;
+    // En duel, pas de mission : on court, on ne fait pas le taxi.
+    if (year < 1962 || duel || _lastLeg || !_offerCalm || _offerPending || !_calmForStop) return;
     if (m == null) {
       // Pas d'escale juste avant un grand tournant (Mobutu, le Zaïre…) : on le vit en vol, puis on descend.
       // Le repas est servi d'abord : une mission attend jusqu'à 30 s qu'il trouve sa place.

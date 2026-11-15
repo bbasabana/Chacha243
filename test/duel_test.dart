@@ -110,6 +110,75 @@ void main() {
     guest.close();
   });
 
+  test('un pilote qui ferme le jeu dans la salle peut y revenir avec le même téléphone', () async {
+    final host = await DuelNet.host(myId: 'host-0000004', myName: 'H', rules: const DuelRules());
+    final first = await DuelNet.join(
+      myId: 'guest-000004',
+      myName: 'G',
+      address: '127.0.0.1',
+      port: host!.hostPort!,
+      code: host.code,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(host.players.length, 2);
+    // Le jeu se ferme sans prévenir : le fil reste ouvert côté organisateur, puis le même pilote revient.
+    final again = await DuelNet.join(
+      myId: 'guest-000004',
+      myName: 'G',
+      address: '127.0.0.1',
+      port: host.hostPort!,
+      code: host.code,
+    );
+    expect(again, isNotNull);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(host.players.length, 2);
+    expect(host.launch(), isTrue);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(again!.started, isTrue);
+    first!.close();
+    again.close();
+    host.close();
+  });
+
+  test('une revanche porte le numéro du duel d\'avant, et se lit dans l\'annonce', () async {
+    final host = await DuelNet.host(myId: 'host-0000005', myName: 'H', rules: const DuelRules(), rematchOf: 'abc123');
+    final room = DuelRoom.fromAnnounce(host!.announce, '192.168.1.9');
+    expect(room?.rematchOf, 'abc123');
+    expect(room?.port, host.hostPort);
+    host.close();
+  });
+
+  test('deux téléphones sur le Wi-Fi se voient, et l\'invitation arrive', () async {
+    if ((await wifiAddresses()).isEmpty) return;
+    final a = DuelFinder(), b = DuelFinder();
+    final host = await DuelNet.host(myId: 'host-0000006', myName: 'Amani', rules: const DuelRules());
+    String? invitedBy;
+    b.onInvite = (r, from) => invitedBy = from;
+    await a.start(myId: 'peer-a-00000001', myName: 'Amani');
+    a.room = host!.announce;
+    await b.start(myId: 'peer-b-00000001', myName: 'Bijou');
+    // D'autres jeux ouverts sur le même Wi-Fi peuvent aussi répondre : on attend nos deux pilotes.
+    bool sees(DuelFinder f, String name) => f.peers.any((p) => p.name == name);
+    for (
+      var i = 0;
+      i < 40 && !(sees(a, 'Bijou') && sees(b, 'Amani') && b.rooms.any((r) => r.port == host.hostPort));
+      i++
+    ) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    expect(sees(a, 'Bijou'), isTrue);
+    expect(sees(b, 'Amani'), isTrue);
+    expect(b.rooms.any((r) => r.port == host.hostPort), isTrue);
+    a.invite(a.peers.firstWhere((p) => p.name == 'Bijou'));
+    for (var i = 0; i < 20 && invitedBy == null; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    expect(invitedBy, 'Amani');
+    a.dispose();
+    b.dispose();
+    host.close();
+  });
+
   test('mauvais code : l\'entrée est refusée', () async {
     final host = await DuelNet.host(myId: 'host-0000003', myName: 'H', rules: const DuelRules());
     final guest = await DuelNet.join(
@@ -160,7 +229,8 @@ void main() {
     expect(find.textContaining('Pause'), findsOneWidget);
     await tester.tapAt(const Offset(320, 20));
     await tester.pump(const Duration(seconds: 1));
-    expect(find.textContaining('Invité'), findsOneWidget);
+    expect(find.textContaining('Invité'), findsWidgets);
+    expect(find.text('TOI'), findsOneWidget);
     // l'invité tombe : l'hôte, seul en vol, peut terminer et gagner
     await tester.runAsync(() async {
       guest.report(year: 1970, lives: 0, state: Pilot.crashed);

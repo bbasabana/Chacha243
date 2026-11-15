@@ -22,7 +22,7 @@ import '../app_state.dart';
 import 'cabin_camera.dart';
 import 'cockpit_panel.dart';
 import 'duel_overlay.dart';
-import 'duel_screen.dart' show markGuideRead;
+import 'duel_screen.dart';
 import 'finale.dart';
 import 'glass.dart';
 import 'timeline_screen.dart';
@@ -187,6 +187,17 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     Navigator.of(context).pop();
   }
 
+  /// La revanche : retour à l'écran du duel, où la salle se rouvre aux mêmes règles.
+  void _rematch() {
+    final d = widget.duel;
+    if (d == null) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => DuelScreen(rematch: d.rules, rematchOf: d.duelId, host: d.isHost),
+      ),
+    );
+  }
+
   void _restart(Checkpoint? from) {
     // Reprendre après un crash : la chanson qui jouait continue. Un nouveau vol repart en silence.
     if (from == null) Music.instance.stop();
@@ -263,6 +274,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   game: _game,
                   pauseLeft: _pauseLeft,
                   onQuit: _leaveDuel,
+                  onRematch: _rematch,
                 ),
               ),
             if (_paused && !_guide)

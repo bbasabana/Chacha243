@@ -3,6 +3,7 @@ package cd.chacha243.chacha243
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -73,6 +74,8 @@ class MainActivity : FlutterActivity() {
     // à l'ancienne taille, écrasé dans un coin. On redemande la taille de la vue quand l'app revient
     // au premier plan, puis encore un instant après, quand la rotation est finie.
     private val main = Handler(Looper.getMainLooper())
+
+    private var wifiLock: WifiManager.MulticastLock? = null
 
     private fun refit() {
         val v = findViewById<View>(FLUTTER_VIEW_ID) ?: window.decorView
@@ -146,6 +149,28 @@ class MainActivity : FlutterActivity() {
                 PlayGames.getPlayersClient(this).currentPlayer.addOnCompleteListener { me ->
                     result.success(if (me.isSuccessful) me.result?.displayName else null)
                 }
+            }
+        }
+        // Le duel sur le Wi-Fi : beaucoup de téléphones jettent les annonces du réseau local pour économiser
+        // la batterie. « hold » les laisse passer tant que l'écran du duel est ouvert, « release » les rend.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "chacha243/net").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "hold" -> {
+                    if (wifiLock?.isHeld != true) {
+                        val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+                        wifiLock = wifi?.createMulticastLock("chacha243.duel")?.apply {
+                            setReferenceCounted(false)
+                            acquire()
+                        }
+                    }
+                    result.success(wifiLock?.isHeld == true)
+                }
+                "release" -> {
+                    if (wifiLock?.isHeld == true) wifiLock?.release()
+                    wifiLock = null
+                    result.success(null)
+                }
+                else -> result.notImplemented()
             }
         }
         // La mise à jour : « check » dit si une nouvelle version attend sur le Play Store, « start » la lance.

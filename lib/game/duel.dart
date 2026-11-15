@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 /// Le Duel : jusqu'à quatre pilotes sur le même Wi-Fi se lancent un défi.
 ///
@@ -168,6 +169,7 @@ class DuelRoom {
     required this.code,
     required this.rules,
     required this.count,
+    this.rematchOf = '',
   });
 
   final String id, host, code;
@@ -177,10 +179,13 @@ class DuelRoom {
   int count;
   int seen = 0;
 
+  /// La revanche d'un duel : ceux qui l'ont joué y entrent d'eux-mêmes.
+  final String rematchOf;
+
   static DuelRoom? fromAnnounce(Object? j, String address) {
     if (j is! Map || j['c243'] != 1) return null;
     final rules = DuelRules.fromJson(j['r']);
-    final id = j['id'], host = j['h'], port = j['p'], code = j['k'], n = j['n'];
+    final id = j['id'], host = j['h'], port = j['p'], code = j['k'], n = j['n'], rv = j['rv'];
     if (rules == null || id is! String || host is! String || port is! int || code is! String || n is! int) return null;
     if (port < 1024 || port > 65535 || id.length > 24) return null;
     return DuelRoom(
@@ -191,6 +196,7 @@ class DuelRoom {
       code: _clean(code, 4),
       rules: rules,
       count: n.clamp(0, duelMaxPlayers),
+      rematchOf: rv is String ? _clean(rv, 24) : '',
     );
   }
 }
@@ -215,53 +221,213 @@ bool _isPrivate(InternetAddress a) {
   return b[0] == 10 || (b[0] == 192 && b[1] == 168) || (b[0] == 172 && b[1] >= 16 && b[1] <= 31);
 }
 
-/// Cherche les salles ouvertes sur le Wi-Fi, comme AirDrop : à l'écoute des annonces de l'organisateur.
+/// L'adresse qui touche tout le Wi-Fi de ce téléphone (un réseau de maison, en x.y.z.255).
+String _subnet(InternetAddress a) {
+  final r = a.rawAddress;
+  return '${r[0]}.${r[1]}.${r[2]}.255';
+}
+
+/// Les annonces envoyées à tout le Wi-Fi, à l'adresse générale et à celle du réseau du téléphone.
+Future<Set<String>> _everyone() async => {'255.255.255.255', for (final a in await wifiAddresses()) _subnet(a)};
+
+/// Un pilote vu sur le Wi-Fi, l'écran du duel ouvert.
+class DuelPeer {
+  DuelPeer(this.id, this.name, this.address);
+
+  final String id;
+  String name, address;
+  int seen = 0;
+
+  /// La salle qu'il a ouverte, s'il en a une.
+  DuelRoom? room;
+}
+
+/// Qui est là sur le Wi-Fi, comme AirDrop. Chaque téléphone dont l'écran du duel est ouvert se signale
+/// toutes les secondes et demie, à tout le Wi-Fi et directement à ceux qu'il a déjà entendus : certains
+/// Wi-Fi laissent passer l'un sans l'autre. Les salles ouvertes et les invitations suivent le même chemin.
 class DuelFinder extends ChangeNotifier {
+  static const _lock = MethodChannel('chacha243/net');
+
+  /// Sans nouvelles depuis sept secondes, un pilote ou une salle est parti.
+  static const _forget = 7000;
+
   RawDatagramSocket? _socket;
-  Timer? _sweep;
+  Timer? _pulse;
+  bool _binding = false, _stopped = false;
   final _rooms = <String, DuelRoom>{};
+  final _peers = <String, DuelPeer>{};
+  final _invited = <String>{};
+  String _myId = '', _myName = '';
+
+  /// L'annonce de la salle que j'ai ouverte : elle part avec ma présence.
+  Map<String, Object?>? room;
+
+  /// Un ami m'invite dans sa salle : l'écran me le montre.
+  void Function(DuelRoom room, String from)? onInvite;
 
   List<DuelRoom> get rooms => _rooms.values.toList();
+
+  /// Les pilotes vus sur le Wi-Fi, moi exclu.
+  List<DuelPeer> get peers => _peers.values.toList();
   bool get listening => _socket != null;
 
-  Future<void> start() async {
-    if (_socket != null) return;
+  static int get _now => DateTime.now().millisecondsSinceEpoch;
+
+  Future<void> start({required String myId, required String myName}) async {
+    _myId = myId;
+    _myName = myName;
+    _stopped = false;
+    if (_pulse != null) return;
     try {
-      final s = await RawDatagramSocket.bind(InternetAddress.anyIPv4, duelPort, reuseAddress: true);
+      await _lock.invokeMethod<bool>('hold');
+    } catch (_) {}
+    _pulse = Timer.periodic(const Duration(milliseconds: 1500), (_) => _beat());
+    await _beat();
+  }
+
+  Future<void> _bind() async {
+    if (_binding || _socket != null) return;
+    _binding = true;
+    try {
+      // Le port partagé : l'écran d'avant qui se ferme encore ne bloque pas le nouveau.
+      RawDatagramSocket s;
+      try {
+        s = await RawDatagramSocket.bind(InternetAddress.anyIPv4, duelPort, reuseAddress: true, reusePort: true);
+      } catch (_) {
+        s = await RawDatagramSocket.bind(InternetAddress.anyIPv4, duelPort, reuseAddress: true);
+      }
+      if (_stopped) return s.close();
       s.broadcastEnabled = true;
       _socket = s;
-      s.listen((e) {
-        if (e != RawSocketEvent.read) return;
-        final d = s.receive();
-        if (d == null || d.data.length > 600) return;
-        try {
-          final room = DuelRoom.fromAnnounce(jsonDecode(utf8.decode(d.data)), d.address.address);
-          if (room == null) return;
-          final known = _rooms[room.id];
-          room.seen = DateTime.now().millisecondsSinceEpoch;
-          final changed = known == null || known.count != room.count;
-          _rooms[room.id] = room;
-          if (changed) notifyListeners();
-        } catch (_) {}
-      });
-      // Une salle qui n'annonce plus depuis quatre secondes a fermé.
-      _sweep = Timer.periodic(const Duration(seconds: 2), (_) {
-        final now = DateTime.now().millisecondsSinceEpoch;
-        final before = _rooms.length;
-        _rooms.removeWhere((_, r) => now - r.seen > 4000);
-        if (_rooms.length != before) notifyListeners();
-      });
+      s.listen(_read, onError: (_) => _lost(s), onDone: () => _lost(s));
       notifyListeners();
     } catch (_) {
-      // Le Wi-Fi bloque l'écoute : on peut toujours entrer l'adresse de l'organisateur à la main.
+      // Le port est encore pris (l'écran d'avant se ferme) ou le Wi-Fi bloque : on réessaie au prochain battement.
+    } finally {
+      _binding = false;
+    }
+  }
+
+  void _lost(RawDatagramSocket s) {
+    if (_socket != s) return;
+    _socket = null;
+    s.close();
+  }
+
+  Future<void> _beat() async {
+    if (_stopped) return;
+    if (_socket == null) await _bind();
+    final s = _socket;
+    if (s == null) return;
+    final now = _now;
+    final before = _rooms.length + _peers.length;
+    _rooms.removeWhere((_, r) => now - r.seen > _forget);
+    _peers.removeWhere((_, p) => now - p.seen > _forget);
+    for (final p in _peers.values) {
+      if (p.room != null && now - p.room!.seen > _forget) p.room = null;
+    }
+    if (before != _rooms.length + _peers.length) notifyListeners();
+    final hi = _packet({'t': 'hi', 'room': ?room});
+    for (final to in {...await _everyone(), for (final p in _peers.values) p.address}) {
+      _send(s, hi, to);
+    }
+  }
+
+  List<int> _packet(Map<String, Object?> m) => utf8.encode(jsonEncode({'c243': 2, 'id': _myId, 'n': _myName, ...m}));
+
+  void _send(RawDatagramSocket s, List<int> data, String to) {
+    try {
+      s.send(data, InternetAddress(to), duelPort);
+    } catch (_) {}
+  }
+
+  void _read(RawSocketEvent e) {
+    final s = _socket;
+    if (e != RawSocketEvent.read || s == null) return;
+    for (var d = s.receive(); d != null; d = s.receive()) {
+      _take(d);
+    }
+  }
+
+  void _take(Datagram d) {
+    if (d.data.length > 1200) return;
+    Object? j;
+    try {
+      j = jsonDecode(utf8.decode(d.data));
+    } catch (_) {
+      return;
+    }
+    if (j is! Map) return;
+    final from = d.address.address, now = _now;
+    var changed = false;
+    // L'annonce d'une salle, venue de l'organisateur (ou d'une version plus ancienne du jeu).
+    if (j['c243'] == 1) changed = _seeRoom(j, from, now, null);
+    if (j['c243'] == 2) {
+      final id = j['id'], n = j['n'];
+      if (id is! String || id.isEmpty || id.length > 64 || n is! String || id == _myId) return;
+      var p = _peers[id];
+      if (p == null) {
+        p = _peers[id] = DuelPeer(id, _clean(n, 24), from);
+        changed = true;
+        // Un nouveau venu : on lui répond tout de suite, sans attendre le prochain battement.
+        if (_socket case final s?) _send(s, _packet({'t': 'hi', 'room': ?room}), from);
+      } else if (p.name != _clean(n, 24) || p.address != from) {
+        p
+          ..name = _clean(n, 24)
+          ..address = from;
+        changed = true;
+      }
+      p.seen = now;
+      if (j['room'] is Map) {
+        changed = _seeRoom(j['room'], from, now, p) || changed;
+      } else if (p.room != null && j['t'] == 'hi') {
+        // Sa salle a fermé (le duel est lancé, ou il est revenu au menu).
+        _rooms.remove(p.room!.id);
+        p.room = null;
+        changed = true;
+      }
+      if (j['t'] == 'inv' && j['to'] == _myId && p.room != null && _invited.add(p.room!.id)) {
+        onInvite?.call(p.room!, p.name);
+      }
+    }
+    if (changed) notifyListeners();
+  }
+
+  bool _seeRoom(Object? j, String from, int now, DuelPeer? by) {
+    final r = DuelRoom.fromAnnounce(j, from);
+    if (r == null || r.id == room?['id']) return false;
+    r.seen = now;
+    final known = _rooms[r.id];
+    _rooms[r.id] = r;
+    by?.room = r;
+    return known == null || known.count != r.count;
+  }
+
+  /// J'invite un pilote vu sur le Wi-Fi dans ma salle : le message part chez lui et à tout le Wi-Fi, trois fois.
+  Future<void> invite(DuelPeer p) async {
+    final s = _socket;
+    if (s == null || room == null) return;
+    final data = _packet({'t': 'inv', 'to': p.id, 'room': room});
+    final to = {p.address, ...await _everyone()};
+    for (final ms in const [0, 350, 1000]) {
+      Timer(Duration(milliseconds: ms), () {
+        if (_socket != s) return;
+        for (final a in to) {
+          _send(s, data, a);
+        }
+      });
     }
   }
 
   void stop() {
-    _sweep?.cancel();
+    _stopped = true;
+    _pulse?.cancel();
+    _pulse = null;
     _socket?.close();
     _socket = null;
     _rooms.clear();
+    _peers.clear();
+    _lock.invokeMethod<void>('release').catchError((_) {});
   }
 
   @override
@@ -278,17 +444,25 @@ class _Conn {
   final buffer = StringBuffer();
   String? player;
   int bytes = 0;
+
+  /// La dernière fois qu'on a eu de ses nouvelles.
+  int heard = DateTime.now().millisecondsSinceEpoch;
 }
 
 /// Un duel en cours, côté organisateur ou côté invité.
 class DuelNet extends ChangeNotifier {
-  DuelNet._(this.isHost, this.myId, this.myName, this.rules, this.duelId, this.code);
+  DuelNet._(this.isHost, this.myId, this.myName, this.rules, this.duelId, this.code, [this.rematchOf = '']);
 
-  /// L'organisateur ouvre la salle et garde le verdict.
-  static Future<DuelNet?> host({required String myId, required String myName, required DuelRules rules}) async {
+  /// L'organisateur ouvre la salle et garde le verdict. Une revanche porte le numéro du duel d'avant.
+  static Future<DuelNet?> host({
+    required String myId,
+    required String myName,
+    required DuelRules rules,
+    String rematchOf = '',
+  }) async {
     final rnd = math.Random.secure();
     String hex(int n) => List.generate(n, (_) => rnd.nextInt(16).toRadixString(16)).join();
-    final net = DuelNet._(true, myId, myName, rules, hex(12), (1000 + rnd.nextInt(9000)).toString());
+    final net = DuelNet._(true, myId, myName, rules, hex(12), (1000 + rnd.nextInt(9000)).toString(), rematchOf);
     try {
       net._server = await ServerSocket.bind(InternetAddress.anyIPv4, 0);
     } catch (_) {
@@ -297,6 +471,7 @@ class DuelNet extends ChangeNotifier {
     net._players[myId] = DuelPlayer(myId, myName)..year = rules.start.toDouble();
     net._server!.listen(net._accept, onError: (_) {});
     await net._announceStart();
+    net._keep();
     return net;
   }
 
@@ -324,6 +499,7 @@ class DuelNet extends ChangeNotifier {
       net.addListener(check);
       final ok = await done.future.timeout(const Duration(seconds: 6), onTimeout: () => false);
       net.removeListener(check);
+      if (ok) net._keep();
       if (!ok) {
         net.refusal ??= 'La salle ne répond pas.';
         net.close();
@@ -342,6 +518,9 @@ class DuelNet extends ChangeNotifier {
   String duelId;
   final String code;
 
+  /// Le duel dont celui-ci est la revanche.
+  final String rematchOf;
+
   /// Pourquoi l'entrée a été refusée.
   String? refusal;
 
@@ -350,7 +529,8 @@ class DuelNet extends ChangeNotifier {
   final _clients = <_Conn>[];
   final _players = <String, DuelPlayer>{};
   RawDatagramSocket? _beacon;
-  Timer? _announce, _tick;
+  Timer? _announce, _tick, _alive;
+  _Conn? _host;
   int _seq = 0;
 
   /// Les pilotes de la salle, dans l'ordre d'arrivée.
@@ -381,27 +561,47 @@ class DuelNet extends ChangeNotifier {
     _beaconOnce();
   }
 
+  /// L'annonce de la salle, tant qu'elle attend ses pilotes ; null une fois le duel lancé.
+  Map<String, Object?>? get announce => !isHost || started || closed || _server == null
+      ? null
+      : {
+          'c243': 1,
+          'id': duelId,
+          'h': myName,
+          'p': _server!.port,
+          'k': code,
+          'n': _players.length,
+          'r': rules.toJson(),
+          if (rematchOf.isNotEmpty) 'rv': rematchOf,
+        };
+
   Future<void> _beaconOnce() async {
-    final b = _beacon;
-    if (b == null || started || closed) return;
-    final data = utf8.encode(
-      jsonEncode({
-        'c243': 1,
-        'id': duelId,
-        'h': myName,
-        'p': _server!.port,
-        'k': code,
-        'n': _players.length,
-        'r': rules.toJson(),
-      }),
-    );
-    try {
-      b.send(data, InternetAddress('255.255.255.255'), duelPort);
-      for (final a in await wifiAddresses()) {
-        final r = a.rawAddress;
-        b.send(data, InternetAddress('${r[0]}.${r[1]}.${r[2]}.255'), duelPort);
+    final b = _beacon, a = announce;
+    if (b == null || a == null) return;
+    final data = utf8.encode(jsonEncode(a));
+    for (final to in await _everyone()) {
+      try {
+        b.send(data, InternetAddress(to), duelPort);
+      } catch (_) {}
+    }
+  }
+
+  /// Le fil reste vivant : toutes les deux secondes, chacun donne signe de vie. Un téléphone fermé, sorti
+  /// du Wi-Fi ou endormi sans prévenir est oublié de la salle, et peut y revenir à la réouverture du jeu.
+  void _keep() {
+    _alive = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (closed) return;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (isHost) {
+        if (!started) _sendRoom();
+        for (final c in [..._clients]) {
+          if (now - c.heard > (started ? 20000 : 9000)) _onDrop(c, destroy: true);
+        }
+      } else if (_host case final h?) {
+        if (!started) _send(h.socket, {'t': 'ping'});
+        if (now - h.heard > (started ? 15000 : 9000)) _onDrop(h, destroy: true);
       }
-    } catch (_) {}
+    });
   }
 
   void _accept(Socket s) {
@@ -436,6 +636,7 @@ class DuelNet extends ChangeNotifier {
       _clients.add(c);
     } else {
       _upstream = s;
+      _host = c;
     }
     s.setOption(SocketOption.tcpNoDelay, true);
     s.listen((data) => _onData(c, data), onDone: () => _onDrop(c), onError: (_) => _onDrop(c), cancelOnError: true);
@@ -443,6 +644,7 @@ class DuelNet extends ChangeNotifier {
 
   void _onData(_Conn c, List<int> data) {
     c.bytes += data.length;
+    c.heard = DateTime.now().millisecondsSinceEpoch;
     // Un téléphone qui bavarde trop (ou une attaque) est coupé : on reste léger.
     if (c.bytes > 400000) return _onDrop(c, destroy: true);
     final text = utf8.decode(data, allowMalformed: true);
@@ -473,7 +675,7 @@ class DuelNet extends ChangeNotifier {
   void _onDrop(_Conn c, {bool destroy = false}) {
     if (destroy) c.socket.destroy();
     if (isHost) {
-      _clients.remove(c);
+      if (!_clients.remove(c)) return;
       final id = c.player;
       final p = id == null ? null : _players[id];
       if (p != null && !started) {
@@ -530,6 +732,14 @@ class DuelNet extends ChangeNotifier {
         if (m['v'] != duelTerms) {
           _send(c.socket, {'t': 'no', 'why': 'Les conditions ont changé : mets le jeu à jour.'});
           return _onDrop(c, destroy: true);
+        }
+        // Le même pilote revient (son jeu s'est fermé, son Wi-Fi a sauté) : l'ancien fil est oublié.
+        if (_players.containsKey(id) && id != myId) {
+          for (final old in _clients.where((o) => o != c && o.player == id).toList()) {
+            _clients.remove(old);
+            old.socket.destroy();
+          }
+          _players.remove(id);
         }
         if (_players.containsKey(id) || _players.length >= duelMaxPlayers) {
           _send(c.socket, {'t': 'no', 'why': 'Tu es déjà dans cette salle, ou elle est pleine.'});
@@ -742,6 +952,7 @@ class DuelNet extends ChangeNotifier {
     closed = true;
     _announce?.cancel();
     _tick?.cancel();
+    _alive?.cancel();
     _beacon?.close();
     for (final c in [..._clients]) {
       c.socket.destroy();

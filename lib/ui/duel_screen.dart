@@ -26,7 +26,12 @@ Future<void> markGuideRead() async {
 
 /// Le duel entre amis : le guide lu, les conditions acceptées, puis on crée une salle ou on rejoint celle d'un ami.
 class DuelScreen extends StatefulWidget {
-  const DuelScreen({super.key});
+  const DuelScreen({super.key, this.rematch, this.rematchOf = '', this.host = false});
+
+  /// La revanche d'un duel fini : l'organisateur rouvre une salle aux mêmes règles, les autres y entrent d'eux-mêmes.
+  final DuelRules? rematch;
+  final String rematchOf;
+  final bool host;
 
   @override
   State<DuelScreen> createState() => _DuelScreenState();
@@ -46,9 +51,21 @@ class _DuelScreenState extends State<DuelScreen> {
   Timer? _tick;
   bool _gone = false;
 
+  /// Les pilotes déjà invités dans ma salle.
+  final _invited = <String>{};
+
   @override
   void initState() {
     super.initState();
+    if (widget.rematch case final r?) {
+      _mode = r.mode;
+      _start = r.start;
+      _target = r.target;
+      _stake.text = r.stake;
+    }
+    _finder
+      ..onInvite = _invitedBy
+      ..addListener(_onFinder);
     _load();
   }
 
@@ -56,6 +73,7 @@ class _DuelScreenState extends State<DuelScreen> {
   void dispose() {
     _gone = true;
     _tick?.cancel();
+    _finder.removeListener(_onFinder);
     _finder.dispose();
     _stake.dispose();
     _addr.dispose();
@@ -72,6 +90,36 @@ class _DuelScreenState extends State<DuelScreen> {
     _wifi = (await wifiAddresses()).isNotEmpty;
     if (!mounted) return;
     setState(() => _step = !read ? _Step.guide : (terms != duelTerms ? _Step.terms : _Step.menu));
+    if (_step == _Step.menu) _online();
+  }
+
+  /// Le téléphone se signale sur le Wi-Fi et voit qui d'autre a ouvert le duel.
+  Future<void> _online() async {
+    _finder.start(myId: await Telemetry.playerId(), myName: pilotName.value ?? 'Pilote');
+    if (!mounted) return;
+    // La revanche : l'organisateur rouvre sa salle tout de suite, les autres la guettent.
+    if (widget.rematch != null && widget.host && _net == null && !_busy) {
+      _create();
+    } else if (widget.rematch != null && !widget.host && _step == _Step.menu) {
+      setState(() => _step = _Step.join);
+    }
+  }
+
+  /// Une salle qui s'ouvre : si c'est la revanche de mon duel, j'y entre sans rien toucher.
+  void _onFinder() {
+    if (_gone || _net != null || _busy || widget.rematchOf.isEmpty) return;
+    for (final r in _finder.rooms) {
+      if (r.rematchOf == widget.rematchOf && r.count < duelMaxPlayers) {
+        _joinRoom(r.address, r.port, r.code);
+        return;
+      }
+    }
+  }
+
+  /// Un ami m'invite depuis sa salle.
+  void _invitedBy(DuelRoom r, String from) {
+    if (_gone || _net != null || _busy || (_step != _Step.menu && _step != _Step.join)) return;
+    r.rematchOf.isNotEmpty && r.rematchOf == widget.rematchOf ? _joinRoom(r.address, r.port, r.code) : _invitation(r);
   }
 
   Future<void> _openGuide() async {
@@ -103,6 +151,7 @@ class _DuelScreenState extends State<DuelScreen> {
       _busy = false;
       _step = _Step.menu;
     });
+    _online();
   }
 
   // ------------------------------------------------------------- créer
@@ -117,6 +166,7 @@ class _DuelScreenState extends State<DuelScreen> {
       myId: id,
       myName: pilotName.value ?? 'Pilote',
       rules: DuelRules(mode: _mode, start: _start, target: _target, stake: _stake.text.trim()),
+      rematchOf: widget.host ? widget.rematchOf : '',
     );
     if (!mounted) return net?.close();
     if (net == null) {
@@ -130,6 +180,7 @@ class _DuelScreenState extends State<DuelScreen> {
 
   void _enter(DuelNet net, {required bool host}) {
     _net = net;
+    _finder.room = net.announce;
     net.addListener(_onNet);
     // Le tableau de bord garde que ce pilote est entré dans ce duel.
     Telemetry.sendDuel({
@@ -150,6 +201,8 @@ class _DuelScreenState extends State<DuelScreen> {
   void _onNet() {
     final net = _net;
     if (net == null || _gone) return;
+    // Ma salle part avec ma présence sur le Wi-Fi, tant qu'elle attend ses pilotes.
+    _finder.room = net.announce;
     if (net.started && _step == _Step.lobby) {
       _count = 3;
       setState(() => _step = _Step.countdown);
@@ -172,6 +225,7 @@ class _DuelScreenState extends State<DuelScreen> {
     }
     // L'organisateur est parti avant le départ.
     if (!net.isHost && !net.started && net.outcome != null) {
+      net.removeListener(_onNet);
       net.close();
       setState(() {
         _net = null;
@@ -185,14 +239,10 @@ class _DuelScreenState extends State<DuelScreen> {
 
   // ------------------------------------------------------------ rejoindre
 
-  Future<void> _openJoin() async {
-    setState(() {
-      _step = _Step.join;
-      _error = null;
-    });
-    await _finder.start();
-    if (mounted) setState(() {});
-  }
+  void _openJoin() => setState(() {
+    _step = _Step.join;
+    _error = null;
+  });
 
   /// L'invitation d'un ami : on voit les règles, on accepte ou on refuse.
   Future<void> _invitation(DuelRoom r) async {
@@ -221,7 +271,7 @@ class _DuelScreenState extends State<DuelScreen> {
         ],
       ),
     );
-    if (ok == true) _joinRoom(r.address, r.port, r.code);
+    if (ok == true && _net == null) _joinRoom(r.address, r.port, r.code);
   }
 
   Future<void> _joinRoom(String address, int port, String code) async {
@@ -244,7 +294,6 @@ class _DuelScreenState extends State<DuelScreen> {
         _error = 'Impossible d\'entrer dans la salle : même Wi-Fi, bon code ?';
       });
     }
-    _finder.stop();
     _enter(net, host: false);
   }
 
@@ -320,14 +369,16 @@ class _DuelScreenState extends State<DuelScreen> {
   void _back() {
     switch (_step) {
       case _Step.create || _Step.join:
-        _finder.stop();
         setState(() {
           _step = _Step.menu;
           _error = null;
         });
       case _Step.lobby:
+        _net?.removeListener(_onNet);
         _net?.close();
         _net = null;
+        _finder.room = null;
+        _invited.clear();
         setState(() => _step = _Step.menu);
       case _Step.countdown:
         break;
@@ -451,8 +502,58 @@ class _DuelScreenState extends State<DuelScreen> {
         'Les salles ouvertes sur ton Wi-Fi apparaissent',
         _openJoin,
       ),
+      const SizedBox(height: 10),
+      _online_(),
       _errorLine(),
     ],
+  );
+
+  /// Qui a ouvert le duel sur ce Wi-Fi en ce moment, et sa salle s'il en a une.
+  Widget _online_() => ListenableBuilder(
+    listenable: _finder,
+    builder: (_, _) {
+      final peers = _finder.peers;
+      return Glass(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.circle, size: 10, color: peers.isEmpty ? Colors.white38 : const Color(0xFF7CF0A6)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    peers.isEmpty ? 'Personne d\'autre sur ce Wi-Fi pour l\'instant' : 'En ligne sur ce Wi-Fi',
+                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ],
+            ),
+            if (peers.isEmpty) _text('Ton ami doit ouvrir « Duel » sur son téléphone, sur le même Wi-Fi.', size: 12.5),
+            for (final p in peers)
+              Padding(
+                padding: const EdgeInsets.only(top: 6, bottom: 2),
+                child: Row(
+                  children: [
+                    const Icon(Icons.person_rounded, color: Colors.white70, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        p.room == null ? '${p.name} · au menu du duel' : '${p.name} · a ouvert une salle',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    if (p.room case final r?) SoftButton('Rejoindre', onTap: _busy ? null : () => _invitation(r)),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    },
   );
 
   Widget _bigButton(IconData icon, String title, String sub, VoidCallback onTap) => GestureDetector(
@@ -562,7 +663,16 @@ class _DuelScreenState extends State<DuelScreen> {
                 children: [
                   const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
                   const SizedBox(width: 12),
-                  Expanded(child: _text('Je cherche les salles ouvertes sur ce Wi-Fi…', size: 14)),
+                  Expanded(
+                    child: _text(
+                      widget.rematchOf.isNotEmpty
+                          ? 'J\'attends la revanche : dès que l\'organisateur rouvre sa salle, tu y entres.'
+                          : _finder.peers.isEmpty
+                          ? 'Je cherche les salles ouvertes sur ce Wi-Fi…'
+                          : 'En ligne : ${_finder.peers.map((p) => p.name).join(', ')}. J\'attends qu\'une salle s\'ouvre…',
+                      size: 14,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -682,6 +792,7 @@ class _DuelScreenState extends State<DuelScreen> {
                 ],
               ),
             ),
+          if (net.isHost) _invites(net),
           const SizedBox(height: 10),
           if (net.isHost)
             SoftButton(
@@ -694,6 +805,52 @@ class _DuelScreenState extends State<DuelScreen> {
       ),
     );
   }
+
+  /// Les pilotes en ligne qui ne sont pas encore dans ma salle : un toucher, et l'invitation part chez eux.
+  Widget _invites(DuelNet net) => ListenableBuilder(
+    listenable: _finder,
+    builder: (_, _) {
+      final inside = {for (final p in net.players) p.id};
+      final out = [
+        for (final p in _finder.peers)
+          if (!inside.contains(p.id)) p,
+      ];
+      if (out.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _text('En ligne sur ce Wi-Fi', size: 13, color: Colors.white70, weight: FontWeight.w800),
+            for (final p in out)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    const Icon(Icons.circle, size: 9, color: Color(0xFF7CF0A6)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        p.name,
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    SoftButton(
+                      _invited.contains(p.id) ? 'Invité ✓' : 'Inviter',
+                      quiet: _invited.contains(p.id),
+                      onTap: () {
+                        _finder.invite(p);
+                        setState(() => _invited.add(p.id));
+                      },
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  );
 
   Widget _countdown() => Center(
     child: Padding(
